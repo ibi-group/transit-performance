@@ -1,0 +1,52 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AppLauncher", "AppLauncher\AppLauncher.csproj", "{F38A939E-E804-439C-99D7-ABDBC4783F4B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConfigUpdate", "ConfigUpdate\ConfigUpdate.csproj", "{0680603D-DE3B-4EB6-9035-01812D5D2CE1}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GtfsRealtimeLib", "GtfsRealtimeLib\GtfsRealtimeLib.csproj", "{FCB2F19D-CCD1-44F6-BCE4-D0BF05C27309}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gtfs-realtime-service", "GTFS-realtime-service\gtfs-realtime-service.csproj", "{322F6B4A-6CA4-4435-806D-F76C8689A265}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "gtfs-realtime-trip-service", "gtfs-realtime-trip-service\gtfs-realtime-trip-service.csproj", "{2300D9C6-43CD-48B9-BC7D-306D507C4B39}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GTFSUpdate", "GTFSUpdate\GTFSUpdate.csproj", "{FC2F605C-B421-46C2-B66F-F30A540142E9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F38A939E-E804-439C-99D7-ABDBC4783F4B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F38A939E-E804-439C-99D7-ABDBC4783F4B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F38A939E-E804-439C-99D7-ABDBC4783F4B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F38A939E-E804-439C-99D7-ABDBC4783F4B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0680603D-DE3B-4EB6-9035-01812D5D2CE1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0680603D-DE3B-4EB6-9035-01812D5D2CE1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0680603D-DE3B-4EB6-9035-01812D5D2CE1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0680603D-DE3B-4EB6-9035-01812D5D2CE1}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FCB2F19D-CCD1-44F6-BCE4-D0BF05C27309}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FCB2F19D-CCD1-44F6-BCE4-D0BF05C27309}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FCB2F19D-CCD1-44F6-BCE4-D0BF05C27309}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FCB2F19D-CCD1-44F6-BCE4-D0BF05C27309}.Release|Any CPU.Build.0 = Release|Any CPU
+		{322F6B4A-6CA4-4435-806D-F76C8689A265}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{322F6B4A-6CA4-4435-806D-F76C8689A265}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{322F6B4A-6CA4-4435-806D-F76C8689A265}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{322F6B4A-6CA4-4435-806D-F76C8689A265}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2300D9C6-43CD-48B9-BC7D-306D507C4B39}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2300D9C6-43CD-48B9-BC7D-306D507C4B39}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2300D9C6-43CD-48B9-BC7D-306D507C4B39}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2300D9C6-43CD-48B9-BC7D-306D507C4B39}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FC2F605C-B421-46C2-B66F-F30A540142E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FC2F605C-B421-46C2-B66F-F30A540142E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FC2F605C-B421-46C2-B66F-F30A540142E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FC2F605C-B421-46C2-B66F-F30A540142E9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
