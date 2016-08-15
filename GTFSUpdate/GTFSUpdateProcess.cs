@@ -40,9 +40,11 @@ namespace GTFS
                 else
                     updateGTFSSuccessful = false;
             }
-            catch (Exception ex)
+            catch (AggregateException ex)
             {
                 Log.Error("Exception in GTFS update process. \n" + ex.StackTrace);
+                foreach(var e in ex.Flatten().InnerExceptions)
+                { Log.Error(e.Message); }
                 Log.Error(ex.Message);
             }
             return updateGTFSSuccessful;
@@ -121,6 +123,7 @@ namespace GTFS
 
                 Log.Info("BulkInsert for " + datatable.TableName);
 
+                s.BulkCopyTimeout = 180;
                 s.WriteToServer(datatable);
             }
             sqlConnection.Close();
@@ -165,7 +168,10 @@ namespace GTFS
                 }
                 if (!flag)
                 {
-                    newDataRow[columnName] = String.IsNullOrEmpty(data) ? null : data;
+                    if(String.IsNullOrEmpty(data))
+                    { newDataRow[columnName] = DBNull.Value; }
+                    else
+                    { newDataRow[columnName] = data; }
                 }
                 i++;
             }
@@ -401,6 +407,7 @@ namespace GTFS
                     SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
                     sqlConnection.Open();
                     SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
+                    cmd.CommandTimeout = 120;
                     int value = cmd.ExecuteNonQuery();
                     sqlConnection.Close();
                     Log.Info("Created NONCLUSTERED INDEX IX_" + tableName + "_" + columnName + " ON " + secondarySchema + "." + tableName + " (" + columnName + ") ");
