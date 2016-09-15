@@ -31,27 +31,24 @@ namespace GTFS
         internal int RunGTFSUpdate()
         {
             int updateSuccessful = 1;
-            string useFeedInfo = ConfigurationManager.AppSettings["UseFeedInfo"].ToUpper();
+            string downloadAndCompareFeedInfo = ConfigurationManager.AppSettings["DownloadAndCompareFeedInfo"].ToUpper();
             string feedInfoFileUrl = ConfigurationManager.AppSettings["FeedInfoFileUrl"];
 
             try
             {
                 bool feedInfoUpdated = false;
 
-                if ("TRUE".Equals(useFeedInfo))
+                if ("TRUE".Equals(downloadAndCompareFeedInfo))
                 {
                     DownloadFile("feed_info_temp.txt", feedInfoFileUrl);
                     feedInfoUpdated = CompareFeedInfoFile();
                 }
 
-                if (feedInfoUpdated || "FALSE".Equals(useFeedInfo))
+                if (feedInfoUpdated || "FALSE".Equals(downloadAndCompareFeedInfo))
                 {
                     Log.Info("Run GTFS schedule database update.");
 
-                    Boolean databaseUpdated = UpdateGTFSDatabase();
-                    if(databaseUpdated)
-                    { updateSuccessful = 0; }
-
+                    updateSuccessful = UpdateGTFSDatabase();
                 }
                 else
                 {
@@ -69,7 +66,7 @@ namespace GTFS
             return updateSuccessful;
         }
 
-        private bool UpdateGTFSDatabase()
+        private int UpdateGTFSDatabase()
         {
             /*
              * Download the .zip file
@@ -77,8 +74,9 @@ namespace GTFS
              * Process data from the files 
              * Update database with new dataset
              */
-            Boolean updateGtfsSuccessful = false;
-            
+            int updateGtfsSuccessful = 1; //default to indicate not successful
+            bool feedInfoUpdated = false;
+
             string downloadGTFS = ConfigurationManager.AppSettings["DownloadGTFS"].ToUpper();
             if ("TRUE".Equals(downloadGTFS))
             {
@@ -88,8 +86,33 @@ namespace GTFS
                 ExtractZipArchive(GTFSZipPath);
             }
 
-            GTFSUpdateProcess gtfsUpdateProcess = new GTFSUpdateProcess();
-            updateGtfsSuccessful = gtfsUpdateProcess.BeginGTFSUpdateProcess(Log);
+            string compareExtractedFeedInfo = ConfigurationManager.AppSettings["CompareExtractedFeedInfo"].ToUpper();
+            if ("TRUE".Equals(compareExtractedFeedInfo))
+            {
+                string GTFSPath = ConfigurationManager.AppSettings["GTFSPath"];
+                string extractedFeedInfoPath = GTFSPath + "\\feed_info.txt";
+
+                File.Copy(extractedFeedInfoPath, "feed_info_temp.txt", true);
+                feedInfoUpdated = CompareFeedInfoFile();
+                if (feedInfoUpdated)
+                { Log.Error("feed_info.txt has been updated"); } //logged as error to trigger email...should be changed to something else if/when logging logic changed to allow emails for items other than errors
+            }
+
+            if (feedInfoUpdated || "FALSE".Equals(compareExtractedFeedInfo))
+            {
+                bool updateGtfsSuccessfulBool = false;
+                GTFSUpdateProcess gtfsUpdateProcess = new GTFSUpdateProcess();
+                updateGtfsSuccessfulBool = gtfsUpdateProcess.BeginGTFSUpdateProcess(Log);
+                if(updateGtfsSuccessfulBool)
+                { updateGtfsSuccessful = 0; }
+                else
+                { updateGtfsSuccessful = 1; }
+            }
+            else
+            {
+                Log.Info("feed_info.txt has not been updated. GTFS feed schedule dataset has remain unchanged.");
+                updateGtfsSuccessful = 2;
+            }
             return updateGtfsSuccessful;
         }
 
@@ -112,8 +135,7 @@ namespace GTFS
             bool feedInfoUpdated = false;
             if (!File.Exists("feed_info.txt"))
             {
-                string feedInfoFileUrl = ConfigurationManager.AppSettings["FeedInfoFileUrl"];
-                DownloadFile("feed_info.txt", feedInfoFileUrl);
+                File.Copy("feed_info_temp.txt", "feed_info.txt");
                 return true;
             }
             feedInfoUpdated = CompareFields();

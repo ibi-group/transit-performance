@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.IO;
 using System.Data;
 using System.Data.SqlClient;
 using System.Linq;
@@ -31,12 +32,12 @@ namespace GTFS
                 /*
                  * Once the database has been updated, then only change the local feed info file.
                  * */
-                string useFeedInfo = ConfigurationManager.AppSettings["UseFeedInfo"].ToUpper();
+                string downloadAndCompareFeedInfo = ConfigurationManager.AppSettings["DownloadAndCompareFeedInfo"].ToUpper();
+                string compareExtractedFeedInfo = ConfigurationManager.AppSettings["CompareExtractedFeedInfo"].ToUpper();
 
-                if (migrationSuccessful && "TRUE".Equals(useFeedInfo))
+                if (migrationSuccessful && ("TRUE".Equals(downloadAndCompareFeedInfo) || "TRUE".Equals(compareExtractedFeedInfo)) )
                 {
-                    String feedInfoFileUrl = ConfigurationManager.AppSettings["FeedInfoFileUrl"];
-                    DownloadFile("feed_info.txt", feedInfoFileUrl);
+                    File.Copy("feed_info_temp.txt", "feed_info.txt", true);
                     Log.Info("Updated feed info file with latest version");
                 }
             }
