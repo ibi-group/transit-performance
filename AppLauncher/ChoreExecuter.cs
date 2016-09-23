@@ -36,7 +36,7 @@ namespace AppLauncher
                 CommandType = CommandType.StoredProcedure
             })
             {
-                command.CommandTimeout = 3600;
+                command.CommandTimeout = 7200;
                 if (task.arguments != null && task.arguments.Count > 0)
                 {
                     foreach (var argument in task.arguments)

@@ -32,6 +32,7 @@ namespace AppLauncher
             {
                 if (task.enable)
                 {
+                    Log.Info("Start executing " + task.name);
                     taskExecuter.DoTask(task);
                     Log.Info("Executed " + task.name);
                 }
