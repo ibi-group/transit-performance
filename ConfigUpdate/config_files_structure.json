@@ -1,0 +1,153 @@
+{
+	"tables": {
+		"config_day_type": {
+			"columns": {
+				"day_type_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"day_type": {
+					"type": "VARCHAR(255)"
+				}
+			}
+		},
+		"config_day_type_dow": {
+			"columns": {
+				"day_type_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"day_of_the_week": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				}
+			}
+		},
+		"config_threshold": {
+			"columns": {
+				"threshold_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"threshold_name": {
+					"type": "VARCHAR(255)",
+					"null": false
+				},
+				"threshold_type": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"threshold_priority": {
+					"null": false,
+					"type": "INT"
+				},
+				"min_max_equal": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				}
+			}
+		},
+		"config_passenger_arrival_rate": {
+			"columns": {
+				"day_type_id": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"time_slice_id": {
+					"type": "VARCHAR(255)",
+					"null": false
+				},
+				"from_stop_id": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"to_stop_id": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"passenger_arrival_rate": {
+					"null": false,
+					"type": "float"
+				}
+			}
+		},
+		"config_threshold_calculation": {
+			"columns": {
+				"threshold_calculation_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"threshold_id": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"multiply_by": {
+					"null": false,
+					"type": "FLOAT"
+				},
+				"add_to": {
+					"null": false,
+					"type": "FLOAT"
+				}
+			}
+		},
+		"config_time_period": {
+			"columns": {
+				"time_period_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"day_type": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"time_period_sequence": {
+					"null": false,
+					"type": "INT"
+				},
+				"time_period_type": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"time_period_name": {
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"time_period_start_time": {
+					"type": "TIME(7)"
+				},
+				"time_period_end_time": {
+					"type": "TIME(7)"
+				},
+				"time_period_start_time_sec": {
+					"null": false,
+					"type": "INT"
+				},
+				"time_period_end_time_sec": {
+					"null": false,
+					"type": "INT"
+				}
+			}
+		},
+		"config_time_slice": {
+			"columns": {
+				"time_slice_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"time_slice_start_sec": {
+					"type": "INT"
+				},
+				"time_slice_end_sec": {
+					"type": "INT"
+				},
+				"time_slice_start_date_time": {
+					"type": "TIME(7)"
+				},
+				"time_slice_end_date_time": {
+					"type": "TIME(7)"
+				}
+			}
+		}
+	}
+}
