@@ -164,7 +164,20 @@
                     "create": false,
                     "required": false,
                     "type": "FLOAT"
-                }
+                },
+				"arrival_time_sec": {
+                    "required": false,
+                    "type": "INT"
+                },
+                "departure_time_sec": {
+                    "required": false,
+                    "type": "INT"
+                },
+				"timepoint":{
+					"create": false,
+					"required": false,
+					"type": "BIT"
+				}
             }
         },
         "stops": {

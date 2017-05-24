@@ -71,6 +71,49 @@
 				}
 			}
 		},
+		"config_passenger_od_load_cr":{
+			"columns": {
+				"route_id":{
+					"type": "VARCHAR(255)"
+				},
+				"trip_id":{
+					"type": "VARCHAR(255)"
+				},
+				"trip_short_name":{
+					"type": "VARCHAR(255)"
+				},
+				"from_stop_sequence":{
+					"type": "INT"
+				},
+				"from_stop_id":{
+					"type": "VARCHAR(255)"
+				},
+				"to_stop_sequence":{
+					"type": "INT"
+				},
+				"to_stop_id":{
+					"type": "VARCHAR(255)"
+				},
+				"from_stop_passenger_on":{
+					"type": "INT"
+				},
+				"to_stop_passenger_off":{
+					"type": "INT"
+				},
+				"from_passenger_on_flag":{
+					"type": "INT"
+				},
+				"to_stop_passenger_off_flag":{
+					"type": "INT"
+				},
+				"sum_passenger_off_subset":{
+					"type": "INT"
+				},
+				"num_passenger_off_subset":{
+					"type": "INT"
+				}
+			}
+		},
 		"config_threshold_calculation": {
 			"columns": {
 				"threshold_calculation_id": {
@@ -147,6 +190,18 @@
 				"time_slice_end_date_time": {
 					"type": "TIME(7)"
 				}
+			}
+		},
+		"config_mode_threshold":{
+			"columns":{
+				"route_type":{
+					"type": "INT"
+				},
+				"threshold_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				}
+
 			}
 		}
 	}
