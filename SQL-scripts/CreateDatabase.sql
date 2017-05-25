@@ -10,9 +10,9 @@ GO
 CREATE DATABASE [DBname]
  CONTAINMENT = NONE
  ON  PRIMARY 
-( NAME = N'DBname', FILENAME = N'<database_file_location>' , SIZE = 439240704KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB )  --change database file settings
+( NAME = N'DBname', FILENAME = N'...\DBname.mdf' , SIZE = 3072KB , MAXSIZE = UNLIMITED, FILEGROWTH = 1024KB )  --update file location
  LOG ON 
-( NAME = N'DBname_log', FILENAME = N'<database_log_file_location>' , SIZE = 15993536KB , MAXSIZE = 2048GB , FILEGROWTH = 10%)  --change database log file settings
+( NAME = N'DBname_log', FILENAME = N'...\DBname_log.ldf' , SIZE = 1024KB , MAXSIZE = 2048GB , FILEGROWTH = 10%) --update file location
 GO
 
 ALTER DATABASE [DBname] SET COMPATIBILITY_LEVEL = 120
