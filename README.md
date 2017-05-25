@@ -6,7 +6,7 @@ The system primarily uses GTFS and GTFS-realtime as data inputs. Information is 
 
 The outputs of the system are web services API calls and data tables to allow internal users and registered developers to access historical and real-time performance information that can be segmented by day and time period as well as by route, direction, or stop.
 
-For detailed documentation about the TRANSIT-performance system, see [here] (https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+This document provides a brief guide for setting up the system. For detailed documentation about the TRANSIT-performance system, see [here](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
 
 ## Input Requirements
 
@@ -14,7 +14,7 @@ The TRANSIT-performance system primarily uses GTFS schedule data and the GTFS-re
 
 ### GTFS
 GTFS is a standardized format for public transit agencies to publish their schedule information. GTFS files are used to determine the scheduled services for the system and compare how the system performs compared to the schedule. The system requires an agency’s GTFS dataset that complies with the GTFS specification and is available in a stable web accessible location.
-For details about GTFS, please refer to the [GTFS specification] (https://github.com/google/transit/tree/master/gtfs). 
+For details about GTFS, please refer to the [GTFS specification](https://github.com/google/transit/tree/master/gtfs). 
 
 ### GTFS-realtime
 The GTFS-realtime specification is an extension to GTFS that allows agencies to provide real-time updates about their scheduled service referenced in the GTFS feed. The system requires an agency’s GTFS-realtime feeds that comply with the GTFS-realtime specification and are available as .pb files in a stable web accessible location.
@@ -63,7 +63,7 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 * Execute ‘CreateSQLlogin’ SQL Script:
 	* creates an SQL login needed for the applications and services to connect to the database
 * Execute ‘CreateFunctionsAndTypes’ SQL Script:
-	* creates user-defined functions to convert epoch times to DATETIME type, and vice versa
+	* creates user-defined functions to convert times between epoch and DATETIME types
 	* creates user-defined data types used in the API calls	
 * Execute ‘CreateInitializationTables’ SQL Script:
 	* creates the ‘dbo.service\_date’ table which stores information about each service\_date that is processed.
@@ -97,14 +97,14 @@ Next add the applications and services that update the system and process data i
 		* ‘PostProcessDaily’
 		* ‘PreProcessToday’
 		* ‘CreateTodayRTProcess’
-	* The order in which each task is executed is determined by the ‘tasks.json’ file. In this file, update the database configuration settings appropriately.
+	* The order in which the tasks are executed is determined by the ‘tasks.json’ file. In this file, update the database configuration settings.
 	* This application should be scheduled to run through the Windows Task Scheduler once per day  after the previous service day has ended and before the next service day begins (for example, at 3:00 AM).
 * ‘GTFSUpdate’
 	* This application checks the GTFS zip file source location and updates the database whenever a new GTFS zip file is added to the source location. This application is executed by ‘AppLauncher’.
 	* To test this application, run the executable file. The tables that are part of the ‘gtfs’ schema in the database should be populated with the information from the GTFS files.
 * ‘ConfigUpdate’
 	* This application checks the config file source location and updates the database whenever a change to a config file has been made. This application is executed by ‘AppLauncher’
-	* The configuration files should follow the structure outlined in the ‘config\_files\_structure.json’ file (also provided in the [documentation] (https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+	* The configuration files should follow the structure outlined in the ‘config\_files\_structure.json’ file (also provided in the [documentation](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
 ).
 	* Place the configuration files in the config file source. 
 	* To test this application, run the executable file. The database tables beginning with ‘config_’ should be populated with the information from the configuration files.
