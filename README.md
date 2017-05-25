@@ -130,4 +130,4 @@ API calls can be built using the Data Fetching Procedures created during the dat
 
 ## About
 
-This system was developed by IBI Group in partnership with the MBTA (Boston, MA) and has been in operation since January 2015.
+This system was developed through a partnership between MBTA (Boston, MA) and  IBI Group and has been in operation since January 2015.
