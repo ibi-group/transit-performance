@@ -5,8 +5,8 @@
 
 --This stored procedure is called by the metrics API call.  It selects metrics for a particular route, direction, stop for the requested time period
 
-IF OBJECT_ID('getMetrics_V3','P') IS NOT NULL
-	DROP PROCEDURE dbo.getMetrics_V3
+IF OBJECT_ID('getMetrics','P') IS NOT NULL
+	DROP PROCEDURE dbo.getMetrics
 GO
 
 
@@ -19,7 +19,7 @@ GO
 
 
 
-CREATE PROCEDURE dbo.getMetrics_V3
+CREATE PROCEDURE dbo.getMetrics
 	@from_stop_ids str_val_type READONLY
 	,@to_stop_ids str_val_type READONLY
 	,@route_ids str_val_type READONLY

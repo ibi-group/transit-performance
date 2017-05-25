@@ -5,8 +5,8 @@
 
 --This Procedure is called by the headway API call. It selects headways  for a particular stop (and optionally to_stop or route + direction) and time period.
 
-IF OBJECT_ID('getHeadwayTimes_V3') IS NOT NULL
-DROP PROCEDURE dbo.getHeadwayTimes_V3
+IF OBJECT_ID('getHeadwayTimes') IS NOT NULL
+DROP PROCEDURE dbo.getHeadwayTimes
 GO
 
 
@@ -19,7 +19,7 @@ GO
 
 
 
-CREATE PROCEDURE dbo.getHeadwayTimes_V3
+CREATE PROCEDURE dbo.getHeadwayTimes
 	@stop_id		VARCHAR(255)
 	,@to_stop_id	VARCHAR(255) null
 	,@route_id		VARCHAR(255) null

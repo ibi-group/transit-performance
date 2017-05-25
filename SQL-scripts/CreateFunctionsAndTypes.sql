@@ -103,6 +103,27 @@ END
 
 GO
 
+IF TYPE_ID ('dbo.int_val_type') IS NOT NULL
+	DROP TYPE dbo.int_val_type
+GO
+
+
+CREATE TYPE dbo.int_val_type AS TABLE(
+	int_val int NULL
+)
+GO
+
+IF TYPE_ID ('dbo.str_val_type') IS NOT NULL
+	DROP TYPE dbo.str_val_type
+GO
+
+CREATE TYPE dbo.str_val_type AS TABLE(
+	str_val varchar(255) NULL
+)
+GO
+
+
+
 
 
 

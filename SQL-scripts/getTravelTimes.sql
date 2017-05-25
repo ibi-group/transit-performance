@@ -7,8 +7,8 @@
 --This Procedure is called by the traveltimes API call. It selects travel times for a particular from_stop and to_stop pair (and optionally route)
 -- and time period.
 
-IF OBJECT_ID('getTravelTimes_V3') IS NOT NULL
-	DROP PROCEDURE dbo.getTravelTimes_V3
+IF OBJECT_ID('getTravelTimes') IS NOT NULL
+	DROP PROCEDURE dbo.getTravelTimes
 GO
 
 
@@ -22,7 +22,7 @@ GO
 
 
 
-CREATE PROCEDURE dbo.getTravelTimes_V3
+CREATE PROCEDURE dbo.getTravelTimes
 	@from_stop_id VARCHAR(255)
 	,@to_stop_id VARCHAR(255)
 	,@from_time DATETIME

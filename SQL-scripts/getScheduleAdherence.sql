@@ -7,8 +7,8 @@
 --This Procedure is called by the scheduleadherence API call. 
 --It selects schedule adherence for the requested stop (optionally filtered by route/direction) for the requested time period
 
-IF OBJECT_ID ('getScheduleAdherence_V3') IS NOT NULL
-DROP PROCEDURE dbo.getScheduleAdherence_V3
+IF OBJECT_ID ('getScheduleAdherence') IS NOT NULL
+DROP PROCEDURE dbo.getScheduleAdherence
 GO
 
 
@@ -19,7 +19,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
-CREATE PROCEDURE dbo.getScheduleAdherence_V3
+CREATE PROCEDURE dbo.getScheduleAdherence
 	@stop_id		VARCHAR(255)
 	,@route_id		VARCHAR(255) NULL
 	,@direction_id	INT NULL

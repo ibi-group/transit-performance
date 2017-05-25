@@ -5,7 +5,7 @@ GO
 --replace the username, password and database name
 
 CREATE LOGIN <login_name>			--insert login name here
-	WITH PASSWORD= <password>,		--insert password 
+	WITH PASSWORD= '<password>',		--insert password 
 	DEFAULT_DATABASE=  <DBname>,	--insert transit-performance database name here
 	DEFAULT_LANGUAGE=[us_english], 
 	CHECK_EXPIRATION=OFF, 
