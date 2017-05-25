@@ -1,0 +1,133 @@
+# TRANSIT-performance
+
+The TRANSIT-performance system records and measures transit service performance in real-time from two perspectives: the quality of service provided by the agency including travel time, headway, dwell time, and schedule adherence; and the quality of service experienced by customers including passenger weighted wait times and travel times. 
+
+The system primarily uses GTFS and GTFS-realtime as data inputs. Information is recorded in real-time for all subway, light rail, and commuter rail routes, directions, trips, and stops in the transit system, allowing analysis of a near 100% sample of data. The system will be updated to include bus data at a later time.
+
+The outputs of the system are web services API calls and data tables to allow internal users and registered developers to access historical and real-time performance information that can be segmented by day and time period as well as by route, direction, or stop.
+
+For detailed documentation about the TRANSIT-performance system, see [here] (https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+
+## Input Requirements
+
+The TRANSIT-performance system primarily uses GTFS schedule data and the GTFS-realtime vehicle positions and trip updates feed as data inputs. Configuration files are also used to set up benchmarks and thresholds against which to measure performance. Passenger weighted metrics also require an origin-destination matrix for headway-based services and passenger information for trips and stops for schedule-based services. 
+
+### GTFS
+GTFS is a standardized format for public transit agencies to publish their schedule information. GTFS files are used to determine the scheduled services for the system and compare how the system performs compared to the schedule. The system requires an agency’s GTFS dataset that complies with the GTFS specification and is available in a stable web accessible location.
+For details about GTFS, please refer to the [GTFS specification] (https://github.com/google/transit/tree/master/gtfs). 
+
+### GTFS-realtime
+The GTFS-realtime specification is an extension to GTFS that allows agencies to provide real-time updates about their scheduled service referenced in the GTFS feed. The system requires an agency’s GTFS-realtime feeds that comply with the GTFS-realtime specification and are available as .pb files in a stable web accessible location.
+
+The GTFS-realtime vehicle positions feed is used to determine actual arrival and departure events for all trips at all stops in the system. The vehicle_positions feed must have all data elements required as part of the GTFS-realtime specification and the following optional fields:
+
+* trip_id
+* route_id
+* schedule_relationship
+* id of vehicle
+* latitude/longitude of vehicle
+* current\_stop\_sequence
+* stop_id
+* current_status
+* timestamp
+
+The GTFS-realtime trip updates feed is used to determine predicted arrival and departure events for all trips at all stops in the system. The latest available predicted arrival and departure events are used to estimate actual arrival and departure events for cases where the vehicle positions feed does not provide this information. The trip_updates feed must have all data elements required as part of the GTFS-realtime specification and the following optional fields:
+
+* trip_id
+* direction_id
+* route_id
+* schedule_relationship
+* id of vehicle
+* stop_sequence
+* stop_id
+* arrival_time
+* departure_time
+* timestamp
+
+For details about GTFS-realtime, please refer to the [GTFS-realtime specification](https://github.com/google/transit/tree/master/gtfs-realtime).
+
+### Configuration Files
+Configuration files for day types, time periods, thresholds, and passenger arrival rates are used to calculate performance metrics. The system requires configuration files for day types, time periods, thresholds, and passenger arrival rates that are formatted as .csv files. Detailed requirements for specific configuration files can be found in the [documentation] (https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+
+## System Set-up
+
+### System Requirements
+* SQL Server 2014
+* Visual Studio 2015
+
+### Database Initialization
+To start, execute the stored procedures and SQL Scripts that initialize the system. These scripts should only be executed at the very start of setting up the system. 
+
+* Execute ‘CreateDatabase’ SQL Script:
+	* creates the TRANSIT-performance database
+* Execute ‘CreateSQLlogin’ SQL Script:
+	* creates an SQL login needed for the applications and services to connect to the database
+* Execute ‘CreateFunctionsAndTypes’ SQL Script:
+	* creates user-defined functions to convert epoch times to DATETIME type, and vice versa
+	* creates user-defined data types used in the API calls	
+* Execute ‘CreateInitializationTables’ SQL Script:
+	* creates the ‘dbo.service\_date’ table which stores information about each service\_date that is processed.
+	* creates the table which stores all arrival and departure events and times. 
+	* creates the historical tables which store performance information
+	* creates the config tables which stores files for day types, time periods, thresholds, and passenger arrival rates
+* Execute Data Processing Stored Procedures
+	* ‘PreProcessDaily’ - This procedure creates the tables that store performance information for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application. 
+	* ‘PostProcessDaily’ - This procedure processes the performance data for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application.
+	* ‘CreateTodayRTProcess’ - This stored procedure creates the tables that store real-time performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
+	* ‘PreProcessToday’ - This procedure creates the tables that store performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
+	* ‘ProcessRTEvent’ - This procedure processes the performance data for the current service date in real-time. This stored procedure is set to run as a Job every 1 minute (configurable) in the SQL Server Agent. 
+	* ‘ProcessCurrentMetrics’ - This procedure processes the performance data for the current service date in real-time and calculates the current metrics for the day until now and the last hour. This stored procedure is set to run as a Job every 5 minutes (configurable) in the SQL Server Agent.
+* Execute Data Fetching Stored Procedures
+	* ‘getCurrentMetrics’ - This procedure is called by the ‘currentmetrics’ API call. It retrieves the metrics for a route (or all routes) for the current service date until now and the last hour
+	* ‘getDailyMetrics’ - This procedure is called by the ‘dailymetrics’ API call.It retreives the daily metrics for a route (or all routes) for the requested service date(s)
+	* ‘getDwellTimes’ - This procedure is called by the ‘dwells’ API call. It retrieves the dwell times for a stop (optionally filtered by route/direction) for the requested time period.
+	* ‘getHeadwayTimes’ - This procedure is called by the ‘headways’ API call. It retrieves the headways for a stop (optionally filtered by route/direction or destination stop) for the requested time period
+	* ‘getMetrics’ - This procedure is called by the ‘metrics’ API call. It retrieves the metrics for the requested stop/route/direction for the requested time period.
+	* ‘getScheduleAdherence’ - This procedure is called by the ‘scheduleadherence’ API call. It retrieves the schedule adherence for the requested stop (optionally filtered by route/direction) for the requested time period
+	* ‘getTravelTimes’ - This procedure is called by the ‘traveltimes’ API call. It retrieves the travel times for an o-d pair (optionally filtered by route/direction) for the requested time period
+
+### Application and Services Initialization
+Next add the applications and services that update the system and process data in real-time and daily. To run the applications and services, configuration files of the type .config.sample should be renamed to .config. Values in these files should be updated or added as necessary.
+
+* ‘AppLauncher’
+	* This application executes the following, in listed order, for checking for new GTFS and config files, daily processing of performance data for the previous service date, and setting up real-time processing for today
+		* ‘GTFSUpdate’
+		* ‘ConfigUpdate’
+		* ‘PreProcessDaily’
+		* ‘PostProcessDaily’
+		* ‘PreProcessToday’
+		* ‘CreateTodayRTProcess’
+	* The order in which each task is executed is determined by the ‘tasks.json’ file. In this file, update the database configuration settings appropriately.
+	* This application should be scheduled to run through the Windows Task Scheduler once per day  after the previous service day has ended and before the next service day begins (for example, at 3:00 AM).
+* ‘GTFSUpdate’
+	* This application checks the GTFS zip file source location and updates the database whenever a new GTFS zip file is added to the source location. This application is executed by ‘AppLauncher’.
+	* To test this application, run the executable file. The tables that are part of the ‘gtfs’ schema in the database should be populated with the information from the GTFS files.
+* ‘ConfigUpdate’
+	* This application checks the config file source location and updates the database whenever a change to a config file has been made. This application is executed by ‘AppLauncher’
+	* The configuration files should follow the structure outlined in the ‘config\_files\_structure.json’ file (also provided in the [documentation] (https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+).
+	* Place the configuration files in the config file source. 
+	* To test this application, run the executable file. The database tables beginning with ‘config_’ should be populated with the information from the configuration files.
+* ‘gtfs-realtime-service’
+	* This service checks the GTFS-realtime VehiclePositions.pb source location every 5 seconds (configurable) and updates the database with new actual arrival and departure events. This service needs to be installed as a service then set to run continuously.
+	* To test this service, start the service and check that the ‘rt_event’ table in the database is being populated with arrival and departure events. 
+* ‘gtfs-realtime-trip-service’
+	* This service checks the GTFS-realtime TripUpdates.pb source location every 30 seconds (configurable) and updates the database with new predicted arrival and departure events. This service also archives predicted arrival and departure events for the previous day at the time given by the “RESETTIME” parameter in the config file. This service needs to be installed as a service then set to run continuously.
+	* To test this service, start the service and check that the ‘event\_rt\_trip’ table in the database is being populated with the latest predicted times. The next day, all records from the previous day should have been moved to the ‘event\_rt\_trip\_archive’ table and the ‘event\_rt\_trip’ table should only contain records for the current day. 
+
+## Outputs
+
+Once the system is set up, the AppLauncher will trigger all processes needed to run the system. Once all processes are executed, the system will provide:
+
+* performance metrics data for the service date processed (this is usually the previous service date). The data will be found in the 'daily' database tables.
+* scheduled service information for the upcoming day. The data will be found in the 'today' database tables .
+
+In real-time the system will provide:
+
+* processed real-time performance metrics data for today. This data will be found in the 'today_rt' database tables. Data in these tables will be added/updated in real-time throughout the day.
+
+API calls can be built using the Data Fetching Procedures created during the database initialization.
+
+## About
+
+This system was developed by IBI Group in partnership with the MBTA (Boston, MA) and has been in operation since January 2015.
