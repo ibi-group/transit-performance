@@ -38,6 +38,7 @@ CREATE TABLE dbo.rt_event
 	,event_time_sec			INT
 	,event_processed_rt		BIT	DEFAULT 0
 	,event_processed_daily	BIT	DEFAULT 0
+	,vehicle_label			VARCHAR(255)
 )
 
 CREATE NONCLUSTERED INDEX IX_rt_event_service_date

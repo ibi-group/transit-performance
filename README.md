@@ -4,7 +4,7 @@ The TRANSIT-performance system records and measures transit service performance 
 
 The system primarily uses GTFS and GTFS-realtime as data inputs. Information is recorded in real-time for all subway, light rail, and commuter rail routes, directions, trips, and stops in the transit system, allowing analysis of a near 100% sample of data. The system will be updated to include bus data at a later time.
 
-The outputs of the system are web services API calls and data tables to allow internal users and registered developers to access historical and real-time performance information that can be segmented by day and time period as well as by route, direction, or stop.
+The outputs of the system are web services API calls and data tables to allow internal users and registered developers to access historical and real-time performance information that can be segmented by day and time period as well as by route, direction, or stop. The repository provides all the necessary source code to collect and process data in the database, and fetch data for API calls, but does not include the source code for creating APIs. 
 
 This document provides a brief guide for setting up the system. For detailed documentation about the TRANSIT-performance system, see [here](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
 
@@ -47,7 +47,10 @@ The GTFS-realtime trip updates feed is used to determine predicted arrival and d
 For details about GTFS-realtime, please refer to the [GTFS-realtime specification](https://github.com/google/transit/tree/master/gtfs-realtime).
 
 ### Configuration Files
-Configuration files for day types, time periods, thresholds, and passenger arrival rates are used to calculate performance metrics. The system requires configuration files for day types, time periods, thresholds, and passenger arrival rates that are formatted as .csv files. Detailed requirements for specific configuration files can be found in the [documentation] (https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+Configuration files for day types, time periods, thresholds, and passenger arrival rates are used to calculate performance metrics. The system requires configuration files for day types, time periods, thresholds, and passenger arrival rates that are formatted as .csv files. Detailed requirements for specific configuration files can be found in the [documentation](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
+
+## System Functionality
+
 
 ## System Set-up
 
@@ -70,14 +73,14 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 	* creates the table which stores all arrival and departure events and times. 
 	* creates the historical tables which store performance information
 	* creates the config tables which stores files for day types, time periods, thresholds, and passenger arrival rates
-* Execute Data Processing Stored Procedures
+* Execute Create Procedure Scripts for Data Processing Stored Procedures
 	* ‘PreProcessDaily’ - This procedure creates the tables that store performance information for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application. 
 	* ‘PostProcessDaily’ - This procedure processes the performance data for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘CreateTodayRTProcess’ - This stored procedure creates the tables that store real-time performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘PreProcessToday’ - This procedure creates the tables that store performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘ProcessRTEvent’ - This procedure processes the performance data for the current service date in real-time. This stored procedure is set to run as a Job every 1 minute (configurable) in the SQL Server Agent. 
 	* ‘ProcessCurrentMetrics’ - This procedure processes the performance data for the current service date in real-time and calculates the current metrics for the day until now and the last hour. This stored procedure is set to run as a Job every 5 minutes (configurable) in the SQL Server Agent.
-* Execute Data Fetching Stored Procedures
+* Execute Create Procedure Scripts for Data Fetching Stored Procedures
 	* ‘getCurrentMetrics’ - This procedure is called by the ‘currentmetrics’ API call. It retrieves the metrics for a route (or all routes) for the current service date until now and the last hour
 	* ‘getDailyMetrics’ - This procedure is called by the ‘dailymetrics’ API call.It retreives the daily metrics for a route (or all routes) for the requested service date(s)
 	* ‘getDwellTimes’ - This procedure is called by the ‘dwells’ API call. It retrieves the dwell times for a stop (optionally filtered by route/direction) for the requested time period.
@@ -104,10 +107,9 @@ Next add the applications and services that update the system and process data i
 	* To test this application, run the executable file. The tables that are part of the ‘gtfs’ schema in the database should be populated with the information from the GTFS files.
 * ‘ConfigUpdate’
 	* This application checks the config file source location and updates the database whenever a change to a config file has been made. This application is executed by ‘AppLauncher’
-	* The configuration files should follow the structure outlined in the ‘config\_files\_structure.json’ file (also provided in the [documentation](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
-).
+	* The configuration files should follow the structure outlined in the ‘config\_files\_structure.json’ file (also provided in the [documentation](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#)).
 	* Place the configuration files in the config file source. 
-	* To test this application, run the executable file. The database tables beginning with ‘config_’ should be populated with the information from the configuration files.
+	* To test this application, run the executable file. The database tables beginning with ‘config’ should be populated with the information from the configuration files.
 * ‘gtfs-realtime-service’
 	* This service checks the GTFS-realtime VehiclePositions.pb source location every 5 seconds (configurable) and updates the database with new actual arrival and departure events. This service needs to be installed as a service then set to run continuously.
 	* To test this service, start the service and check that the ‘rt_event’ table in the database is being populated with arrival and departure events. 
