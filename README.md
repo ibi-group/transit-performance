@@ -51,6 +51,7 @@ Configuration files for day types, time periods, thresholds, and passenger arriv
 
 ## System Functionality
 
+For a description of the system functionality and performance metrics, please refer to the [documentation](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#).
 
 ## System Set-up
 
