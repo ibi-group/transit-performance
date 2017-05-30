@@ -21,8 +21,8 @@ GO
 
 CREATE PROCEDURE dbo.getScheduleAdherence
 	@stop_id		VARCHAR(255)
-	,@route_id		VARCHAR(255) NULL
-	,@direction_id	INT NULL
+	,@route_id		VARCHAR(255) = NULL
+	,@direction_id	INT = NULL
 	,@from_time		DATETIME
 	,@to_time		DATETIME
 	

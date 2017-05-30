@@ -65,7 +65,7 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 * Execute ‘CreateDatabase’ SQL Script:
 	* creates the TRANSIT-performance database
 * Execute ‘CreateSQLlogin’ SQL Script:
-	* creates an SQL login needed for the applications and services to connect to the database
+	* creates an SQL login needed for the applications and services to connect to the database, and to create database tables. The database role should be ‘db_owner’.
 * Execute ‘CreateFunctionsAndTypes’ SQL Script:
 	* creates user-defined functions to convert times between epoch and DATETIME types
 	* creates user-defined data types used in the API calls	
@@ -81,6 +81,7 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 	* ‘PreProcessToday’ - This procedure creates the tables that store performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘ProcessRTEvent’ - This procedure processes the performance data for the current service date in real-time. This stored procedure is set to run as a Job every 1 minute (configurable) in the SQL Server Agent. 
 	* ‘ProcessCurrentMetrics’ - This procedure processes the performance data for the current service date in real-time and calculates the current metrics for the day until now and the last hour. This stored procedure is set to run as a Job every 5 minutes (configurable) in the SQL Server Agent.
+	* ‘UpdateGTFSNext’ - This procedure is needed by the ‘GTFSUpdate’ application. It creates arrival\_time\_sec and departure\_time\_sec fields in the gtfs.stop_times table and calculates arrival time and departure time in seconds after midnight. It also creates tables for the most common trip patterns for each route and direction based on GTFS.
 * Execute Create Procedure Scripts for Data Fetching Stored Procedures
 	* ‘getCurrentMetrics’ - This procedure is called by the ‘currentmetrics’ API call. It retrieves the metrics for a route (or all routes) for the current service date until now and the last hour
 	* ‘getDailyMetrics’ - This procedure is called by the ‘dailymetrics’ API call.It retreives the daily metrics for a route (or all routes) for the requested service date(s)
@@ -118,6 +119,12 @@ Next add the applications and services that update the system and process data i
 	* This service checks the GTFS-realtime TripUpdates.pb source location every 30 seconds (configurable) and updates the database with new predicted arrival and departure events. This service also archives predicted arrival and departure events for the previous day at the time given by the “RESETTIME” parameter in the config file. This service needs to be installed as a service then set to run continuously.
 	* To test this service, start the service and check that the ‘event\_rt\_trip’ table in the database is being populated with the latest predicted times. The next day, all records from the previous day should have been moved to the ‘event\_rt\_trip\_archive’ table and the ‘event\_rt\_trip’ table should only contain records for the current day. 
 
+Next, set up the jobs in SQL Server Agent to process data in real-time.
+
+* ‘ProcessRTEvent’ - Set the procedure ‘dbo.ProcessRTEvent’ to execute every minute (configurable).
+* ‘ProcessCurrentMetrics’ - Set the procedure ‘dbo.ProcessCurrentMetrics’ to execute every five minutes (configurable).
+
+
 ## Outputs
 
 Once the system is set up, the AppLauncher will trigger all processes needed to run the system. Once all processes are executed, the system will provide:
@@ -125,7 +132,7 @@ Once the system is set up, the AppLauncher will trigger all processes needed to 
 * performance metrics data for the service date processed (this is usually the previous service date). The data will be found in the 'daily' database tables.
 * scheduled service information for the upcoming day. The data will be found in the 'today' database tables .
 
-In real-time the system will provide:
+In real-time, the system will provide:
 
 * processed real-time performance metrics data for today. This data will be found in the 'today_rt' database tables. Data in these tables will be added/updated in real-time throughout the day.
 

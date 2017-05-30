@@ -21,9 +21,9 @@ GO
 
 CREATE PROCEDURE dbo.getHeadwayTimes
 	@stop_id		VARCHAR(255)
-	,@to_stop_id	VARCHAR(255) null
-	,@route_id		VARCHAR(255) null
-	,@direction_id	INT null
+	,@to_stop_id	VARCHAR(255) = NULL
+	,@route_id		VARCHAR(255) = NULL
+	,@direction_id	INT = NULL
 	,@from_time		DATETIME
 	,@to_time		DATETIME
 	
