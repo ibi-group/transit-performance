@@ -58,6 +58,7 @@ For a description of the system functionality and performance metrics, please re
 ### System Requirements
 * SQL Server 2014
 * Visual Studio 2015
+* Windows Server 2012
 
 ### Database Initialization
 To start, execute the stored procedures and SQL Scripts that initialize the system. These scripts should only be executed at the very start of setting up the system. 

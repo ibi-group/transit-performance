@@ -169,7 +169,7 @@ BEGIN
 		)
 
 		--step through unprocessed files one at a time starting with the oldest unprocessed file
-		WHILE @file_time_num_current <= @file_time_num_max -- currently limiting to 10 files at a time to keep processing time down
+		WHILE @file_time_num_current <= 10 --@file_time_num_max -- currently limiting to 10 files at a time to keep processing time down
 
 		BEGIN
 			--SELECT * FROM @unprocessed_events_file
