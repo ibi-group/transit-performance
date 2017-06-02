@@ -1,0 +1,14 @@
+﻿threshold_id,threshold_name,threshold_type,threshold_priority,min_max_equal
+threshold_id_01,Headway,wait_time_headway_based,1,equal
+threshold_id_02,Big Gap,wait_time_headway_based,2,min
+threshold_id_03,2X Headway,wait_time_headway_based,3,equal
+threshold_id_04,delayed < 3 min.,travel_time,1,equal
+threshold_id_05,delayed < 6 min.,travel_time,2,equal
+threshold_id_06,delayed < 10 min.,travel_time,3,equal
+threshold_id_07,delayed < 5 min.,wait_time_schedule_based,1,equal
+threshold_id_08,delayed < 10 min.,wait_time_schedule_based,2,equal
+threshold_id_09,delayed < 20 min.,wait_time_schedule_based,3,equal
+threshold_id_10,delayed < 5 min.,travel_time,1,equal
+threshold_id_11,delayed < 10 min.,travel_time,2,equal
+threshold_id_12,delayed < 20 min.,travel_time,3,equal
+threshold_id_13,90 seconds,trip_headway_based,4,equal
