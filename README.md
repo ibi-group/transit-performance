@@ -113,10 +113,10 @@ Next add the applications and services that update the system and process data i
 	* The configuration files should follow the structure outlined in the ‘config\_files\_structure.json’ file (also provided in the [documentation](https://docs.google.com/document/d/19GcQ0UZmstbKBPDDD1G9uBnoqmIkWwvCgqfLaxWxfz8/edit#)).
 	* Place the configuration files in the config file source. 
 	* To test this application, run the executable file. The database tables beginning with ‘config’ should be populated with the information from the configuration files.
-* ‘gtfs-realtime-service’
+* ‘gtfsrt\_events\_vp\_current\_status’
 	* This service checks the GTFS-realtime VehiclePositions.pb source location every 5 seconds (configurable) and updates the database with new actual arrival and departure events. This service needs to be installed as a service then set to run continuously.
 	* To test this service, start the service and check that the ‘rt_event’ table in the database is being populated with arrival and departure events. 
-* ‘gtfs-realtime-trip-service’
+* ‘gtfsrt\_events\_tu\_latest\_prediction’
 	* This service checks the GTFS-realtime TripUpdates.pb source location every 30 seconds (configurable) and updates the database with new predicted arrival and departure events. This service also archives predicted arrival and departure events for the previous day at the time given by the “RESETTIME” parameter in the config file. This service needs to be installed as a service then set to run continuously.
 	* To test this service, start the service and check that the ‘event\_rt\_trip’ table in the database is being populated with the latest predicted times. The next day, all records from the previous day should have been moved to the ‘event\_rt\_trip\_archive’ table and the ‘event\_rt\_trip’ table should only contain records for the current day. 
 
