@@ -1,5 +1,3 @@
-
-
 ---run this script in the transit-performance database
 --USE transit_performance
 --GO
@@ -160,6 +158,7 @@ BEGIN
 			r.route_type = 0
 			OR r.route_type = 1
 			OR r.route_type = 2
+			OR r.route_type = 3
 			)
 			AND (
 			(@day_of_the_week = 'Monday'
@@ -205,6 +204,8 @@ BEGIN
 			r.route_type = 1 --subway
 			OR
 			r.route_type = 2 --cr
+			OR
+			r.route_type = 3 --bus
 			)
 
 
@@ -280,6 +281,9 @@ BEGIN
 		,trip_first_stop_id			VARCHAR(255)	NOT NULL
 		,trip_start_time			VARCHAR(255)	NOT NULL
 	)
+
+	CREATE NONCLUSTERED INDEX IX_webs_trip_start_time_temp_1 ON #webs_trip_start_time_temp (trip_id)
+	INCLUDE (trip_first_stop_sequence,trip_first_stop_id,trip_start_time)
 
 	INSERT INTO #webs_trip_start_time_temp
 	(
@@ -453,10 +457,10 @@ BEGIN
 
 	--create temp table for travel times which helps calculate benchmarks
 
-	IF OBJECT_ID('tempdb..#daily_stop_times_travel_time_sec','U') IS NOT NULL
-		DROP TABLE #daily_stop_times_travel_time_sec
+	IF OBJECT_ID('dbo.daily_stop_times_travel_time_sec','U') IS NOT NULL 
+		DROP TABLE dbo.daily_stop_times_travel_time_sec
 
-	CREATE TABLE #daily_stop_times_travel_time_sec
+	CREATE TABLE dbo.daily_stop_times_travel_time_sec
 	(
 		service_date				DATE			NOT NULL
 		,route_type					INT				NOT NULL
@@ -475,7 +479,7 @@ BEGIN
 	)
 	;
 
-	INSERT INTO #daily_stop_times_travel_time_sec
+	INSERT INTO dbo.daily_stop_times_travel_time_sec
 	(
 		service_date
 		,route_type
@@ -519,29 +523,33 @@ BEGIN
 			AND sta.stop_sequence < stb.stop_sequence
 	;
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_route_type ON #daily_stop_times_travel_time_sec (route_type);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_route_type ON dbo.daily_stop_times_travel_time_sec (route_type);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_route_id ON #daily_stop_times_travel_time_sec (route_id);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_route_id ON dbo.daily_stop_times_travel_time_sec (route_id);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_direction_id ON #daily_stop_times_travel_time_sec (direction_id);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_direction_id ON dbo.daily_stop_times_travel_time_sec (direction_id);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_trip_id ON #daily_stop_times_travel_time_sec (trip_id);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_trip_id ON dbo.daily_stop_times_travel_time_sec (trip_id);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_stop_sequence ON #daily_stop_times_travel_time_sec (from_stop_sequence);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_stop_sequence ON dbo.daily_stop_times_travel_time_sec (from_stop_sequence);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_stop_id ON #daily_stop_times_travel_time_sec (from_stop_id);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_stop_id ON dbo.daily_stop_times_travel_time_sec (from_stop_id);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_arrival_time_sec ON #daily_stop_times_travel_time_sec (from_arrival_time_sec);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_arrival_time_sec ON dbo.daily_stop_times_travel_time_sec (from_arrival_time_sec);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_departure_time_sec ON #daily_stop_times_travel_time_sec (from_departure_time_sec);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_from_departure_time_sec ON dbo.daily_stop_times_travel_time_sec (from_departure_time_sec);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_stop_sequence ON #daily_stop_times_travel_time_sec (to_stop_sequence);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_stop_sequence ON dbo.daily_stop_times_travel_time_sec (to_stop_sequence);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_stop_id ON #daily_stop_times_travel_time_sec (to_stop_id);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_stop_id ON dbo.daily_stop_times_travel_time_sec (to_stop_id);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_arrival_time_sec ON #daily_stop_times_travel_time_sec (to_arrival_time_sec);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_arrival_time_sec ON dbo.daily_stop_times_travel_time_sec (to_arrival_time_sec);
 
-	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_departure_time_sec ON #daily_stop_times_travel_time_sec (to_departure_time_sec);
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_to_departure_time_sec ON dbo.daily_stop_times_travel_time_sec (to_departure_time_sec);
+
+	CREATE NONCLUSTERED INDEX IX_stop_times_travel_time_sec_daily_1
+	ON dbo.daily_stop_times_travel_time_sec (route_type,direction_id,from_stop_id,to_stop_id)
+	INCLUDE (service_date,route_id,trip_id,from_stop_sequence,from_arrival_time_sec,from_departure_time_sec,to_stop_sequence,to_arrival_time_sec);
 
 	--Create daily_abcde_time table. This table stores the  scheduled joined events (abcde_time) for the day being processed
 	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
@@ -641,9 +649,9 @@ BEGIN
 				,cde.to_stop_sequence
 				ORDER BY ab.from_departure_time_sec DESC,ab.trip_id DESC) AS rn
 
-			FROM #daily_stop_times_travel_time_sec cde -- cde is travel from b/c to d
+			FROM dbo.daily_stop_times_travel_time_sec cde -- cde is travel from b/c to d
 
-			JOIN #daily_stop_times_travel_time_sec ab -- b is the departure of the last relevant train at the "From" stop. Relevant means that the train takes people from abcd ("From" stop) to e ("To" stop)
+			JOIN dbo.daily_stop_times_travel_time_sec ab -- b is the departure of the last relevant train at the "From" stop. Relevant means that the train takes people from abcd ("From" stop) to e ("To" stop)
 				ON
 					(
 					cde.from_stop_id = ab.from_stop_id
@@ -654,7 +662,7 @@ BEGIN
 					AND (cde.from_arrival_time_sec > ab.from_departure_time_sec
 					OR (cde.from_arrival_time_sec = ab.from_departure_time_sec
 					AND cde.trip_id > ab.trip_id))
-					AND cde.from_arrival_time_sec - ab.from_departure_time_sec <= 3600 --the departure from the last relevant train within the past 3 hours
+					AND cde.from_arrival_time_sec - ab.from_departure_time_sec <= 1800 --the departure from the last relevant vehicle within the past 0.5 hours
 					)
 		) t
 
@@ -808,7 +816,7 @@ BEGIN
 					,time_slice_id
 					) AS median_travel_time_sec
 
-				FROM	#daily_stop_times_travel_time_sec att
+				FROM	dbo.daily_stop_times_travel_time_sec att
 						,dbo.config_time_slice
 				WHERE
 					to_arrival_time_sec < time_slice_end_sec
@@ -832,8 +840,7 @@ BEGIN
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
-	IF OBJECT_ID('tempdb..#daily_stop_times_travel_time_sec','U') IS NOT NULL
-		DROP TABLE #daily_stop_times_travel_time_sec
+	--fill in missing time slice	
 
 	-- Create table to store travel time threshold for day being processed
 
@@ -1589,9 +1596,6 @@ BEGIN
 
 	IF OBJECT_ID('tempdb..#webs_trip_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_time_temp
-
-	IF OBJECT_ID('tempdb..#daily_stop_times_travel_time_sec','U') IS NOT NULL
-		DROP TABLE #daily_stop_times_travel_time_sec
 
 END;
 
