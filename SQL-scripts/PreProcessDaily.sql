@@ -24,11 +24,11 @@ AS
 
 BEGIN
 	SET NOCOUNT ON;
-
+	
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
 
-	--Create a table to determine valid service_ids for day being processed restricting to subway, light rail and commuter rail only
+	--Create a table to determine valid service_ids for day being processed restricting to subway, light rail, commuter rail and bus
 
 	DECLARE @day_of_the_week VARCHAR(255);
 	SET @day_of_the_week =
@@ -154,12 +154,8 @@ BEGIN
 		WHERE
 			t.service_id = c.service_id
 			AND t.route_id = r.route_id
-			AND (
-			r.route_type = 0
-			OR r.route_type = 1
-			OR r.route_type = 2
-			OR r.route_type = 3
-			)
+			AND 
+				r.route_type IN (0,1,2,3)
 			AND (
 			(@day_of_the_week = 'Monday'
 			AND monday = 1)
@@ -198,15 +194,9 @@ BEGIN
 			AND cd.exception_type = 1 -- service added
 			AND
 			cd.date = @service_date_process
-			AND (
-			r.route_type = 0 --green line
-			OR
-			r.route_type = 1 --subway
-			OR
-			r.route_type = 2 --cr
-			OR
-			r.route_type = 3 --bus
-			)
+			AND 
+				r.route_type IN (0,1,2,3)
+	
 
 
 	DELETE FROM --delete for exception type 2 (removed for the specified date)	
@@ -840,7 +830,103 @@ BEGIN
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
-	--fill in missing time slice	
+
+	--insert missing time slices for bus
+	INSERT INTO daily_travel_time_benchmark
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id
+		,direction_id
+		,b.time_slice_id
+		,(historical_average_travel_time_sec + next_historical_average_travel_time_sec)/2 as historical_average_travel_time_sec
+		,(historical_median_travel_time_sec + next_historical_median_travel_time_sec)/2 as historical_median_travel_time_sec
+		,(scheduled_average_travel_time_sec + next_scheduled_average_travel_time_sec)/2 as scheduled_average_travel_time_sec
+		,(scheduled_median_travel_time_sec + next_scheduled_median_travel_time_sec)/2 as scheduled_median_travel_time_sec
+	FROM 
+	(
+		SELECT
+			ttb.service_date
+			,ttb.from_stop_id
+			,ttb.to_stop_id
+			,ttb.route_type
+			,ttb.route_id
+			,ttb.direction_id
+			,ttb.time_slice_id
+			,t_rn.time_slice_rn as current_time_slice_rn
+			,ttb.historical_average_travel_time_sec
+			,ttb.historical_median_travel_time_sec
+			,ttb.scheduled_average_travel_time_sec
+			,ttb.scheduled_median_travel_time_sec
+			,MAX(time_slice_rn) OVER (PARTITION BY 
+					ttb.service_date
+					,ttb.from_stop_id
+					,ttb.to_stop_id
+					,ttb.route_type
+					,ttb.route_id
+					,ttb.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_time_slice_rn
+			,LAST_VALUE(ttb.historical_average_travel_time_sec) OVER (PARTITION BY 
+					ttb.service_date
+					,ttb.from_stop_id
+					,ttb.to_stop_id
+					,ttb.route_type
+					,ttb.route_id
+					,ttb.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_average_travel_time_sec
+			,LAST_VALUE(ttb.historical_median_travel_time_sec) OVER (PARTITION BY 
+					ttb.service_date
+					,ttb.from_stop_id
+					,ttb.to_stop_id
+					,ttb.route_type
+					,ttb.route_id
+					,ttb.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_median_travel_time_sec
+			,LAST_VALUE(ttb.scheduled_average_travel_time_sec) OVER (PARTITION BY 
+					ttb.service_date
+					,ttb.from_stop_id
+					,ttb.to_stop_id
+					,ttb.route_type
+					,ttb.route_id
+					,ttb.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_average_travel_time_sec
+			,LAST_VALUE(ttb.scheduled_median_travel_time_sec) OVER (PARTITION BY 
+					ttb.service_date
+					,ttb.from_stop_id
+					,ttb.to_stop_id
+					,ttb.route_type
+					,ttb.route_id
+					,ttb.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_median_travel_time_sec
+		FROM daily_travel_time_benchmark ttb
+		JOIN config_time_slice t_rn
+		ON
+			ttb.time_slice_id = t_rn.time_slice_id
+		WHERE
+			route_type = 3
+	) a
+	JOIN
+		config_time_slice b
+	ON
+			b.time_slice_rn > a.current_time_slice_rn
+		AND
+			b.time_slice_rn <= (a.current_time_slice_rn + 2)
+		AND
+			b.time_slice_rn < a.next_time_slice_rn
+	WHERE 
+			next_time_slice_rn - current_time_slice_rn > 1
 
 	-- Create table to store travel time threshold for day being processed
 
@@ -1082,6 +1168,95 @@ BEGIN
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
+	--insert headway benchmarks(by OD) for missing time slices
+	INSERT INTO daily_headway_time_od_benchmark
+	SELECT
+		service_date
+		,stop_id
+		,to_stop_id
+		,route_type
+		,direction_id
+		,b.time_slice_id
+		,(historical_average_headway_sec + next_historical_average_headway_sec)/2 as historical_average_travel_time_sec
+		,(historical_median_headway_sec + next_historical_median_headway_sec)/2 as historical_median_travel_time_sec
+		,(scheduled_average_headway_sec + next_scheduled_average_headway_sec)/2 as scheduled_average_headway_sec
+		,(scheduled_median_headway_sec + next_scheduled_median_headway_sec)/2 as scheduled_median_headway_sec
+	FROM 
+	(
+		SELECT
+			aht.service_date
+			,aht.stop_id
+			,aht.to_stop_id
+			,aht.route_type
+			,aht.direction_id
+			,aht.time_slice_id
+			,t_rn.time_slice_rn as current_time_slice_rn
+			,aht.historical_average_headway_sec
+			,aht.historical_median_headway_sec
+			,aht.scheduled_average_headway_sec
+			,aht.scheduled_median_headway_sec
+			,MAX(time_slice_rn) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.to_stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_time_slice_rn
+			,LAST_VALUE(aht.historical_average_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.to_stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_average_headway_sec
+			,LAST_VALUE(aht.historical_median_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.to_stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_median_headway_sec
+			,LAST_VALUE(aht.scheduled_average_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.to_stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_average_headway_sec
+			,LAST_VALUE(aht.scheduled_median_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.to_stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_median_headway_sec
+		FROM daily_headway_time_od_benchmark aht
+		JOIN config_time_slice t_rn
+		ON
+			aht.time_slice_id = t_rn.time_slice_id
+		WHERE
+			route_type = 3
+	) a
+	JOIN
+		config_time_slice b
+	ON
+			b.time_slice_rn > a.current_time_slice_rn
+		AND
+			b.time_slice_rn <= (a.current_time_slice_rn + 2)
+		AND
+			b.time_slice_rn < a.next_time_slice_rn
+	WHERE 
+			next_time_slice_rn - current_time_slice_rn > 1
 
 	--Create table to store wait time threshold for daily
 
@@ -1336,6 +1511,89 @@ BEGIN
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
+	--insert headway benchmarks (all routes) for missing time slices
+	INSERT INTO daily_headway_time_sr_all_benchmark
+	SELECT
+		service_date
+		,stop_id
+		,route_type
+		,direction_id
+		,b.time_slice_id
+		,(historical_average_headway_sec + next_historical_average_headway_sec)/2  as historical_average_travel_time_sec
+		,(historical_median_headway_sec + next_historical_median_headway_sec)/2 as historical_median_travel_time_sec
+		,(scheduled_average_headway_sec + next_scheduled_average_headway_sec)/2 as scheduled_average_headway_sec
+		,(scheduled_median_headway_sec + next_scheduled_median_headway_sec)/2 as scheduled_median_headway_sec
+	FROM 
+	(
+		SELECT
+			aht.service_date
+			,aht.stop_id
+			,aht.route_type
+			,aht.direction_id
+			,aht.time_slice_id
+			,t_rn.time_slice_rn as current_time_slice_rn
+			,aht.historical_average_headway_sec
+			,aht.historical_median_headway_sec
+			,aht.scheduled_average_headway_sec
+			,aht.scheduled_median_headway_sec
+			,MAX(time_slice_rn) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_time_slice_rn
+			,LAST_VALUE(aht.historical_average_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_average_headway_sec
+			,LAST_VALUE(aht.historical_median_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_median_headway_sec
+			,LAST_VALUE(aht.scheduled_average_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_average_headway_sec
+			,LAST_VALUE(aht.scheduled_median_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_median_headway_sec
+		FROM daily_headway_time_sr_all_benchmark aht
+		JOIN config_time_slice t_rn
+		ON
+			aht.time_slice_id = t_rn.time_slice_id
+		WHERE
+			route_type = 3
+	) a
+	JOIN
+		config_time_slice b
+	ON
+			b.time_slice_rn > a.current_time_slice_rn
+		AND
+			b.time_slice_rn <= (a.current_time_slice_rn + 2)
+		AND
+			b.time_slice_rn < a.next_time_slice_rn
+	WHERE 
+			next_time_slice_rn - current_time_slice_rn > 1
+
 	----create table to store thresholds for headway trip metrics
 
 	IF OBJECT_ID('dbo.daily_headway_time_threshold','U') IS NOT NULL
@@ -1583,6 +1841,96 @@ BEGIN
 				AND his.direction_id = sch.direction_id
 				AND his.time_slice_id = sch.time_slice_id
 				)
+
+	--insert headway benchmarks (same route) for missing time slices
+	INSERT INTO daily_headway_time_sr_same_benchmark
+	SELECT
+		service_date
+		,stop_id
+		,route_type
+		,route_id
+		,direction_id
+		,b.time_slice_id
+		,(historical_average_headway_sec + next_historical_average_headway_sec)/2 as historical_average_travel_time_sec
+		,(historical_median_headway_sec + next_historical_median_headway_sec)/2 as historical_median_travel_time_sec
+		,(scheduled_average_headway_sec + next_scheduled_average_headway_sec)/2 as scheduled_average_headway_sec
+		,(scheduled_median_headway_sec + next_scheduled_median_headway_sec)/2 as scheduled_median_headway_sec
+	FROM 
+	(
+		SELECT
+			aht.service_date
+			,aht.stop_id
+			,aht.route_type
+			,aht.route_id
+			,aht.direction_id
+			,aht.time_slice_id
+			,t_rn.time_slice_rn as current_time_slice_rn
+			,aht.historical_average_headway_sec
+			,aht.historical_median_headway_sec
+			,aht.scheduled_average_headway_sec
+			,aht.scheduled_median_headway_sec
+			,MAX(time_slice_rn) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.route_id
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_time_slice_rn
+			,LAST_VALUE(aht.historical_average_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.route_id
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_average_headway_sec
+			,LAST_VALUE(aht.historical_median_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.route_id
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_historical_median_headway_sec
+			,LAST_VALUE(aht.scheduled_average_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.route_id
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_average_headway_sec
+			,LAST_VALUE(aht.scheduled_median_headway_sec) OVER (PARTITION BY 
+					aht.service_date
+					,aht.stop_id
+					,aht.route_type
+					,aht.route_id
+					,aht.direction_id
+				ORDER BY time_slice_rn 
+				ROWS BETWEEN CURRENT ROW and 1 FOLLOWING
+				) as next_scheduled_median_headway_sec
+		FROM daily_headway_time_sr_same_benchmark aht
+		JOIN config_time_slice t_rn
+		ON
+			aht.time_slice_id = t_rn.time_slice_id
+		WHERE
+			route_type = 3
+	) a
+	JOIN
+		config_time_slice b
+	ON
+			b.time_slice_rn > a.current_time_slice_rn
+		AND
+			b.time_slice_rn <= (a.current_time_slice_rn + 2)
+		AND
+			b.time_slice_rn < a.next_time_slice_rn
+	WHERE 
+			next_time_slice_rn - current_time_slice_rn > 1
 
 
 	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
