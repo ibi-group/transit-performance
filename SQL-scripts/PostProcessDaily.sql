@@ -3630,6 +3630,9 @@ BEGIN
 		> 0
 
 		DELETE FROM dbo.historical_headway_time_threshold_trip
+		WHERE
+			service_date = @service_date_process
+
 	INSERT INTO dbo.historical_headway_time_threshold_trip
 	(
 		service_date
