@@ -5,27 +5,29 @@
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
-IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
-	DROP PROCEDURE dbo.PostProcessDaily
+--IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
+--	DROP PROCEDURE dbo.PostProcessDaily
 
-GO
+--GO
 
-SET ANSI_NULLS ON
-GO
+--SET ANSI_NULLS ON
+--GO
 
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-CREATE PROCEDURE dbo.PostProcessDaily 
-
-	@service_date DATE
-
-AS
+--SET QUOTED_IDENTIFIER ON
+--GO
 
 
-BEGIN
-	SET NOCOUNT ON;
+--CREATE PROCEDURE dbo.PostProcessDaily 
+
+--	@service_date DATE
+
+--AS
+
+
+--BEGIN
+--	SET NOCOUNT ON;
+
+	DECLARE @service_date DATE = '2017-07-26'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -1965,8 +1967,9 @@ BEGIN
 				AND abcde.abcd_stop_id = ttt.from_stop_id
 				AND abcde.e_stop_id = ttt.to_stop_id
 				AND ts.time_slice_id = ttt.time_slice_id
-				AND (ttt.route_type = 1
-				OR ttt.route_type = 0) --subway and green line passenger weighted numbers
+				AND ttt.route_type IN (0,1,3)
+				--(ttt.route_type = 1
+				--OR ttt.route_type = 0) --subway and green line passenger weighted numbers
 				AND
 				abcde.cde_route_id = ttt.route_id --added for multiple routes visiting the same stops, green line
 				)
@@ -2159,8 +2162,9 @@ BEGIN
 				AND abcde.abcd_stop_id = wtt.stop_id
 				AND abcde.e_stop_id = wtt.to_stop_id
 				AND ts.time_slice_id = wtt.time_slice_id
-				AND (wtt.route_type = 1
-				OR wtt.route_type = 0) --subway and green line passenger weighted numbers only
+				AND wtt.route_type IN (0,1,3)
+				--(wtt.route_type = 1
+				--OR wtt.route_type = 0) --subway and green line passenger weighted numbers only
 				)
 	--save headway trip metrics
 
@@ -2385,10 +2389,14 @@ BEGIN
 		,departure_delay_sec				INT
 		,stop_order_flag					INT -- 1 is first stop, 2 is mid stop, 3 is last stop
 		,threshold_id						VARCHAR(255)	NOT NULL
-		,threshold_value					INT
+		,threshold_id_lower					VARCHAR(255)
+		,threshold_id_upper					VARCHAR(255)
+		,threshold_value_lower				INT
+		,threshold_value_upper				INT
 		,denominator_pax					FLOAT			NULL
 		,scheduled_threshold_numerator_pax	FLOAT			NULL
 	)
+
 	CREATE NONCLUSTERED INDEX IX_daily_schedule_adherence_threshold_pax_stop_id ON daily_schedule_adherence_threshold_pax (stop_id);
 
 	CREATE NONCLUSTERED INDEX IX_daily_schedule_adherence_threshold_pax_route_id ON daily_schedule_adherence_threshold_pax (route_id);
@@ -2413,10 +2421,119 @@ BEGIN
 		,departure_delay_sec
 		,stop_order_flag
 		,threshold_id
-		,threshold_value
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
 		,denominator_pax
 		,scheduled_threshold_numerator_pax
 	)
+
+		SELECT DISTINCT
+			sad.service_date
+			,sad.route_id
+			,sad.route_type
+			,sad.direction_id
+			,sad.trip_id
+			,sad.stop_sequence
+			,sad.stop_id
+			,sad.vehicle_id
+			,sad.scheduled_arrival_time_sec
+			,sad.actual_arrival_time_sec
+			,sad.arrival_delay_sec
+			,sad.scheduled_departure_time_sec
+			,sad.actual_departure_time_sec
+			,sad.departure_delay_sec
+			,sad.stop_order_flag
+			,th.threshold_id
+			,th.threshold_id_lower
+			,th.threshold_id_upper
+			,thc1.add_to as threshold_value_lower
+			,thc2.add_to as threshold_value_upper
+			,par.passenger_arrival_rate as denominator_pax
+			,CASE
+				WHEN sad.stop_order_flag = 1 AND
+					sad.departure_delay_sec BETWEEN thc1.add_to AND thc2.add_to THEN par.passenger_arrival_rate
+				WHEN sad.stop_order_flag = 2 AND
+					sad.departure_delay_sec BETWEEN thc1.add_to AND thc2.add_to THEN par.passenger_arrival_rate
+				WHEN sad.stop_order_flag = 3 AND
+					sad.arrival_delay_sec BETWEEN thc1.add_to AND thc2.add_to THEN par.passenger_arrival_rate
+				WHEN sad.stop_order_flag = 1 AND 
+					(sad.departure_delay_sec < thc1.add_to OR sad.departure_delay_sec > thc2.add_to) THEN 0
+				WHEN sad.stop_order_flag = 2 AND
+					(sad.departure_delay_sec < thc1.add_to OR sad.departure_delay_sec > thc2.add_to) THEN 0
+				WHEN sad.stop_order_flag = 3 AND
+					(sad.arrival_delay_sec < thc1.add_to OR sad.arrival_delay_sec > thc2.add_to) THEN 0
+			END as scheduled_threshold_numerator_pax
+		
+		FROM daily_schedule_adherence_disaggregate sad
+		JOIN dbo.service_date sd
+			ON
+					sad.service_date = sd.service_date
+		JOIN
+			(
+				SELECT
+					ct.threshold_id
+					,ct.threshold_name
+					,ct.threshold_type
+					,ct1.threshold_id as threshold_id_lower
+					,ct2.threshold_id as threshold_id_upper
+				FROM config_threshold ct
+				LEFT JOIN config_threshold ct1
+					ON 
+						ct.threshold_id = 
+							CASE 
+								when ct1.parent_child = 0 then ct1.threshold_id
+								when ct1.parent_child = 2 then ct1.parent_threshold_id
+							END
+					AND 
+						ct1.upper_lower = 'lower'
+				LEFT JOIN config_threshold ct2
+					ON 
+						ct.threshold_id = 
+							CASE 
+								when ct2.parent_child = 0 then ct2.threshold_id
+								when ct2.parent_child = 2 then ct2.parent_threshold_id
+							END
+					AND 
+						ct2.upper_lower = 'upper'
+				WHERE 
+						ct.parent_child <> 2
+					
+		) th
+			ON
+					stop_order_flag =
+						CASE 
+							WHEN th.threshold_id = 'threshold_id_14' THEN 1
+							WHEN th.threshold_id = 'threshold_id_17' THEN 2
+							WHEN th.threshold_id = 'threshold_id_20' THEN 3
+						END
+	
+		LEFT JOIN config_threshold_calculation thc1
+			ON
+					th.threshold_id_lower = thc1.threshold_id
+	
+		LEFT JOIN config_threshold_calculation thc2
+			ON
+					th.threshold_id_upper = thc2.threshold_id	
+	
+		JOIN config_mode_threshold mt
+			ON
+					mt.threshold_id = th.threshold_id
+				AND
+					mt.route_type = sad.route_type
+			
+		LEFT JOIN config_passenger_arrival_rate par
+			ON
+					par.day_type_id = sd.day_type_id
+				AND 
+					sad.stop_id = par.from_stop_id
+		WHERE
+				sad.route_type = 3 --bus only
+			AND
+				th.threshold_type = 'wait_time_schedule_based'
+
+		UNION
 
 		SELECT DISTINCT
 			sad.service_date
@@ -2435,7 +2552,10 @@ BEGIN
 			,departure_delay_sec
 			,stop_order_flag
 			,th.threshold_id
-			,thc.add_to AS threshold_value
+			,th.threshold_id_lower
+			,th.threshold_id_upper
+			,thc1.add_to as threshold_value_lower
+			,thc2.add_to as threshold_value_upper
 			,po.from_stop_passenger_on AS denominator_pax
 			,CASE
 				WHEN sad.stop_order_flag = 1 AND
@@ -2459,20 +2579,66 @@ BEGIN
 				sad.route_id = po.route_id
 				AND sad.trip_id = po.trip_id
 				AND sad.stop_id = po.from_stop_id
-		CROSS JOIN dbo.config_threshold th
 
-		JOIN dbo.config_threshold_calculation thc
-			ON
-				th.threshold_id = thc.threshold_id
+		CROSS JOIN
+			(
+				SELECT
+					ct.threshold_id
+					,ct.threshold_name
+					,ct.threshold_type
+					,ct1.threshold_id as threshold_id_lower
+					,ct2.threshold_id as threshold_id_upper
+				FROM config_threshold ct
+				LEFT JOIN config_threshold ct1
+					ON 
+						ct.threshold_id = 
+							CASE 
+								when ct1.parent_child = 0 then ct1.threshold_id
+								when ct1.parent_child = 2 then ct1.parent_threshold_id
+							END
+					AND 
+						ct1.upper_lower = 'lower'
+				LEFT JOIN config_threshold ct2
+					ON 
+						ct.threshold_id = 
+							CASE 
+								when ct2.parent_child = 0 then ct2.threshold_id
+								when ct2.parent_child = 2 then ct2.parent_threshold_id
+							END
+					AND 
+						ct2.upper_lower = 'upper'
+				WHERE 
+						ct.parent_child <> 2
+					
+		) th
 
-		JOIN dbo.config_mode_threshold mt
+		LEFT JOIN config_threshold_calculation thc1
 			ON
-				mt.threshold_id = th.threshold_id
-				AND mt.threshold_id = thc.threshold_id
+					th.threshold_id_lower = thc1.threshold_id
+	
+		LEFT JOIN config_threshold_calculation thc2
+			ON
+					th.threshold_id_upper = thc2.threshold_id	
+	
+		JOIN config_mode_threshold mt
+			ON
+					mt.threshold_id = th.threshold_id
+				AND
+					mt.route_type = sad.route_type
+		--CROSS JOIN dbo.config_threshold th
+
+		--JOIN dbo.config_threshold_calculation thc
+		--	ON
+		--		th.threshold_id = thc.threshold_id
+
+		--JOIN dbo.config_mode_threshold mt
+		--	ON
+		--		mt.threshold_id = th.threshold_id
+		--		AND mt.threshold_id = thc.threshold_id
 		WHERE
-			sad.route_type = 2 --commuter rail only
+				sad.route_type = 2 --commuter rail only
 			AND
-			th.threshold_type = 'wait_time_schedule_based'
+				th.threshold_type = 'wait_time_schedule_based'
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
