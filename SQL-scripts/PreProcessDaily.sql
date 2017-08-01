@@ -1738,7 +1738,7 @@ BEGIN
 					,time_slice_id
 					) AS median_headway_time_sec
 
-				FROM	dbo.historical_headway_time_sr_all_disaggregate aht
+				FROM	dbo.historical_headway_time_sr_same_disaggregate aht ---updated to use right table (sr_same NOT sr_all)
 						,dbo.config_time_slice
 						,@historical_service_dates hsd
 				WHERE
