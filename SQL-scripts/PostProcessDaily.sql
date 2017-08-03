@@ -2453,17 +2453,17 @@
 			,par.passenger_arrival_rate as denominator_pax
 			,CASE
 				WHEN sad.stop_order_flag = 1 AND
-					sad.departure_delay_sec BETWEEN thc1.add_to AND thc2.add_to THEN par.passenger_arrival_rate
+					sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 1 --par.passenger_arrival_rate
 				WHEN sad.stop_order_flag = 2 AND
-					sad.departure_delay_sec BETWEEN thc1.add_to AND thc2.add_to THEN par.passenger_arrival_rate
+					sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 1 -- par.passenger_arrival_rate
 				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec BETWEEN thc1.add_to AND thc2.add_to THEN par.passenger_arrival_rate
+					sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to,sad.arrival_delay_sec) THEN 1 --par.passenger_arrival_rate
 				WHEN sad.stop_order_flag = 1 AND 
-					(sad.departure_delay_sec < thc1.add_to OR sad.departure_delay_sec > thc2.add_to) THEN 0
+					sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
 				WHEN sad.stop_order_flag = 2 AND
-					(sad.departure_delay_sec < thc1.add_to OR sad.departure_delay_sec > thc2.add_to) THEN 0
+					sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
 				WHEN sad.stop_order_flag = 3 AND
-					(sad.arrival_delay_sec < thc1.add_to OR sad.arrival_delay_sec > thc2.add_to) THEN 0
+					sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to,sad.arrival_delay_sec) THEN 0
 			END as scheduled_threshold_numerator_pax
 		
 		FROM daily_schedule_adherence_disaggregate sad
@@ -2559,17 +2559,17 @@
 			,po.from_stop_passenger_on AS denominator_pax
 			,CASE
 				WHEN sad.stop_order_flag = 1 AND
-					sad.departure_delay_sec > thc.add_to THEN po.from_stop_passenger_on
+					sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN po.from_stop_passenger_on
 				WHEN sad.stop_order_flag = 2 AND
-					sad.arrival_delay_sec > thc.add_to THEN po.from_stop_passenger_on
+					sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN po.from_stop_passenger_on
 				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec > thc.add_to THEN po.from_stop_passenger_on
+					sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN po.from_stop_passenger_on
 				WHEN sad.stop_order_flag = 1 AND
-					sad.departure_delay_sec <= thc.add_to THEN 0
+					sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
 				WHEN sad.stop_order_flag = 2 AND
-					sad.arrival_delay_sec <= thc.add_to THEN 0
+					sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN 0
 				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec <= thc.add_to THEN 0
+					sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN 0
 				ELSE 0
 			END AS scheduled_threshold_numerator_pax
 
@@ -2683,9 +2683,9 @@
 		VALUES ('Red'),('Blue'),('Orange')
 		,('Green-B'),('Green-C'),('Green-D'),('Green-E')
 		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
-		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester')
+		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('749'),('69'),('68'),('325'),('9'),('1'),('7'),('751')
 
-
+/*
 	INSERT INTO dbo.daily_metrics
 	(
 		route_id
@@ -2716,76 +2716,36 @@
 				,dbo.config_threshold ct
 		WHERE
 			ct.threshold_id = dwt.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(stop_id)
-				FROM @from_stop_ids
-			)
-			= 0
-			OR from_stop_id IN
-			(
-				SELECT
-					stop_id
-				FROM @from_stop_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(stop_id)
-				FROM @to_stop_ids
-			)
-			= 0
-			OR to_stop_id IN
-			(
-				SELECT
-					stop_id
-				FROM @to_stop_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(direction_id)
-				FROM @direction_ids
-			)
-			= 0
-			OR direction_id IN
-			(
-				SELECT
-					direction_id
-				FROM @direction_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR prev_route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
+			AND 
+				(
+					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
+				OR 
+					from_stop_id IN (SELECT stop_id FROM @from_stop_ids)
+				)
+			AND 
+				(
+					(SELECT COUNT(stop_id) FROM @to_stop_ids)= 0
+				OR 
+					to_stop_id IN (SELECT stop_id FROM @to_stop_ids)
+				)
+			AND 
+				(
+					(SELECT COUNT(direction_id) FROM @direction_ids)= 0
+			OR 
+					direction_id IN (SELECT direction_id FROM @direction_ids )
+				)
+			AND 
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR 
+					prev_route_id IN (SELECT route_id FROM @route_ids )
+				)
+			AND 
+				(
+					(SELECT COUNT(route_id) FROM @route_ids ) = 0
+				OR 
+					route_id IN (SELECT route_id FROM @route_ids )
+				)
 
 		GROUP BY
 			route_id
@@ -2875,12 +2835,15 @@
 			,ct.threshold_type
 			,ct.threshold_id
 		UNION
+		*/
 		SELECT
 			route_id
-			,ct.threshold_id
-			,ct.threshold_name
+			--,ct.threshold_id
+			--,ct.threshold_name
 			,ct.threshold_type
-			,1 - SUM(scheduled_threshold_numerator_pax) / SUM(denominator_pax) AS metric_result
+			,COUNT(*) - SUM(scheduled_threshold_numerator_pax) AS numerator
+			,COUNT(*) AS denominator
+			,1 - SUM(scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result--SUM(denominator_pax) AS metric_result
 			,NULL
 			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax
 			,SUM(denominator_pax) AS denominator_pax
@@ -2935,10 +2898,9 @@
 
 		GROUP BY
 			route_id
-			,ct.threshold_id
-			,ct.threshold_name
+			--,ct.threshold_id
+			--,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
 		UNION
 
 		SELECT
