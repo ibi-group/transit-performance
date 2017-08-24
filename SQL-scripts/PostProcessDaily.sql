@@ -5,29 +5,29 @@
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
---IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
---	DROP PROCEDURE dbo.PostProcessDaily
+IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
+	DROP PROCEDURE dbo.PostProcessDaily
 
---GO
+GO
 
---SET ANSI_NULLS ON
---GO
+SET ANSI_NULLS ON
+GO
 
---SET QUOTED_IDENTIFIER ON
---GO
-
-
---CREATE PROCEDURE dbo.PostProcessDaily 
-
---	@service_date DATE
-
---AS
+SET QUOTED_IDENTIFIER ON
+GO
 
 
---BEGIN
---	SET NOCOUNT ON;
+CREATE PROCEDURE dbo.PostProcessDaily 
 
-	DECLARE @service_date DATE = '2017-07-26'
+	@service_date DATE
+
+AS
+
+
+BEGIN
+	SET NOCOUNT ON;
+
+	--DECLARE @service_date DATE = '2017-07-26'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -1142,6 +1142,7 @@
 		,actual_arrival_time_sec	INT
 		,arrival_delay_sec			INT
 		,stop_order_flag			INT -- 1 is first stop, 2 is mid stop, 3 is last stop
+		,agency_timepoint_name		VARCHAR(255)
 	)
 	;
 
@@ -1159,6 +1160,7 @@
 		,actual_arrival_time_sec
 		,arrival_delay_sec
 		,stop_order_flag
+		,agency_timepoint_name
 	)
 
 		SELECT
@@ -1174,6 +1176,7 @@
 			,rea.event_time_sec AS actual_arrival_time
 			,rea.event_time_sec - ds.arrival_time_sec AS arrival_delay
 			,ds.stop_order_flag
+			,ds.agency_timepoint_name
 
 		FROM	dbo.daily_stop_times_sec ds
 				,dbo.daily_event rea
@@ -1203,6 +1206,7 @@
 		,actual_departure_time_sec		INT
 		,departure_delay_sec			INT
 		,stop_order_flag				INT
+		,agency_timepoint_name			VARCHAR(255)
 	)
 	;
 
@@ -1220,6 +1224,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
+		,agency_timepoint_name
 	)
 
 		SELECT
@@ -1235,6 +1240,7 @@
 			,red.event_time_sec AS actual_departure_time
 			,red.event_time_sec - ds.departure_time_sec AS departure_delay
 			,ds.stop_order_flag
+			,ds.agency_timepoint_name
 		FROM	dbo.daily_stop_times_sec ds
 				,dbo.daily_event red
 		WHERE
@@ -2278,6 +2284,7 @@
 		,actual_departure_time_sec		INT
 		,departure_delay_sec			INT
 		,stop_order_flag				INT -- 1 is first stop, 2 is mid stop, 3 is last stop
+		,agency_timepoint_name			VARCHAR(255)
 	)
 
 	INSERT INTO dbo.daily_schedule_adherence_disaggregate
@@ -2297,6 +2304,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
+		,agency_timepoint_name
 	)
 
 		SELECT
@@ -2315,6 +2323,7 @@
 			,dd.actual_departure_time_sec
 			,dd.departure_delay_sec
 			,da.stop_order_flag
+			,da.agency_timepoint_name
 
 		FROM #daily_arrival_time_sec da
 		JOIN #daily_departure_time_sec dd
@@ -2343,6 +2352,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
+		,agency_timepoint_name
 	)
 
 		SELECT
@@ -2361,6 +2371,7 @@
 			,NULL AS actual_departure_time_sec
 			,NULL AS departure_delay_sec
 			,da.stop_order_flag
+			,da.agency_timepoint_name
 		FROM #daily_arrival_time_sec da
 		WHERE
 			da.stop_order_flag = 3
@@ -2388,6 +2399,7 @@
 		,actual_departure_time_sec			INT
 		,departure_delay_sec				INT
 		,stop_order_flag					INT -- 1 is first stop, 2 is mid stop, 3 is last stop
+		,agency_timepoint_name				VARCHAR(255)
 		,threshold_id						VARCHAR(255)	NOT NULL
 		,threshold_id_lower					VARCHAR(255)
 		,threshold_id_upper					VARCHAR(255)
@@ -2420,6 +2432,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
+		,agency_timepoint_name
 		,threshold_id
 		,threshold_id_lower
 		,threshold_id_upper
@@ -2445,6 +2458,7 @@
 			,sad.actual_departure_time_sec
 			,sad.departure_delay_sec
 			,sad.stop_order_flag
+			,sad.agency_timepoint_name
 			,th.threshold_id
 			,th.threshold_id_lower
 			,th.threshold_id_upper
@@ -2551,6 +2565,7 @@
 			,actual_departure_time_sec
 			,departure_delay_sec
 			,stop_order_flag
+			,agency_timepoint_name
 			,th.threshold_id
 			,th.threshold_id_lower
 			,th.threshold_id_upper
@@ -2685,7 +2700,7 @@
 		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
 		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('749'),('69'),('68'),('325'),('9'),('1'),('7'),('751')
 
-/*
+
 	INSERT INTO dbo.daily_metrics
 	(
 		route_id
@@ -2835,14 +2850,56 @@
 			,ct.threshold_type
 			,ct.threshold_id
 		UNION
-		*/
+		
 		SELECT
 			route_id
-			--,ct.threshold_id
-			--,ct.threshold_name
+			,ct.threshold_id
+			,ct.threshold_name
 			,ct.threshold_type
-			,COUNT(*) - SUM(scheduled_threshold_numerator_pax) AS numerator
-			,COUNT(*) AS denominator
+			,1-SUM(scheduled_threshold_numerator_pax)/SUM(denominator_pax) AS metric_result 
+			,NULL--,1-SUM(scheduled_threshold_numerator_trip)/SUM(denominator_trip) AS metric_result_trip 
+			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax  --added
+			,SUM(denominator_pax) AS denominator_pax --added
+			,NULL--,SUM(scheduled_threshold_numerator_trip) AS numerator_trip --added
+			,NULL--,SUM(denominator_trip) AS denominator_trip --added
+		FROM
+			dbo.daily_schedule_adherence_threshold_pax cap
+			,dbo.config_threshold ct
+		WHERE
+				ct.threshold_id = cap.threshold_id
+			AND
+				(
+					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
+				OR
+					stop_id IN (SELECT stop_id FROM @from_stop_ids)
+				)	
+			AND
+				(
+					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
+				OR
+					direction_id IN (SELECT direction_id FROM @direction_ids)
+				)
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				route_type = 2
+		GROUP BY
+				route_id
+				,ct.threshold_id
+				,ct.threshold_name
+				,ct.threshold_type
+				,ct.threshold_id
+		UNION
+		
+		SELECT
+			route_id
+			,'threshold_id_14' + ', '+ 'threshold_id_17' + ', ' + 'threshold_id_20' as threshold_id --need to change this
+			,'reliability_scheduled' --need to change this
+			,ct.threshold_type
 			,1 - SUM(scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result--SUM(denominator_pax) AS metric_result
 			,NULL
 			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax
@@ -2853,49 +2910,28 @@
 				,dbo.config_threshold ct
 		WHERE
 			ct.threshold_id = cap.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(stop_id)
-				FROM @from_stop_ids
-			)
-			= 0
-			OR stop_id IN
-			(
-				SELECT
-					stop_id
-				FROM @from_stop_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(direction_id)
-				FROM @direction_ids
-			)
-			= 0
-			OR direction_id IN
-			(
-				SELECT
-					direction_id
-				FROM @direction_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-
+			AND 
+				(
+					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
+				OR 
+					stop_id IN (SELECT stop_id FROM @from_stop_ids)
+				)
+			AND 
+				(
+					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
+				OR 
+					direction_id IN (SELECT direction_id FROM @direction_ids)
+				)
+			AND 
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR 
+					route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				route_type = 3
+			AND
+				agency_timepoint_name IS NOT NULL
 		GROUP BY
 			route_id
 			--,ct.threshold_id

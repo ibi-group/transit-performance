@@ -25,6 +25,8 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	
+	--DECLARE @service_date DATE = '2017-07-26'
+
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
 
@@ -156,6 +158,8 @@ BEGIN
 			AND t.route_id = r.route_id
 			AND 
 				r.route_type IN (0,1,2,3)
+			AND
+				r.route_id IN ('1','7','9','68','69','325','749','751')
 			AND (
 			(@day_of_the_week = 'Monday'
 			AND monday = 1)
@@ -236,6 +240,7 @@ BEGIN
 		,trip_last_stop_id			VARCHAR(255)	NOT NULL --needed for cr
 		,trip_end_time				VARCHAR(255)	NOT NULL --needed for cr
 		,stop_order_flag			INT --  needed for cr, 1 is first stop, 2 is mid stop, 3 is last stop
+		,agency_timepoint_name		VARCHAR(255) --needed for bus
 	)
 	;
 
@@ -408,6 +413,7 @@ BEGIN
 		,trip_last_stop_id
 		,trip_end_time
 		,stop_order_flag
+		,agency_timepoint_name
 	)
 
 		SELECT
@@ -433,6 +439,7 @@ BEGIN
 					sta.stop_sequence = wtt.trip_last_stop_sequence THEN 3
 				ELSE 2
 			END AS stop_order_flag
+			,agency_timepoint_name
 
 		FROM	gtfs.stop_times sta
 				,dbo.daily_trips ti
