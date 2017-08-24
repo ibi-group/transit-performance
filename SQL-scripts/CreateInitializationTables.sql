@@ -427,7 +427,6 @@ ON [dbo].[historical_wait_time_od_threshold_pax] (service_date)
 IF OBJECT_ID('dbo.historical_metrics','U') IS NOT NULL
 	DROP TABLE dbo.historical_metrics
 
--- 
 CREATE TABLE dbo.historical_metrics
 (
 	service_date		VARCHAR(255)	NOT NULL
@@ -445,6 +444,24 @@ CREATE TABLE dbo.historical_metrics
 
 CREATE NONCLUSTERED INDEX IX_historical_metrics_service_date
 ON dbo.historical_metrics (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics
+
+CREATE TABLE dbo.historical_prediction_metrics
+(
+		service_date							VARCHAR(255)	NOT NULL
+		,route_id								VARCHAR(255) NOT NULL
+		,threshold_id							VARCHAR(255) NOT NULL
+		,threshold_name							VARCHAR(255) NOT NULL
+		,threshold_type							VARCHAR(255)
+		,total_predictions_within_thresholds	INT
+		,total_in_bin							INT
+		,metric_result							FLOAT
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_service_date
+ON dbo.historical_prediction_metrics (service_date);
 
 IF OBJECT_ID('dbo.historical_schedule_adherence_disaggregate','U') IS NOT NULL
 	DROP TABLE dbo.historical_schedule_adherence_disaggregate;
@@ -776,3 +793,19 @@ CREATE TABLE dbo.config_time_slice
 	,time_slice_start_date_time	TIME
 	,time_slice_end_date_time	TIME
 );
+
+--Create Prediction Thresholds Table
+IF OBJECT_Id('dbo.config_prediction_threshold','U') IS NOT NULL
+	DROP TABLE dbo.config_prediction_threshold
+
+CREATE TABLE dbo.config_prediction_threshold
+(
+	threshold_id				VARCHAR(255)	NOT NULL
+	,threshold_name				VARCHAR(255)	NOT NULL
+	,threshold_type				VARCHAR(255)	NOT NULL
+	,route_type					INT				
+	,bin_lower					INT
+	,bin_upper					INT
+	,pred_error_threshold_lower	INT
+	,pred_error_threshold_upper	INT
+)
