@@ -728,11 +728,14 @@ IF OBJECT_ID('dbo.config_threshold','U') IS NOT NULL
 
 CREATE TABLE dbo.config_threshold
 (
-	threshold_id		VARCHAR(255)	PRIMARY KEY
-	,threshold_name		VARCHAR(255)	NOT NULL
-	,threshold_type		VARCHAR(255)	NOT NULL
-	,threshold_priority	INT				NOT NULL
-	,min_max_equal		VARCHAR(255)	NOT NULL
+	threshold_id			VARCHAR(255)	PRIMARY KEY
+	,threshold_name			VARCHAR(255)	NOT NULL
+	,threshold_type			VARCHAR(255)	NOT NULL
+	,threshold_priority		INT				NOT NULL
+	,min_max_equal			VARCHAR(255)	NOT NULL
+	,upper_lower			VARCHAR(255)	NOT NULL
+	,parent_threshold_id	VARCHAR(255)
+	,parent_child			INT				NOT NULL
 )
 
 -- Create table for headway and travel time threshold calculation   
@@ -775,4 +778,5 @@ CREATE TABLE dbo.config_time_slice
 	,time_slice_end_sec			INT
 	,time_slice_start_date_time	TIME
 	,time_slice_end_date_time	TIME
+	,time_slice_rn				INT IDENTITY
 );

@@ -44,6 +44,17 @@
 				"min_max_equal": {
 					"null": false,
 					"type": "VARCHAR(255)"
+				},
+				"upper_lower":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"parent_threshold_id":{
+					"type": "VARCHAR(255)"
+				},
+				"parent_child":{
+					"null": false,
+					"type": "INT"
 				}
 			}
 		},
@@ -189,6 +200,9 @@
 				},
 				"time_slice_end_date_time": {
 					"type": "TIME(7)"
+				},
+				"time_slice_rn":{
+					"type": "INT"
 				}
 			}
 		},
