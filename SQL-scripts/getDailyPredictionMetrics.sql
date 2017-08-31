@@ -46,7 +46,7 @@ BEGIN
 				COUNT(str_val)
 			FROM @route_ids
 			WHERE
-				str_val NOT IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E') --add Mattapan?
+				str_val NOT IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E', 'Mattapan')
 		)
 		= 0)
 		)
@@ -81,7 +81,7 @@ BEGIN
 				)
 				AND service_date >= @from_date
 				AND service_date <= @to_date
-				AND route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E')
+				AND route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E','Mattapan')
 
 
 	END --if a timespan is less than 31 days and routes are only subway/light rail, then do the processing, if not return empty set
@@ -99,11 +99,5 @@ BEGIN
 
 
 END
-
-
-
-
-
-
 
 GO

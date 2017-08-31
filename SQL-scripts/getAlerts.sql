@@ -28,8 +28,8 @@ AS
 BEGIN
     SET NOCOUNT ON; 
 
-	IF (DATEDIFF(D,@from_time,@to_time) <= 7)
-	BEGIN --if a timespan is less than 7 days, then do the processing, if not return empty set
+	IF (DATEDIFF(D,@from_time,@to_time) <= 31)
+	BEGIN --if a timespan is less than 31 days, then do the processing, if not return empty set
 
 		SELECT DISTINCT 
 			a.alert_id
@@ -54,9 +54,9 @@ BEGIN
 				AND
 					(e.stop_id = @stop_id OR @stop_id IS NULL)
 				AND
-					p.active_period_start >= dbo.fnConvertDateTimeToEpoch(@from_time)
+					p.active_period_start <= dbo.fnConvertDateTimeToEpoch(@to_time)
 				AND
-					p.active_period_end <= dbo.fnConvertDateTimeToEpoch(@to_time)
+					p.active_period_end >= dbo.fnConvertDateTimeToEpoch(@from_time)
 
 		ORDER BY a.alert_id
 	END

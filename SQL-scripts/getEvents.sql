@@ -69,7 +69,7 @@ BEGIN
 				AND
 					(direction_id = @direction_id OR @direction_id IS NULL) 
 				AND
-					e.stop_id = @stop_id
+					(e.stop_id = @stop_id OR @stop_id IS NULL)
 				AND
 					event_time >= dbo.fnConvertDateTimeToEpoch(@from_time)
 				AND
