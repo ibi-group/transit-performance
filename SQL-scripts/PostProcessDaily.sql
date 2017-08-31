@@ -2640,20 +2640,14 @@ BEGIN
 					mt.threshold_id = th.threshold_id
 				AND
 					mt.route_type = sad.route_type
-		--CROSS JOIN dbo.config_threshold th
-
-		--JOIN dbo.config_threshold_calculation thc
-		--	ON
-		--		th.threshold_id = thc.threshold_id
-
-		--JOIN dbo.config_mode_threshold mt
-		--	ON
-		--		mt.threshold_id = th.threshold_id
-		--		AND mt.threshold_id = thc.threshold_id
 		WHERE
 				sad.route_type = 2 --commuter rail only
 			AND
 				th.threshold_type = 'wait_time_schedule_based'
+
+
+	--save disaggregate headway aherence
+
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
@@ -2699,6 +2693,10 @@ BEGIN
 		,('Green-B'),('Green-C'),('Green-D'),('Green-E')
 		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
 		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('749'),('69'),('68'),('325'),('9'),('1'),('7'),('751')
+
+	DECLARE @use_timepoints_only BIT
+
+	SET @use_timepoints_only = 1 --TRUE = 1, FALSE = 0
 
 
 	INSERT INTO dbo.daily_metrics
@@ -2931,7 +2929,11 @@ BEGIN
 			AND
 				route_type = 3
 			AND
-				agency_timepoint_name IS NOT NULL
+				(
+					(@use_timepoints_only = 1 AND agency_timepoint_name IS NOT NULL)
+				OR
+					@use_timepoints_only = 0 
+				)
 		GROUP BY
 			route_id
 			--,ct.threshold_id
