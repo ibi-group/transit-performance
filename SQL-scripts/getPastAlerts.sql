@@ -5,8 +5,8 @@
 
 --This stored procedure is called by the Alerts API call.  It selects alerts for a particular route, direction, stop and time period.
 
-IF OBJECT_ID('dbo.getAlerts','P') IS NOT NULL
-	DROP PROCEDURE dbo.getAlerts
+IF OBJECT_ID('dbo.getPastAlerts','P') IS NOT NULL
+	DROP PROCEDURE dbo.getPastAlerts
 GO
 
 SET ANSI_NULLS ON
@@ -16,7 +16,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
-CREATE PROCEDURE dbo.getAlerts
+CREATE PROCEDURE dbo.getPastAlerts
 	
 	@route_id		VARCHAR(255)
 	,@stop_id		VARCHAR(255)
