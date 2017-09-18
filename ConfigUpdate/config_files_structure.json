@@ -217,6 +217,18 @@
 				}
 
 			}
+		},
+		"config_stop_order_flag_threshold":{
+			"columns":{
+				"stop_order_flag":{
+					"type": "INT"
+				},
+				"threshold_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				}
+
+			}
 		}
 	}
 }

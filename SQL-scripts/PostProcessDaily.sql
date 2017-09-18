@@ -5,29 +5,29 @@
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
-IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
-	DROP PROCEDURE dbo.PostProcessDaily
+--IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
+--	DROP PROCEDURE dbo.PostProcessDaily
 
-GO
+--GO
 
-SET ANSI_NULLS ON
-GO
+--SET ANSI_NULLS ON
+--GO
 
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-CREATE PROCEDURE dbo.PostProcessDaily 
-
-	@service_date DATE
-
-AS
+--SET QUOTED_IDENTIFIER ON
+--GO
 
 
-BEGIN
-	SET NOCOUNT ON;
+--CREATE PROCEDURE dbo.PostProcessDaily 
 
-	--DECLARE @service_date DATE = '2017-07-26'
+--	@service_date DATE
+
+--AS
+
+
+--BEGIN
+--	SET NOCOUNT ON;
+
+	DECLARE @service_date DATE = '2017-07-26'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -2484,7 +2484,7 @@ BEGIN
 		JOIN dbo.service_date sd
 			ON
 					sad.service_date = sd.service_date
-		JOIN
+		CROSS JOIN
 			(
 				SELECT
 					ct.threshold_id
@@ -2515,13 +2515,11 @@ BEGIN
 						ct.parent_child <> 2
 					
 		) th
+		JOIN config_stop_order_flag_threshold sth
 			ON
-					stop_order_flag =
-						CASE 
-							WHEN th.threshold_id = 'threshold_id_14' THEN 1
-							WHEN th.threshold_id = 'threshold_id_17' THEN 2
-							WHEN th.threshold_id = 'threshold_id_20' THEN 3
-						END
+					sad.stop_order_flag = sth.stop_order_flag
+				AND
+					th.threshold_id = sth.threshold_id
 	
 		LEFT JOIN config_threshold_calculation thc1
 			ON
@@ -2646,7 +2644,81 @@ BEGIN
 				th.threshold_type = 'wait_time_schedule_based'
 
 
-	--save disaggregate headway aherence
+	--Create table for headway adherence weighted by passengers and trips ----
+	IF OBJECT_ID('dbo.daily_headway_adherence_threshold_pax','U') IS NOT NULL
+		DROP TABLE dbo.daily_headway_adherence_threshold_pax
+
+	CREATE TABLE dbo.daily_headway_adherence_threshold_pax
+	(
+		service_date								VARCHAR(255)	NOT NULL
+		,route_id									VARCHAR(255)	NOT NULL
+		,route_type									INT				NOT NULL
+		,direction_id								INT				NOT NULL
+		,trip_id									VARCHAR(255)	NOT NULL
+		,stop_sequence								INT				NOT NULL
+		,stop_id									VARCHAR(255)	NOT NULL
+		,vehicle_id									VARCHAR(255)
+		,scheduled_headway_sec						INT				NOT NULL
+		,actual_headway_sec							INT				NOT NULL
+		,threshold_id								VARCHAR(255)	NOT NULL
+		,threshold_historical_median_headway_sec	INT				NULL
+		,threshold_scheduled_median_headway_sec		INT				NOT NULL
+		,threshold_historical_average_headway_sec	INT				NULL
+		,threshold_scheduled_average_headway_sec	INT				NOT NULL
+		,denominator_pax							FLOAT			NULL
+		,historical_threshold_numerator_pax			FLOAT			NULL
+		,scheduled_threshold_numerator_pax			FLOAT			NULL
+	)
+
+	CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_stop_id ON daily_headway_adherence_threshold_pax (stop_id);
+
+	CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_route_id ON daily_headway_adherence_threshold_pax (route_id);
+
+	CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_direction_id ON daily_headway_adherence_threshold_pax (direction_id);
+
+
+
+	SELECT
+			bd.service_date AS service_date
+			,bd.bd_stop_id AS stop_id
+			,bd.bd_direction_id AS direction_id
+			,bd.b_route_id AS prev_route_id
+			,bd.d_route_id AS route_id
+			,bd.b_time_sec AS start_time_sec
+			,bd.d_time_sec AS end_time_sec
+			,bd.d_time_sec - bd.b_time_sec AS headway_time_sec
+			,wtt.threshold_id AS threshold_id
+			,wtt.threshold_scheduled_median_headway_time_sec AS threshold_scheduled_median_headway_time_sec
+			,wtt.threshold_scheduled_average_headway_time_sec AS threshold_scheduled_average_headway_time_sec
+			,1 AS denominator_trip
+			,CASE
+				WHEN ((bd.d_time_sec - bd.b_time_sec) > threshold_scheduled_average_headway_time_sec) THEN 1
+				ELSE 0
+			END AS scheduled_threshold_numerator_trip
+		FROM ##daily_bd_sr_all_time bd
+
+		JOIN dbo.config_time_slice ts
+			ON
+				(
+				bd.d_time_sec >= ts.time_slice_start_sec
+				AND bd.d_time_sec < ts.time_slice_end_sec
+				)
+
+		JOIN dbo.service_date sd
+			ON
+				(
+				bd.service_date = sd.service_date
+				)
+
+		JOIN dbo.daily_headway_time_threshold wtt
+			ON
+				(
+				bd.service_date = wtt.service_date
+				AND bd.bd_direction_id = wtt.direction_id
+				AND bd.bd_stop_id = wtt.stop_id
+				AND ts.time_slice_id = wtt.time_slice_id
+				AND (wtt.route_type = 1) --subway numbers only
+
 
 
 	--save daily metrics for each route	

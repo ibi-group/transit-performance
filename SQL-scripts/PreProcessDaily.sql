@@ -4,28 +4,28 @@
 
 --This procedure sets up the daily tables. These tables store the performance information for the day being processed after the day has happened.
 
-IF OBJECT_ID('PreProcessDaily','P') IS NOT NULL
-	DROP PROCEDURE dbo.PreProcessDaily
-GO
+--IF OBJECT_ID('PreProcessDaily','P') IS NOT NULL
+--	DROP PROCEDURE dbo.PreProcessDaily
+--GO
 
-SET ANSI_NULLS ON
-GO
+--SET ANSI_NULLS ON
+--GO
 
-SET QUOTED_IDENTIFIER ON
-GO
-
-
-CREATE PROCEDURE dbo.PreProcessDaily 
-
-	@service_date DATE
-
-AS
+--SET QUOTED_IDENTIFIER ON
+--GO
 
 
-BEGIN
-	SET NOCOUNT ON;
+--CREATE PROCEDURE dbo.PreProcessDaily 
+
+--	@service_date DATE
+
+--AS
+
+
+--BEGIN
+--	SET NOCOUNT ON;
 	
-	--DECLARE @service_date DATE = '2017-07-26'
+	DECLARE @service_date DATE = '2017-07-26'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -1266,6 +1266,7 @@ BEGIN
 			next_time_slice_rn - current_time_slice_rn > 1
 
 	--Create table to store wait time threshold for daily
+	--wait time od threshold uses benchmark headway for trains serving an o-d pair
 
 	IF OBJECT_ID('dbo.daily_wait_time_od_threshold','U') IS NOT NULL
 		DROP TABLE dbo.daily_wait_time_od_threshold
@@ -1940,6 +1941,96 @@ BEGIN
 			next_time_slice_rn - current_time_slice_rn > 1
 
 
+	--Create table to store wait time threshold for daily
+
+	IF OBJECT_ID('dbo.daily_headway_time_sr_same_threshold','U') IS NOT NULL
+		DROP TABLE dbo.daily_headway_time_sr_same_threshold
+
+	CREATE TABLE dbo.daily_headway_time_sr_same_threshold
+	(
+		service_date								VARCHAR(255)	NOT NULL
+		,stop_id									VARCHAR(255)	NOT NULL
+		,route_type									INT				NOT NULL
+		,route_id									VARCHAR(255)	NOT NULL
+		,direction_id								INT				NOT NULL
+		,time_slice_id								VARCHAR(255)	NOT NULL
+		,threshold_id								VARCHAR(255)	NOT NULL
+		,threshold_historical_median_wait_time_sec	INT				NULL
+		,threshold_scheduled_median_wait_time_sec	INT				NULL
+		,threshold_historical_average_wait_time_sec	INT				NULL
+		,threshold_scheduled_average_wait_time_sec	INT				NULL
+	)
+	INSERT INTO dbo.daily_headway_time_sr_same_threshold
+	(
+		service_date
+		,stop_id
+		,route_type
+		,route_id
+		,direction_id
+		,time_slice_id
+		,threshold_id
+		,threshold_historical_median_wait_time_sec
+		,threshold_scheduled_median_wait_time_sec
+		,threshold_historical_average_wait_time_sec
+		,threshold_scheduled_average_wait_time_sec
+	)
+
+		SELECT
+			aht.service_date
+			,aht.stop_id
+			,aht.route_type
+			,aht.route_id
+			,aht.direction_id
+			,aht.time_slice_id
+			,th.threshold_id
+			,CASE
+				WHEN th.min_max_equal = 'min' THEN MIN(aht.historical_median_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'max' THEN MAX(aht.historical_median_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'equal' THEN AVG(aht.historical_median_headway_sec * thc.multiply_by + thc.add_to)
+				ELSE 0
+			END AS threshold_historical_median_wait_time_sec
+			,CASE
+				WHEN th.min_max_equal = 'min' THEN MIN(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'max' THEN MAX(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'equal' THEN AVG(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
+				ELSE 0
+			END AS threshold_scheduled_median_wait_time_sec
+			,CASE
+				WHEN th.min_max_equal = 'min' THEN MIN(aht.historical_average_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'max' THEN MAX(aht.historical_average_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'equal' THEN AVG(aht.historical_average_headway_sec * thc.multiply_by + thc.add_to)
+				ELSE 0
+			END AS threshold_historical_average_wait_time_sec
+			,CASE
+				WHEN th.min_max_equal = 'min' THEN MIN(aht.scheduled_average_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'max' THEN MAX(aht.scheduled_average_headway_sec * thc.multiply_by + thc.add_to)
+				WHEN th.min_max_equal = 'equal' THEN AVG(aht.scheduled_average_headway_sec * thc.multiply_by + thc.add_to)
+				ELSE 0
+			END AS threshold_scheduled_average_wait_time_sec
+
+		FROM	dbo.daily_headway_time_sr_same_benchmark aht
+				,dbo.config_threshold th
+				,dbo.config_threshold_calculation thc
+				,dbo.config_mode_threshold mt
+
+		WHERE
+			th.threshold_id = thc.threshold_id
+			AND mt.threshold_id = th.threshold_id
+			AND mt.threshold_id = thc.threshold_id
+			AND th.threshold_type = 'wait_time_headway_based'
+			AND aht.route_type = mt.route_type
+
+		GROUP BY
+			aht.service_date
+			,aht.stop_id
+			,aht.route_type
+			,aht.route_id
+			,aht.direction_id
+			,aht.time_slice_id
+			,th.threshold_id
+			,th.min_max_equal
+
+
 	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
 		DROP TABLE #daily_abcde_time_scheduled
 
@@ -1952,6 +2043,6 @@ BEGIN
 	IF OBJECT_ID('tempdb..#webs_trip_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_time_temp
 
-END;
+--END;
 
 GO

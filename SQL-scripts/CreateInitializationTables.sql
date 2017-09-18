@@ -780,3 +780,13 @@ CREATE TABLE dbo.config_time_slice
 	,time_slice_end_date_time	TIME
 	,time_slice_rn				INT IDENTITY
 );
+
+-- Create Config Stop Order Flag Threshold Table 
+IF OBJECT_ID('dbo.config_stop_order_flag_threshold','U') IS NOT NULL
+	DROP TABLE dbo.config_stop_order_flag_threshold
+
+CREATE TABLE dbo.config_stop_order_flag_threshold
+(
+	stop_order_flag		INT
+	,threshold_id	VARCHAR(255)	NOT NULL
+);
