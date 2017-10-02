@@ -20,6 +20,7 @@ CREATE PROCEDURE dbo.getPastAlerts
 	
 	@route_id		VARCHAR(255)
 	,@stop_id		VARCHAR(255)
+	,@trip_id		VARCHAR(255)
 	,@from_time		DATETIME
 	,@to_time		DATETIME
 	
@@ -50,9 +51,11 @@ BEGIN
 				a.version_id = e.version_id
 
 		WHERE
-					(route_id = @route_id OR @route_id IS NULL)
+					(e.route_id = @route_id OR @route_id IS NULL)
 				AND
 					(e.stop_id = @stop_id OR @stop_id IS NULL)
+				AND
+					(e.trip_id = @trip_id OR @trip_id IS NULL)
 				AND
 					p.active_period_start <= dbo.fnConvertDateTimeToEpoch(@to_time)
 				AND
