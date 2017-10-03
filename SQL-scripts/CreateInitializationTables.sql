@@ -450,7 +450,7 @@ IF OBJECT_ID('dbo.historical_prediction_metrics','U') IS NOT NULL
 
 CREATE TABLE dbo.historical_prediction_metrics
 (
-		service_date							VARCHAR(255)	NOT NULL
+		service_date							VARCHAR(255) NOT NULL
 		,route_id								VARCHAR(255) NOT NULL
 		,threshold_id							VARCHAR(255) NOT NULL
 		,threshold_name							VARCHAR(255) NOT NULL
@@ -462,6 +462,27 @@ CREATE TABLE dbo.historical_prediction_metrics
 
 CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_service_date
 ON dbo.historical_prediction_metrics (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics_disaggregate','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_disaggregate
+
+CREATE TABLE dbo.historical_prediction_metrics_disaggregate
+(
+		service_date							VARCHAR(255) NOT NULL
+		,route_id								VARCHAR(255) NOT NULL
+		,direction_id							INT NOT NULL
+		,stop_id								VARCHAR(255) NOT NULL
+		,time_slice_id							VARCHAR(255) NOT NULL
+		,threshold_id							VARCHAR(255) NOT NULL
+		,threshold_name							VARCHAR(255) NOT NULL
+		,threshold_type							VARCHAR(255)
+		,total_predictions_within_thresholds	INT
+		,total_in_bin							INT
+		,metric_result							FLOAT
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_disaggregate_service_date
+ON dbo.historical_prediction_metrics_disaggregate (service_date);
 
 IF OBJECT_ID('dbo.historical_schedule_adherence_disaggregate','U') IS NOT NULL
 	DROP TABLE dbo.historical_schedule_adherence_disaggregate;

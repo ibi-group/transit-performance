@@ -31,15 +31,15 @@ BEGIN
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date 
 
-	DECLARE @day_type_process VARCHAR(255) =
-		(
-		  		SELECT 
-					cdt.day_type
-				FROM dbo.config_day_type_dow cdtd
-				JOIN dbo.config_day_type cdt
-					ON cdtd.day_type_id = cdt.day_type_id
-				WHERE cdtd.day_of_the_week = DATENAME(dw, @service_date_process)
-		)
+	--DECLARE @day_type_process VARCHAR(255) =
+	--	(
+	--	  		SELECT 
+	--				cdt.day_type
+	--			FROM dbo.config_day_type_dow cdtd
+	--			JOIN dbo.config_day_type cdt
+	--				ON cdtd.day_type_id = cdt.day_type_id
+	--			WHERE cdtd.day_of_the_week = DATENAME(dw, @service_date_process)
+	--	)
 
 	--store daily predictions from the trip_update_denormalized table
 	IF OBJECT_ID('dbo.daily_prediction', 'U') IS NOT NULL
@@ -336,7 +336,8 @@ BEGIN
 		,stop_order_flag			INT --1 for origin, 2 for mid, 3 for destination stop
 		,predicted_time				INT
 		,actual_time				INT
-		,time_period_id				VARCHAR(255)
+		--,time_period_id				VARCHAR(255)
+		,time_slice_id				VARCHAR(255)
 		,seconds_away				INT
 		,prediction_error			INT
 		,threshold_id				VARCHAR(255)
@@ -361,7 +362,8 @@ BEGIN
 		,stop_order_flag			
 		,predicted_time				
 		,actual_time				
-		,time_period_id			
+		--,time_period_id
+		,time_slice_id			
 		,seconds_away				
 		,prediction_error			
 		,threshold_id			
@@ -385,7 +387,8 @@ BEGIN
 		,t.stop_order_flag
 		,t.predicted_time
 		,t.actual_time
-		,b.time_period_id
+		--,b.time_period_id
+		,b.time_slice_id
 		,t.seconds_away
 		,t.prediction_error
 		,a.threshold_id
@@ -446,13 +449,18 @@ BEGIN
 			a.route_type = t.route_type
 		AND
 			t.actual_time IS NOT NULL
-	JOIN dbo.config_time_period b
+	--JOIN dbo.config_time_period b
+	--ON
+	--		@day_type_process = b.day_type
+	--	AND
+	--		t.predicted_time_sec >= b.time_period_start_time_sec   --use predicted time to place in time slice?
+	--	AND
+	--		t.predicted_time_sec < b.time_period_end_time_sec
+	JOIN dbo.config_time_slice b
 	ON
-			@day_type_process = b.day_type
+			t.predicted_time_sec >= b.time_slice_start_sec
 		AND
-			t.predicted_time_sec >= b.time_period_start_time_sec   --use predicted time to place in time slice?
-		AND
-			t.predicted_time_sec < b.time_period_end_time_sec
+			t.predicted_time_sec < b.time_slice_end_sec
 
 	IF OBJECT_ID('dbo.daily_prediction_metrics', 'U') IS NOT NULL
 	  DROP TABLE dbo.daily_prediction_metrics
@@ -507,6 +515,72 @@ BEGIN
 		,cpt.threshold_name
 		,cpt.threshold_type
 
+	IF OBJECT_ID('dbo.daily_prediction_metrics_disaggregate', 'U') IS NOT NULL
+	  DROP TABLE dbo.daily_prediction_metrics_disaggregate
+	;
+
+	--calculate prediction quality
+	CREATE TABLE dbo.daily_prediction_metrics_disaggregate(
+		route_id								VARCHAR(255) NOT NULL
+		,direction_id							INT	NOT NULL
+		,stop_id								VARCHAR(255) NOT NULL
+		,time_slice_id							VARCHAR(255) NOT NULL
+		,threshold_id							VARCHAR(255) NOT NULL
+		,threshold_name							VARCHAR(255) NOT NULL
+		,threshold_type							VARCHAR(255)
+		,total_predictions_within_thresholds	INT
+		,total_in_bin							INT
+		,metric_result							FLOAT
+	)
+	;
+
+	INSERT INTO dbo.daily_prediction_metrics_disaggregate(
+		route_id								
+		,direction_id							
+		,stop_id								
+		,time_slice_id							
+		,threshold_id							
+		,threshold_name							
+		,threshold_type							
+		,total_predictions_within_thresholds	
+		,total_in_bin							
+		,metric_result							
+	)
+
+	SELECT
+		route_id
+		,direction_id
+		,stop_id
+		,time_slice_id
+		,cpt.threshold_id
+		,cpt.threshold_name
+		,cpt.threshold_type
+		,SUM(prediction_within_threshold) AS total_predictions_within_thresholds
+		,SUM(prediction_in_bin) AS total_in_bin
+		,SUM(prediction_within_threshold)/(SUM(prediction_in_bin)*1.0) AS metric_result
+	FROM
+		dbo.daily_prediction_threshold dpt
+	JOIN dbo.config_prediction_threshold cpt
+		ON 
+				dpt.threshold_id = cpt.threshold_id
+			AND
+				dpt.route_type = cpt.route_type
+	GROUP BY 
+		route_id
+		,direction_id
+		,stop_id
+		,time_slice_id
+		,cpt.threshold_id
+		,cpt.threshold_name
+		,cpt.threshold_type
+	ORDER BY 
+		route_id
+		,direction_id
+		,stop_id
+		,time_slice_id
+		,cpt.threshold_id
+		,cpt.threshold_name
+		,cpt.threshold_type
 
 	--write to historical table
 	IF 
@@ -545,6 +619,35 @@ BEGIN
 			,metric_result
 	
 	FROM dbo.daily_prediction_metrics 
+
+	IF 
+	(
+		SELECT
+			COUNT(*)
+		FROM dbo.historical_prediction_metrics_disaggregate
+		WHERE
+			service_date = @service_date_process 
+	) > 0
+
+	DELETE FROM dbo.historical_prediction_metrics_disaggregate
+	WHERE
+		service_date = @service_date_process
+
+	INSERT INTO dbo.historical_prediction_metrics_disaggregate
+	SELECT
+		@service_date_process
+		,route_id
+		,direction_id
+		,stop_id
+		,time_slice_id
+		,threshold_id
+		,threshold_name
+		,threshold_type
+		,total_predictions_within_thresholds
+		,total_in_bin
+		,metric_result
+	FROM daily_prediction_metrics_disaggregate
+
 
 END
 
