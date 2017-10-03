@@ -455,8 +455,8 @@ CREATE TABLE dbo.historical_prediction_metrics
 		,threshold_id							VARCHAR(255) NOT NULL
 		,threshold_name							VARCHAR(255) NOT NULL
 		,threshold_type							VARCHAR(255)
-		,total_predictions_within_thresholds	INT
-		,total_in_bin							INT
+		,total_predictions_within_threshold		INT
+		,total_predictions_in_bin				INT
 		,metric_result							FLOAT
 )
 
@@ -476,8 +476,8 @@ CREATE TABLE dbo.historical_prediction_metrics_disaggregate
 		,threshold_id							VARCHAR(255) NOT NULL
 		,threshold_name							VARCHAR(255) NOT NULL
 		,threshold_type							VARCHAR(255)
-		,total_predictions_within_thresholds	INT
-		,total_in_bin							INT
+		,total_predictions_within_threshold		INT
+		,total_predictions_in_bin				INT
 		,metric_result							FLOAT
 )
 

@@ -472,8 +472,8 @@ BEGIN
 		,threshold_id							VARCHAR(255) NOT NULL
 		,threshold_name							VARCHAR(255) NOT NULL
 		,threshold_type							VARCHAR(255)
-		,total_predictions_within_thresholds	INT
-		,total_in_bin							INT
+		,total_predictions_within_threshold		INT
+		,total_predictions_in_bin				INT
 		,metric_result							FLOAT
 	)
 	;
@@ -483,8 +483,8 @@ BEGIN
 		,threshold_id
 		,threshold_name
 		,threshold_type
-		,total_predictions_within_thresholds
-		,total_in_bin
+		,total_predictions_within_threshold
+		,total_predictions_in_bin
 		,metric_result
 	)
 
@@ -494,8 +494,8 @@ BEGIN
 		,cpt.threshold_id
 		,cpt.threshold_name
 		,cpt.threshold_type
-		,SUM(prediction_within_threshold) AS total_predictions_within_thresholds
-		,SUM(prediction_in_bin) AS total_in_bin
+		,SUM(prediction_within_threshold) AS total_predictions_within_threshold
+		,SUM(prediction_in_bin) AS total_predictions_in_bin
 		,SUM(prediction_within_threshold)/(SUM(prediction_in_bin)*1.0) AS metric_result
 	FROM
 		dbo.daily_prediction_threshold dpt
@@ -528,8 +528,8 @@ BEGIN
 		,threshold_id							VARCHAR(255) NOT NULL
 		,threshold_name							VARCHAR(255) NOT NULL
 		,threshold_type							VARCHAR(255)
-		,total_predictions_within_thresholds	INT
-		,total_in_bin							INT
+		,total_predictions_within_threshold		INT
+		,total_predictions_in_bin				INT
 		,metric_result							FLOAT
 	)
 	;
@@ -542,8 +542,8 @@ BEGIN
 		,threshold_id							
 		,threshold_name							
 		,threshold_type							
-		,total_predictions_within_thresholds	
-		,total_in_bin							
+		,total_predictions_within_threshold	
+		,total_predictions_in_bin							
 		,metric_result							
 	)
 
@@ -555,7 +555,7 @@ BEGIN
 		,cpt.threshold_id
 		,cpt.threshold_name
 		,cpt.threshold_type
-		,SUM(prediction_within_threshold) AS total_predictions_within_thresholds
+		,SUM(prediction_within_threshold) AS total_predictions_within_threshold
 		,SUM(prediction_in_bin) AS total_in_bin
 		,SUM(prediction_within_threshold)/(SUM(prediction_in_bin)*1.0) AS metric_result
 	FROM
@@ -603,8 +603,8 @@ BEGIN
 			,threshold_id							
 			,threshold_name							
 			,threshold_type							
-			,total_predictions_within_thresholds	
-			,total_in_bin							
+			,total_predictions_within_threshold	
+			,total_predictions_in_bin							
 			,metric_result							
 		)
 
@@ -614,8 +614,8 @@ BEGIN
 			,threshold_id
 			,threshold_name
 			,threshold_type
-			,total_predictions_within_thresholds
-			,total_in_bin
+			,total_predictions_within_threshold
+			,total_predictions_in_bin
 			,metric_result
 	
 	FROM dbo.daily_prediction_metrics 
@@ -643,8 +643,8 @@ BEGIN
 		,threshold_id
 		,threshold_name
 		,threshold_type
-		,total_predictions_within_thresholds
-		,total_in_bin
+		,total_predictions_within_threshold
+		,total_predictions_in_bin
 		,metric_result
 	FROM daily_prediction_metrics_disaggregate
 
