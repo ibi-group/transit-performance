@@ -177,6 +177,10 @@
 					"create": false,
 					"required": false,
 					"type": "BIT"
+				},
+				"checkpoint_id":{
+					"required": false,
+					"type": "VARCHAR(255)"
 				}
             }
         },
@@ -458,6 +462,19 @@
                 }
             },
             "required": false
-        }
+        },
+		"checkpoints": {
+			"columns": {
+				"checkpoint_id":{
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"checkpoint_name":{
+					"required": false,
+					"type": "VARCHAR(255)"
+				}
+			},
+			"required": false
+		}
     }
 }

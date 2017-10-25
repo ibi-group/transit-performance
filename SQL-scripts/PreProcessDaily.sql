@@ -549,10 +549,10 @@
 	INCLUDE (service_date,route_id,trip_id,from_stop_sequence,from_arrival_time_sec,from_departure_time_sec,to_stop_sequence,to_arrival_time_sec);
 
 	--Create daily_abcde_time table. This table stores the  scheduled joined events (abcde_time) for the day being processed
-	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
-		DROP TABLE #daily_abcde_time_scheduled
+	IF OBJECT_ID('daily_abcde_time_scheduled','U') IS NOT NULL
+		DROP TABLE daily_abcde_time_scheduled
 
-	CREATE TABLE #daily_abcde_time_scheduled
+	CREATE TABLE daily_abcde_time_scheduled
 	(
 		service_date		VARCHAR(255)	NOT NULL
 		,abcd_stop_id		VARCHAR(255)	NOT NULL
@@ -573,7 +573,7 @@
 		,e_time_sec			INT				NOT NULL
 	)
 
-	INSERT INTO #daily_abcde_time_scheduled
+	INSERT INTO daily_abcde_time_scheduled
 	(
 		service_date
 		,abcd_stop_id
@@ -666,24 +666,24 @@
 		WHERE
 			t.rn = 1
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_ab_route_id ON #daily_abcde_time_scheduled (ab_route_id);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_ab_route_id ON daily_abcde_time_scheduled (ab_route_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_cde_route_id ON #daily_abcde_time_scheduled (cde_route_id);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_cde_route_id ON daily_abcde_time_scheduled (cde_route_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abcde_route_type ON #daily_abcde_time_scheduled (abcde_route_type);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abcde_route_type ON daily_abcde_time_scheduled (abcde_route_type);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_service_date ON #daily_abcde_time_scheduled (service_date);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_service_date ON daily_abcde_time_scheduled (service_date);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abc_stop_id ON #daily_abcde_time_scheduled (abcd_stop_id);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abc_stop_id ON daily_abcde_time_scheduled (abcd_stop_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_d_stop_id ON #daily_abcde_time_scheduled (e_stop_id);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_d_stop_id ON daily_abcde_time_scheduled (e_stop_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abcde_direction_id ON #daily_abcde_time_scheduled (abcde_direction_id);
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abcde_direction_id ON daily_abcde_time_scheduled (abcde_direction_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_b_d_time_sec ON #daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,b_time_sec)
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_b_d_time_sec ON daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,b_time_sec)
 	INCLUDE (d_time_sec)
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_d_e_time_sec ON #daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,d_time_sec)
+	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_d_e_time_sec ON daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,d_time_sec)
 	INCLUDE (e_time_sec)
 
 	-- TRAVEL TIME
@@ -1153,7 +1153,7 @@
 					,time_slice_id
 					) AS median_headway_time_sec
 
-				FROM	#daily_abcde_time_scheduled att
+				FROM	daily_abcde_time_scheduled att
 						,dbo.config_time_slice
 				WHERE
 					d_time_sec < time_slice_end_sec
@@ -2031,8 +2031,8 @@
 			,th.min_max_equal
 
 
-	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
-		DROP TABLE #daily_abcde_time_scheduled
+	--IF OBJECT_ID('tempdb..daily_abcde_time_scheduled','U') IS NOT NULL
+	--	DROP TABLE daily_abcde_time_scheduled
 
 	IF OBJECT_ID('tempdb..#webs_trip_start_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_start_time_temp

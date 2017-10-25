@@ -2657,6 +2657,7 @@
 		,agency_timepoint_name							VARCHAR(255)
 		,direction_id									INT				NOT NULL
 		,route_id										VARCHAR(255)	NOT NULL
+		,trip_id										VARCHAR(255)	NOT NULL
 		,start_time_sec									INT				NOT NULL
 		,end_time_sec									INT				NOT NULL
 		,headway_time_sec								INT				NOT NULL
@@ -2681,6 +2682,7 @@
 		,agency_timepoint_name
 		,direction_id
 		,route_id
+		,trip_id
 		,start_time_sec
 		,end_time_sec
 		,headway_time_sec
@@ -2698,6 +2700,7 @@
 			,st.agency_timepoint_name
 			,bd.bd_direction_id AS direction_id
 			,bd.bd_route_id AS route_id
+			,bd.b_trip_id AS trip_id
 			,bd.b_time_sec AS start_time_sec
 			,bd.d_time_sec AS end_time_sec
 			,bd.d_time_sec - bd.b_time_sec AS headway_time_sec
@@ -2741,11 +2744,6 @@
 				AND bd.b_trip_id = st.trip_id
 				AND bd.bd_stop_id = st.stop_id
 				)
-
-				SELECT * FROM daily_headway_adherence_threshold_pax
-				WHERE stop_order_flag <> 3
-
-
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
@@ -2990,23 +2988,76 @@
 				,ct.threshold_type
 				,ct.threshold_id
 		UNION
+
+		*/
 		
 		SELECT
-			route_id
+			cap.route_id
 			,'threshold_id_14' + ', '+ 'threshold_id_17' + ', ' + 'threshold_id_20' as threshold_id --need to change this
 			,'reliability_scheduled' --need to change this
 			,ct.threshold_type
 			,1 - SUM(scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result--SUM(denominator_pax) AS metric_result
 			,NULL
 			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax
+			,COUNT(*) 
 			,SUM(denominator_pax) AS denominator_pax
 			,NULL
 			,NULL
 		FROM	dbo.daily_schedule_adherence_threshold_pax cap
-				,dbo.config_threshold ct
-		WHERE
+		JOIN dbo.config_threshold ct
+		ON
 			ct.threshold_id = cap.threshold_id
-			AND 
+		JOIN
+		(
+			SELECT DISTINCT
+				service_date
+				,ab_route_id
+				,cde_route_id
+				,ab_trip_id
+				,cde_trip_id
+				,abcd_stop_id
+				,ab_stop_sequence
+				,cd_stop_sequence
+				,d_time_sec - b_time_sec as scheduled_bd_time_sec
+			FROM mbta_performance.dbo.daily_abcde_time_scheduled
+			WHERE
+				ab_route_id = cde_route_id
+			--AND
+			--	abcde_route_type = 3
+		) abcde
+		ON
+				cap.service_date = abcde.service_date
+			AND
+				cap.trip_id = abcde.ab_trip_id
+			AND
+				cap.stop_id = abcde.abcd_stop_id
+			AND
+				cap.stop_sequence = abcde.ab_stop_sequence
+		JOIN
+		(	
+			SELECT
+				service_date
+				,route_id
+				,trip_id
+				,trip_start_time
+				,ROW_NUMBER () OVER (PARTITION BY route_id ORDER BY trip_start_time) AS trip_order
+			FROM
+			(
+			SELECT DISTINCT
+				service_date
+				,route_id
+				,trip_id
+				,trip_start_time
+			  FROM [mbta_performance].[dbo].[daily_stop_times_sec]
+			 -- WHERE 
+				--route_type = 3
+			) temp
+		)  t
+		ON
+				cap.service_date = t.service_date
+			AND
+				cap.trip_id = t.trip_id
+		WHERE 
 				(
 					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
 				OR 
@@ -3018,12 +3069,12 @@
 				OR 
 					direction_id IN (SELECT direction_id FROM @direction_ids)
 				)
-			AND 
-				(
-					(SELECT COUNT(route_id) FROM @route_ids) = 0
-				OR 
-					route_id IN (SELECT route_id FROM @route_ids)
-				)
+			--AND 
+			--	(
+			--		(SELECT COUNT(route_id) FROM @route_ids) = 0
+			--	OR 
+			--		route_id IN (SELECT route_id FROM @route_ids)
+			--	)
 			AND
 				route_type = 3
 			AND
@@ -3032,11 +3083,17 @@
 				OR
 					@use_timepoints_only = 0 
 				)
+			AND
+				(scheduled_bd_time_sec > 15*60 OR trip_order = 1)
+			AND
+				cap.route_id NOT IN ('1','15','22','23','28','32','39','57','66','71','73','77','111','116','117')
 		GROUP BY
-			route_id
+			cap.route_id
 			--,ct.threshold_id
 			--,ct.threshold_name
 			,ct.threshold_type
+
+			/*
 		UNION
 
 		SELECT
@@ -3106,11 +3163,10 @@
 		--end of adding in trip metrics
 
 		UNION
-
 		*/
 
 		SELECT
-			route_id
+			cap.route_id
 			,'threshold_id_21' + ', '+ 'threshold_id_22'  as threshold_id --need to change this
 			,'reliability_frequent' --need to change this
 			--,ct.threshold_type
@@ -3129,6 +3185,7 @@
 					,st.agency_timepoint_name
 					,dtt.direction_id
 					,dtt.route_id
+					,dtt.trip_id
 					,dtt.start_time_sec
 					,dtt.end_time_sec
 					,dtt.travel_time_sec
@@ -3155,10 +3212,60 @@
 			SELECT *
 			FROM dbo.daily_headway_adherence_threshold_pax
 			) cap
-				,dbo.config_threshold ct
-		WHERE
+		JOIN dbo.config_threshold ct
+		ON
 			ct.threshold_id = cap.threshold_id
-			AND 
+		JOIN
+		(
+			SELECT DISTINCT
+				service_date
+				,ab_route_id
+				,cde_route_id
+				,ab_trip_id
+				,cde_trip_id
+				,abcd_stop_id
+				,ab_stop_sequence
+				,cd_stop_sequence
+				,d_time_sec - b_time_sec as scheduled_bd_time_sec
+			FROM mbta_performance.dbo.daily_abcde_time_scheduled
+			WHERE
+				ab_route_id = cde_route_id
+			--AND
+			--	abcde_route_type = 3
+		) abcde
+		ON
+				cap.service_date = abcde.service_date
+			AND
+				cap.trip_id = abcde.ab_trip_id
+			AND
+				cap.stop_id = abcde.abcd_stop_id
+			--AND
+			--	cap.stop_sequence = abcde.ab_stop_sequence
+		JOIN
+		(	
+			SELECT
+				service_date
+				,route_id
+				,trip_id
+				,trip_start_time
+				,ROW_NUMBER () OVER (PARTITION BY route_id ORDER BY trip_start_time) AS trip_order
+			FROM
+			(
+			SELECT DISTINCT
+				service_date
+				,route_id
+				,trip_id
+				,trip_start_time
+			  FROM [mbta_performance].[dbo].[daily_stop_times_sec]
+			 -- WHERE 
+				--route_type = 3
+			) temp
+		)  t
+		ON
+				cap.service_date = t.service_date
+			AND
+				cap.trip_id = t.trip_id
+		WHERE 
 				(
 					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
 				OR 
@@ -3170,12 +3277,12 @@
 				OR 
 					direction_id IN (SELECT direction_id FROM @direction_ids)
 				)
-			AND 
-				(
-					(SELECT COUNT(route_id) FROM @route_ids) = 0
-				OR 
-					route_id IN (SELECT route_id FROM @route_ids)
-				)
+			--AND 
+			--	(
+			--		(SELECT COUNT(route_id) FROM @route_ids) = 0
+			--	OR 
+			--		route_id IN (SELECT route_id FROM @route_ids)
+			--	)
 			--AND
 			--	route_type = 3
 			AND
@@ -3184,15 +3291,21 @@
 				OR
 					@use_timepoints_only = 0 
 				)
+			AND
+				(
+				scheduled_bd_time_sec <= 15*60
+			OR
+				cap.route_id IN ('1','15','22','23','28','32','39','57','66','71','73','77','111','116','117')
+				)
 		GROUP BY
-			route_id
+			cap.route_id
 			--,ct.threshold_id
 			--,ct.threshold_name
 			--,ct.threshold_type
 
 		ORDER BY
 			route_id,threshold_id
-
+/*
 	-- Save daily disaggregate travel times 
 
 	IF OBJECT_ID('dbo.daily_travel_time_disaggregate','U') IS NOT NULL
@@ -4153,4 +4266,4 @@ END
 
 GO
 
-	
+*/
