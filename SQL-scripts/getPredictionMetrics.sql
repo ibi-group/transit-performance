@@ -61,8 +61,8 @@ BEGIN
 				,route_id
 				,direction_id
 				,stop_id
-				,t.time_slice_start_sec
-				,t.time_slice_end_sec
+				,dbo.fnConvertDateTimeToEpoch (DATEADD(second, t.time_slice_start_sec, service_date)) as time_slice_start_sec
+				,dbo.fnConvertDateTimeToEpoch (DATEADD(second, t.time_slice_end_sec, service_date)) as time_slice_end_sec
 				,threshold_id
 				,threshold_type
 				,threshold_name
