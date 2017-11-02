@@ -98,17 +98,17 @@ IF OBJECT_ID('dbo.event_rt_trip','U') IS NOT NULL
 
 CREATE TABLE dbo.event_rt_trip
 (
-	service_date		DATE			NOT NULL
-	,file_time			INT				NOT NULL
-	,route_id			VARCHAR(255)	NOT NULL
-	,trip_id			VARCHAR(255)	NOT NULL
-	,direction_id		INT				NOT NULL
-	,stop_id			VARCHAR(255)	NOT NULL
-	,stop_sequence		INT				NOT NULL
-	,vehicle_id			VARCHAR(255)	NOT NULL
-	,event_type			CHAR(3)			NOT NULL
-	,event_time			INT				NOT NULL
-	,event_identifier	VARCHAR(255)	NULL
+	service_date		DATE			
+	,file_time			INT				
+	,route_id			VARCHAR(255)	
+	,trip_id			VARCHAR(255)	
+	,direction_id		INT				
+	,stop_id			VARCHAR(255)	
+	,stop_sequence		INT				
+	,vehicle_id			VARCHAR(255)	
+	,event_type			CHAR(3)			
+	,event_time			INT				
+	,event_identifier	VARCHAR(255)	
 );
 
 IF OBJECT_ID('dbo.event_rt_trip_archive','U') IS NOT NULL
@@ -116,17 +116,17 @@ IF OBJECT_ID('dbo.event_rt_trip_archive','U') IS NOT NULL
 
 CREATE TABLE dbo.event_rt_trip_archive
 (
-	service_date		DATE			NOT NULL
-	,file_time			INT				NOT NULL
-	,route_id			VARCHAR(255)	NOT NULL
-	,trip_id			VARCHAR(255)	NOT NULL
-	,direction_id		INT				NOT NULL
-	,stop_id			VARCHAR(255)	NOT NULL
-	,stop_sequence		INT				NOT NULL
-	,vehicle_id			VARCHAR(255)	NOT NULL
-	,event_type			CHAR(3)			NOT NULL
-	,event_time			INT				NOT NULL
-	,event_identifier	VARCHAR(255)	NULL
+	service_date		DATE			
+	,file_time			INT				
+	,route_id			VARCHAR(255)	
+	,trip_id			VARCHAR(255)	
+	,direction_id		INT				
+	,stop_id			VARCHAR(255)	
+	,stop_sequence		INT				
+	,vehicle_id			VARCHAR(255)	
+	,event_type			CHAR(3)			
+	,event_time			INT				
+	,event_identifier	VARCHAR(255)	
 );
 
 CREATE NONCLUSTERED INDEX IX_event_rt_trip_archive_index_1
