@@ -39,7 +39,7 @@
             // 
             // serviceInstaller1
             // 
-            this.serviceInstaller1.ServiceName = "gtfs-realtime-trip-service";
+            this.serviceInstaller1.ServiceName = "gtfsrt_events_tu_latest_prediction";
             // 
             // ProjectInstaller
             // 

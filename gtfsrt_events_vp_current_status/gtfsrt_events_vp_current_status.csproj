@@ -85,7 +85,7 @@
     <Compile Include="VehicleEntity.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
+    <None Include="gtfsrt_events_vp_current_status.exe.config" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
@@ -98,6 +98,9 @@
       <Project>{fcb2f19d-ccd1-44f6-bce4-d0bf05c27309}</Project>
       <Name>GtfsRealtimeLib</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Logs\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
