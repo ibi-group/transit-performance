@@ -142,6 +142,40 @@ ON dbo.event_rt_trip_archive (service_date,event_type,event_time)
 INCLUDE (file_time,route_id,trip_id,direction_id,stop_id,stop_sequence,
 vehicle_id)
 
+-- create gtfsrt_tripupdate_denormalized to store all trip update data
+IF OBJECT_ID('dbo.gtfsrt_tripupdate_denormalized', 'U') IS NOT NULL
+  DROP TABLE dbo.gtfsrt_tripupdate_denormalized
+;
+
+CREATE TABLE dbo.gtfsrt_tripupdate_denormalized(
+	gtfs_realtime_version				VARCHAR(255)
+	,incrementality						VARCHAR(255)
+	,header_timestamp					INT NOT NULL
+	,feed_entity_id						VARCHAR(255)
+	,trip_id							VARCHAR(255) NOT NULL
+	,trip_delay							INT
+	,route_id							VARCHAR(255) 
+	,direction_id						INT 
+	,trip_start_date					CHAR(8) 
+	,trip_start_time					VARCHAR(8)
+	,trip_schedule_relationship			VARCHAR(255)
+	,vehicle_id							VARCHAR(255)
+	,vehicle_label						VARCHAR(255)
+	,vehicle_license_plate				VARCHAR(255)
+	,vehicle_timestamp					INT
+	,stop_id							VARCHAR(255)
+	,stop_sequence						INT
+	,predicted_arrival_time				INT
+	,predicted_arrival_delay			INT
+	,predicted_arrival_uncertainty		INT	
+	,predicted_departure_time			INT
+	,predicted_departure_delay			INT
+	,predicted_departure_uncertainty	INT	
+	,stop_schedule_relationship			VARCHAR(255)
+	)
+
+CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_start_date ON gtfsrt_tripupdate_denormalized(trip_start_date);
+
 -- Create all historical tables 
 IF OBJECT_ID('dbo.historical_event','U') IS NOT NULL
 	DROP TABLE dbo.historical_event;
