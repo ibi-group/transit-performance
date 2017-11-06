@@ -203,6 +203,37 @@
 				}
 
 			}
+		},
+		"config_prediction_threshold":{
+			"columns":{
+				"threshold_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"threshold_name":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"threshold_type":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"route_type":{
+					"type": "INT"
+				},
+				"bin_lower":{
+					"type": "INT"
+				},
+				"bin_upper":{
+					"type": "INT"
+				},
+				"pred_error_threshold_lower":{
+					"type": "INT"
+				},
+				"pred_error_threshold_upper":{
+					"type": "INT"
+				}
+			}
 		}
 	}
 }
