@@ -142,6 +142,53 @@ ON dbo.event_rt_trip_archive (service_date,event_type,event_time)
 INCLUDE (file_time,route_id,trip_id,direction_id,stop_id,stop_sequence,
 vehicle_id)
 
+-- create alert tables
+
+IF OBJECT_ID('rt_alert','U') IS NOT NULL
+DROP TABLE rt_alert
+
+CREATE TABLE rt_alert
+(
+	record_id					INT IDENTITY
+	,file_time					INT NOT NULL
+	,alert_id					INT NOT NULL
+	,version_id					INT NOT NULL	
+	,cause						VARCHAR(255)
+	,effect						VARCHAR(255)
+	,header_text				VARCHAR(255)
+	,description_text			VARCHAR(3100)
+	,url						VARCHAR(255)
+	,closed						BIT NOT NULL DEFAULT 0
+	,PRIMARY KEY (alert_id, version_id)
+)
+
+IF OBJECT_ID('rt_alert_active_period','U') IS NOT NULL
+DROP TABLE rt_alert_active_period
+
+CREATE TABLE rt_alert_active_period
+(
+	alert_id				INT NOT NULL
+	,version_id				INT NOT NULL
+	,active_period_start	INT NULL
+	,active_period_end		INT NULL
+	,PRIMARY KEY (alert_id, version_id)
+)
+
+IF OBJECT_ID('rt_alert_informed_entity','U') IS NOT NULL
+DROP TABLE rt_alert_informed_entity
+
+CREATE TABLE rt_alert_informed_entity
+(
+	alert_id				INT NOT NULL
+	,version_id				INT NOT NULL
+	,agency_id				VARCHAR(255) NULL
+	,route_id				VARCHAR(255) NULL
+	,route_type				INT NULL
+	,trip_id				VARCHAR(255) NULL
+	,stop_id				VARCHAR(255) NULL
+	,PRIMARY KEY (alert_id, version_id)
+)
+
 -- Create all historical tables 
 IF OBJECT_ID('dbo.historical_event','U') IS NOT NULL
 	DROP TABLE dbo.historical_event;
