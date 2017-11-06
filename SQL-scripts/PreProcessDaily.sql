@@ -25,7 +25,7 @@
 --BEGIN
 --	SET NOCOUNT ON;
 	
-	DECLARE @service_date DATE = '2017-07-26'
+	DECLARE @service_date DATE = '2017-10-30'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -159,7 +159,7 @@
 			AND 
 				r.route_type IN (0,1,2,3)
 			AND
-				r.route_id IN ('1','7','9','68','69','325','749','751')
+				r.route_id IN ('1','7','9','68','69','325','749','751','712','713')
 			AND (
 			(@day_of_the_week = 'Monday'
 			AND monday = 1)
@@ -236,11 +236,13 @@
 		,trip_first_stop_sequence	INT  --needed for cr
 		,trip_first_stop_id			VARCHAR(255)	NOT NULL --needed for cr
 		,trip_start_time			VARCHAR(255)	NOT NULL --needed for cr
+		,trip_start_time_sec		INT				NOT NULL
 		,trip_last_stop_sequence	INT				NOT NULL --needed for cr
 		,trip_last_stop_id			VARCHAR(255)	NOT NULL --needed for cr
 		,trip_end_time				VARCHAR(255)	NOT NULL --needed for cr
+		,trip_end_time_sec			INT				NOT NULL
 		,stop_order_flag			INT --  needed for cr, 1 is first stop, 2 is mid stop, 3 is last stop
-		,agency_timepoint_name		VARCHAR(255) --needed for bus
+		,checkpoint_id				VARCHAR(255) --needed for bus
 	)
 	;
 
@@ -275,6 +277,7 @@
 		,trip_first_stop_sequence	INT				NOT NULL
 		,trip_first_stop_id			VARCHAR(255)	NOT NULL
 		,trip_start_time			VARCHAR(255)	NOT NULL
+		,trip_start_time_sec		INT				NOT NULL
 	)
 
 	CREATE NONCLUSTERED INDEX IX_webs_trip_start_time_temp_1 ON #webs_trip_start_time_temp (trip_id)
@@ -286,6 +289,7 @@
 		,trip_first_stop_sequence
 		,trip_first_stop_id
 		,trip_start_time
+		,trip_start_time_sec
 	)
 
 		SELECT
@@ -293,6 +297,7 @@
 			,ss_min.trip_first_stop
 			,st.stop_id
 			,st.departure_time
+			,st.departure_time_sec
 
 		FROM	gtfs.stop_times st
 				,
@@ -323,6 +328,7 @@
 		,trip_last_stop_sequence	INT				NOT NULL
 		,trip_last_stop_id			VARCHAR(255)	NOT NULL
 		,trip_end_time				VARCHAR(255)	NOT NULL
+		,trip_end_time_sec			INT				NOT NULL
 	)
 
 	INSERT INTO #webs_trip_end_time_temp
@@ -331,6 +337,7 @@
 		,trip_last_stop_sequence
 		,trip_last_stop_id
 		,trip_end_time
+		,trip_end_time_sec
 	)
 
 		SELECT
@@ -338,6 +345,7 @@
 			,ss_max.trip_last_stop
 			,st.stop_id
 			,st.arrival_time
+			,st.arrival_time_sec
 
 		FROM	gtfs.stop_times st
 				,
@@ -366,9 +374,11 @@
 		,trip_first_stop_sequence	INT				NOT NULL
 		,trip_first_stop_id			VARCHAR(255)	NOT NULL
 		,trip_start_time			VARCHAR(255)	NOT NULL
+		,trip_start_time_sec		INT				NOT NULL
 		,trip_last_stop_sequence	INT				NOT NULL
 		,trip_last_stop_id			VARCHAR(255)	NOT NULL
 		,trip_end_time				VARCHAR(255)	NOT NULL
+		,trip_end_time_sec			INT				NOT NULL
 	)
 
 	INSERT INTO #webs_trip_time_temp
@@ -377,9 +387,11 @@
 		,trip_first_stop_sequence
 		,trip_first_stop_id
 		,trip_start_time
+		,trip_start_time_sec
 		,trip_last_stop_sequence
 		,trip_last_stop_id
 		,trip_end_time
+		,trip_end_time_sec
 	)
 
 		SELECT
@@ -387,9 +399,11 @@
 			,wts.trip_first_stop_sequence
 			,wts.trip_first_stop_id
 			,wts.trip_start_time
+			,wts.trip_start_time_sec
 			,wte.trip_last_stop_sequence
 			,wte.trip_last_stop_id
 			,wte.trip_end_time
+			,wte.trip_end_time_sec
 		FROM	#webs_trip_start_time_temp wts
 				,#webs_trip_end_time_temp wte
 		WHERE
@@ -409,11 +423,13 @@
 		,trip_first_stop_sequence
 		,trip_first_stop_id
 		,trip_start_time
+		,trip_start_time_sec
 		,trip_last_stop_sequence
 		,trip_last_stop_id
 		,trip_end_time
+		,trip_end_time_sec
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 	)
 
 		SELECT
@@ -429,9 +445,11 @@
 			,wtt.trip_first_stop_sequence
 			,wtt.trip_first_stop_id
 			,wtt.trip_start_time
+			,wtt.trip_start_time_sec
 			,wtt.trip_last_stop_sequence
 			,wtt.trip_last_stop_id
 			,wtt.trip_end_time
+			,wtt.trip_end_time_sec
 			,CASE
 				WHEN sta.stop_id = wtt.trip_first_stop_id AND
 					sta.stop_sequence = wtt.trip_first_stop_sequence THEN 1
@@ -439,7 +457,7 @@
 					sta.stop_sequence = wtt.trip_last_stop_sequence THEN 3
 				ELSE 2
 			END AS stop_order_flag
-			,agency_timepoint_name
+			,sta.checkpoint_id
 
 		FROM	gtfs.stop_times sta
 				,dbo.daily_trips ti
@@ -549,10 +567,10 @@
 	INCLUDE (service_date,route_id,trip_id,from_stop_sequence,from_arrival_time_sec,from_departure_time_sec,to_stop_sequence,to_arrival_time_sec);
 
 	--Create daily_abcde_time table. This table stores the  scheduled joined events (abcde_time) for the day being processed
-	IF OBJECT_ID('daily_abcde_time_scheduled','U') IS NOT NULL
-		DROP TABLE daily_abcde_time_scheduled
+	IF OBJECT_ID('#tempdb..daily_abcde_time_scheduled','U') IS NOT NULL
+		DROP TABLE #daily_abcde_time_scheduled
 
-	CREATE TABLE daily_abcde_time_scheduled
+	CREATE TABLE #daily_abcde_time_scheduled
 	(
 		service_date		VARCHAR(255)	NOT NULL
 		,abcd_stop_id		VARCHAR(255)	NOT NULL
@@ -573,7 +591,7 @@
 		,e_time_sec			INT				NOT NULL
 	)
 
-	INSERT INTO daily_abcde_time_scheduled
+	INSERT INTO #daily_abcde_time_scheduled
 	(
 		service_date
 		,abcd_stop_id
@@ -666,24 +684,24 @@
 		WHERE
 			t.rn = 1
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_ab_route_id ON daily_abcde_time_scheduled (ab_route_id);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_ab_route_id ON #daily_abcde_time_scheduled (ab_route_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_cde_route_id ON daily_abcde_time_scheduled (cde_route_id);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_cde_route_id ON #daily_abcde_time_scheduled (cde_route_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abcde_route_type ON daily_abcde_time_scheduled (abcde_route_type);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_abcde_route_type ON #daily_abcde_time_scheduled (abcde_route_type);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_service_date ON daily_abcde_time_scheduled (service_date);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_service_date ON #daily_abcde_time_scheduled (service_date);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abc_stop_id ON daily_abcde_time_scheduled (abcd_stop_id);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_abc_stop_id ON #daily_abcde_time_scheduled (abcd_stop_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_d_stop_id ON daily_abcde_time_scheduled (e_stop_id);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_d_stop_id ON #daily_abcde_time_scheduled (e_stop_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_abcde_direction_id ON daily_abcde_time_scheduled (abcde_direction_id);
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_abcde_direction_id ON #daily_abcde_time_scheduled (abcde_direction_id);
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_b_d_time_sec ON daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,b_time_sec)
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_b_d_time_sec ON #daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,b_time_sec)
 	INCLUDE (d_time_sec)
 
-	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_d_e_time_sec ON daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,d_time_sec)
+	CREATE NONCLUSTERED INDEX IX_#daily_abcde_time_scheduled_d_e_time_sec ON #daily_abcde_time_scheduled (abcd_stop_id,e_stop_id,abcde_direction_id,d_time_sec)
 	INCLUDE (e_time_sec)
 
 	-- TRAVEL TIME
@@ -1153,7 +1171,7 @@
 					,time_slice_id
 					) AS median_headway_time_sec
 
-				FROM	daily_abcde_time_scheduled att
+				FROM	#daily_abcde_time_scheduled att
 						,dbo.config_time_slice
 				WHERE
 					d_time_sec < time_slice_end_sec
@@ -2031,8 +2049,8 @@
 			,th.min_max_equal
 
 
-	--IF OBJECT_ID('tempdb..daily_abcde_time_scheduled','U') IS NOT NULL
-	--	DROP TABLE daily_abcde_time_scheduled
+	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
+		DROP TABLE #daily_abcde_time_scheduled
 
 	IF OBJECT_ID('tempdb..#webs_trip_start_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_start_time_temp

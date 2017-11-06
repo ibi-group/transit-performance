@@ -27,10 +27,14 @@
 --BEGIN
 --	SET NOCOUNT ON;
 
-	DECLARE @service_date DATE = '2017-07-26'
+	DECLARE @service_date DATE = '2017-10-30'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
+
+	--variable for using checkpoints only in bus metrics TRUE = 1, FALSE = 0
+	DECLARE @use_checkpoints_only BIT
+	SET @use_checkpoints_only = 1 
 
 	--ensure events from vehicle positions have direction_id and event_time_sec----------------------
 	UPDATE dbo.rt_event
@@ -1142,7 +1146,7 @@
 		,actual_arrival_time_sec	INT
 		,arrival_delay_sec			INT
 		,stop_order_flag			INT -- 1 is first stop, 2 is mid stop, 3 is last stop
-		,agency_timepoint_name		VARCHAR(255)
+		,checkpoint_id		VARCHAR(255)
 	)
 	;
 
@@ -1160,7 +1164,7 @@
 		,actual_arrival_time_sec
 		,arrival_delay_sec
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 	)
 
 		SELECT
@@ -1176,7 +1180,7 @@
 			,rea.event_time_sec AS actual_arrival_time
 			,rea.event_time_sec - ds.arrival_time_sec AS arrival_delay
 			,ds.stop_order_flag
-			,ds.agency_timepoint_name
+			,ds.checkpoint_id
 
 		FROM	dbo.daily_stop_times_sec ds
 				,dbo.daily_event rea
@@ -1206,7 +1210,7 @@
 		,actual_departure_time_sec		INT
 		,departure_delay_sec			INT
 		,stop_order_flag				INT
-		,agency_timepoint_name			VARCHAR(255)
+		,checkpoint_id			VARCHAR(255)
 	)
 	;
 
@@ -1224,7 +1228,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 	)
 
 		SELECT
@@ -1240,7 +1244,7 @@
 			,red.event_time_sec AS actual_departure_time
 			,red.event_time_sec - ds.departure_time_sec AS departure_delay
 			,ds.stop_order_flag
-			,ds.agency_timepoint_name
+			,ds.checkpoint_id
 		FROM	dbo.daily_stop_times_sec ds
 				,dbo.daily_event red
 		WHERE
@@ -2284,7 +2288,7 @@
 		,actual_departure_time_sec		INT
 		,departure_delay_sec			INT
 		,stop_order_flag				INT -- 1 is first stop, 2 is mid stop, 3 is last stop
-		,agency_timepoint_name			VARCHAR(255)
+		,checkpoint_id					VARCHAR(255)
 	)
 
 	INSERT INTO dbo.daily_schedule_adherence_disaggregate
@@ -2304,7 +2308,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 	)
 
 		SELECT
@@ -2323,7 +2327,7 @@
 			,dd.actual_departure_time_sec
 			,dd.departure_delay_sec
 			,da.stop_order_flag
-			,da.agency_timepoint_name
+			,da.checkpoint_id
 
 		FROM #daily_arrival_time_sec da
 		JOIN #daily_departure_time_sec dd
@@ -2352,7 +2356,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 	)
 
 		SELECT
@@ -2371,7 +2375,7 @@
 			,NULL AS actual_departure_time_sec
 			,NULL AS departure_delay_sec
 			,da.stop_order_flag
-			,da.agency_timepoint_name
+			,da.checkpoint_id
 		FROM #daily_arrival_time_sec da
 		WHERE
 			da.stop_order_flag = 3
@@ -2399,7 +2403,7 @@
 		,actual_departure_time_sec			INT
 		,departure_delay_sec				INT
 		,stop_order_flag					INT -- 1 is first stop, 2 is mid stop, 3 is last stop
-		,agency_timepoint_name				VARCHAR(255)
+		,checkpoint_id						VARCHAR(255)
 		,threshold_id						VARCHAR(255)	NOT NULL
 		,threshold_id_lower					VARCHAR(255)
 		,threshold_id_upper					VARCHAR(255)
@@ -2432,7 +2436,7 @@
 		,actual_departure_time_sec
 		,departure_delay_sec
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 		,threshold_id
 		,threshold_id_lower
 		,threshold_id_upper
@@ -2458,7 +2462,7 @@
 			,sad.actual_departure_time_sec
 			,sad.departure_delay_sec
 			,sad.stop_order_flag
-			,sad.agency_timepoint_name
+			,sad.checkpoint_id
 			,th.threshold_id
 			,th.threshold_id_lower
 			,th.threshold_id_upper
@@ -2497,8 +2501,8 @@
 					ON 
 						ct.threshold_id = 
 							CASE 
-								when ct1.parent_child = 0 then ct1.threshold_id
-								when ct1.parent_child = 2 then ct1.parent_threshold_id
+								when ct1.parent_child IN (0,1) then ct1.threshold_id
+								when ct1.parent_child IN (2,3) then ct1.parent_threshold_id
 							END
 					AND 
 						ct1.upper_lower = 'lower'
@@ -2506,13 +2510,13 @@
 					ON 
 						ct.threshold_id = 
 							CASE 
-								when ct2.parent_child = 0 then ct2.threshold_id
-								when ct2.parent_child = 2 then ct2.parent_threshold_id
+								when ct2.parent_child IN (0,1) then ct2.threshold_id
+								when ct2.parent_child IN (2,3) then ct2.parent_threshold_id
 							END
 					AND 
 						ct2.upper_lower = 'upper'
 				WHERE 
-						ct.parent_child <> 2
+						ct.parent_child <> 3
 					
 		) th
 		JOIN config_stop_order_flag_threshold sth
@@ -2563,7 +2567,7 @@
 			,actual_departure_time_sec
 			,departure_delay_sec
 			,stop_order_flag
-			,agency_timepoint_name
+			,checkpoint_id
 			,th.threshold_id
 			,th.threshold_id_lower
 			,th.threshold_id_upper
@@ -2654,7 +2658,7 @@
 		service_date									VARCHAR(255)	NOT NULL
 		,stop_id										VARCHAR(255)	NOT NULL
 		,stop_order_flag								INT				NOT NULL
-		,agency_timepoint_name							VARCHAR(255)
+		,checkpoint_id							VARCHAR(255)
 		,direction_id									INT				NOT NULL
 		,route_id										VARCHAR(255)	NOT NULL
 		,trip_id										VARCHAR(255)	NOT NULL
@@ -2679,7 +2683,7 @@
 		service_date
 		,stop_id
 		,stop_order_flag
-		,agency_timepoint_name
+		,checkpoint_id
 		,direction_id
 		,route_id
 		,trip_id
@@ -2697,7 +2701,7 @@
 			bd.service_date AS service_date
 			,bd.bd_stop_id AS stop_id
 			,st.stop_order_flag
-			,st.agency_timepoint_name
+			,st.checkpoint_id
 			,bd.bd_direction_id AS direction_id
 			,bd.bd_route_id AS route_id
 			,bd.b_trip_id AS trip_id
@@ -2790,9 +2794,6 @@
 		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
 		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('749'),('69'),('68'),('325'),('9'),('1'),('7'),('751')
 
-	DECLARE @use_timepoints_only BIT
-
-	SET @use_timepoints_only = 1 --TRUE = 1, FALSE = 0
 
 	/*
 	INSERT INTO dbo.daily_metrics
@@ -3009,49 +3010,44 @@
 			ct.threshold_id = cap.threshold_id
 		JOIN
 		(
-			SELECT DISTINCT
-				service_date
-				,ab_route_id
-				,cde_route_id
-				,ab_trip_id
-				,cde_trip_id
-				,abcd_stop_id
-				,ab_stop_sequence
-				,cd_stop_sequence
-				,d_time_sec - b_time_sec as scheduled_bd_time_sec
-			FROM mbta_performance.dbo.daily_abcde_time_scheduled
-			WHERE
-				ab_route_id = cde_route_id
-			--AND
-			--	abcde_route_type = 3
-		) abcde
-		ON
-				cap.service_date = abcde.service_date
-			AND
-				cap.trip_id = abcde.ab_trip_id
-			AND
-				cap.stop_id = abcde.abcd_stop_id
-			AND
-				cap.stop_sequence = abcde.ab_stop_sequence
-		JOIN
-		(	
 			SELECT
-				service_date
-				,route_id
-				,trip_id
-				,trip_start_time
-				,ROW_NUMBER () OVER (PARTITION BY route_id ORDER BY trip_start_time) AS trip_order
+				rn2.service_date
+				,rn2.route_id
+				,rn2.trip_id
+				,rn2.trip_start_time_sec
+				,MIN(rn1.trip_start_time_sec) as previous_trip_start_time_sec
+				,rn2.trip_start_time_sec - MIN(rn1.trip_start_time_sec) as scheduled_trip_headway_sec
+				,ROW_NUMBER () OVER (PARTITION BY rn2.route_id ORDER BY rn2.trip_start_time_sec) AS trip_order
 			FROM
+				(
+				SELECT DISTINCT
+					service_date
+					,route_id
+					,trip_id
+					,trip_start_time_sec
+				  FROM mbta_performance.dbo.daily_stop_times_sec
+			) rn2
+			LEFT JOIN
 			(
-			SELECT DISTINCT
-				service_date
-				,route_id
-				,trip_id
-				,trip_start_time
-			  FROM [mbta_performance].[dbo].[daily_stop_times_sec]
-			 -- WHERE 
-				--route_type = 3
-			) temp
+				SELECT DISTINCT
+					service_date
+					,route_id
+					,trip_id
+					,trip_start_time_sec
+				  FROM mbta_performance.dbo.daily_stop_times_sec 
+			) rn1
+
+			ON
+					rn1.service_date = rn2.service_date
+				AND
+					rn1.route_id = rn2.route_id
+				AND
+					rn1.trip_start_time_sec < rn2.trip_start_time_sec
+			GROUP BY
+				rn2.service_date
+				,rn2.route_id
+				,rn2.trip_id
+				,rn2.trip_start_time_sec
 		)  t
 		ON
 				cap.service_date = t.service_date
@@ -3079,12 +3075,12 @@
 				route_type = 3
 			AND
 				(
-					(@use_timepoints_only = 1 AND agency_timepoint_name IS NOT NULL)
+					(@use_checkpoints_only = 1 AND checkpoint_id IS NOT NULL)
 				OR
-					@use_timepoints_only = 0 
+					@use_checkpoints_only = 0 
 				)
 			AND
-				(scheduled_bd_time_sec > 15*60 OR trip_order = 1)
+				(t.scheduled_trip_headway_sec > 15*60 OR trip_order = 1)
 			AND
 				cap.route_id NOT IN ('1','15','22','23','28','32','39','57','66','71','73','77','111','116','117')
 		GROUP BY
@@ -3182,7 +3178,7 @@
 					dtt.service_date
 					,dtt.to_stop_id AS stop_id
 					,st.stop_order_flag
-					,st.agency_timepoint_name
+					,st.checkpoint_id
 					,dtt.direction_id
 					,dtt.route_id
 					,dtt.trip_id
@@ -3217,49 +3213,44 @@
 			ct.threshold_id = cap.threshold_id
 		JOIN
 		(
-			SELECT DISTINCT
-				service_date
-				,ab_route_id
-				,cde_route_id
-				,ab_trip_id
-				,cde_trip_id
-				,abcd_stop_id
-				,ab_stop_sequence
-				,cd_stop_sequence
-				,d_time_sec - b_time_sec as scheduled_bd_time_sec
-			FROM mbta_performance.dbo.daily_abcde_time_scheduled
-			WHERE
-				ab_route_id = cde_route_id
-			--AND
-			--	abcde_route_type = 3
-		) abcde
-		ON
-				cap.service_date = abcde.service_date
-			AND
-				cap.trip_id = abcde.ab_trip_id
-			AND
-				cap.stop_id = abcde.abcd_stop_id
-			--AND
-			--	cap.stop_sequence = abcde.ab_stop_sequence
-		JOIN
-		(	
 			SELECT
-				service_date
-				,route_id
-				,trip_id
-				,trip_start_time
-				,ROW_NUMBER () OVER (PARTITION BY route_id ORDER BY trip_start_time) AS trip_order
+				rn2.service_date
+				,rn2.route_id
+				,rn2.trip_id
+				,rn2.trip_start_time_sec
+				,MIN(rn1.trip_start_time_sec) as previous_trip_start_time_sec
+				,rn2.trip_start_time_sec - MIN(rn1.trip_start_time_sec) as scheduled_trip_headway_sec
+				,ROW_NUMBER () OVER (PARTITION BY rn2.route_id ORDER BY rn2.trip_start_time_sec) AS trip_order
 			FROM
+				(
+				SELECT DISTINCT
+					service_date
+					,route_id
+					,trip_id
+					,trip_start_time_sec
+				  FROM mbta_performance.dbo.daily_stop_times_sec
+			) rn2
+			LEFT JOIN
 			(
-			SELECT DISTINCT
-				service_date
-				,route_id
-				,trip_id
-				,trip_start_time
-			  FROM [mbta_performance].[dbo].[daily_stop_times_sec]
-			 -- WHERE 
-				--route_type = 3
-			) temp
+				SELECT DISTINCT
+					service_date
+					,route_id
+					,trip_id
+					,trip_start_time_sec
+				  FROM mbta_performance.dbo.daily_stop_times_sec 
+			) rn1
+
+			ON
+				rn1.service_date = rn2.service_date
+			AND
+				rn1.route_id = rn2.route_id
+			AND
+				rn1.trip_start_time_sec < rn2.trip_start_time_sec
+			GROUP BY
+				rn2.service_date
+				,rn2.route_id
+				,rn2.trip_id
+				,rn2.trip_start_time_sec
 		)  t
 		ON
 				cap.service_date = t.service_date
@@ -3287,13 +3278,13 @@
 			--	route_type = 3
 			AND
 				(
-					(@use_timepoints_only = 1 AND agency_timepoint_name IS NOT NULL)
+					(@use_checkpoints_only = 1 AND checkpoint_id IS NOT NULL)
 				OR
-					@use_timepoints_only = 0 
+					@use_checkpoints_only = 0 
 				)
 			AND
 				(
-				scheduled_bd_time_sec <= 15*60
+				t.scheduled_trip_headway_sec <= 15*60
 			OR
 				cap.route_id IN ('1','15','22','23','28','32','39','57','66','71','73','77','111','116','117')
 				)
