@@ -98,17 +98,17 @@ IF OBJECT_ID('dbo.event_rt_trip','U') IS NOT NULL
 
 CREATE TABLE dbo.event_rt_trip
 (
-	service_date		DATE			NOT NULL
-	,file_time			INT				NOT NULL
-	,route_id			VARCHAR(255)	NOT NULL
-	,trip_id			VARCHAR(255)	NOT NULL
-	,direction_id		INT				NOT NULL
-	,stop_id			VARCHAR(255)	NOT NULL
-	,stop_sequence		INT				NOT NULL
-	,vehicle_id			VARCHAR(255)	NOT NULL
-	,event_type			CHAR(3)			NOT NULL
-	,event_time			INT				NOT NULL
-	,event_identifier	VARCHAR(255)	NULL
+	service_date		DATE			
+	,file_time			INT				
+	,route_id			VARCHAR(255)	
+	,trip_id			VARCHAR(255)	
+	,direction_id		INT				
+	,stop_id			VARCHAR(255)	
+	,stop_sequence		INT				
+	,vehicle_id			VARCHAR(255)	
+	,event_type			CHAR(3)			
+	,event_time			INT				
+	,event_identifier	VARCHAR(255)	
 );
 
 IF OBJECT_ID('dbo.event_rt_trip_archive','U') IS NOT NULL
@@ -116,17 +116,17 @@ IF OBJECT_ID('dbo.event_rt_trip_archive','U') IS NOT NULL
 
 CREATE TABLE dbo.event_rt_trip_archive
 (
-	service_date		DATE			NOT NULL
-	,file_time			INT				NOT NULL
-	,route_id			VARCHAR(255)	NOT NULL
-	,trip_id			VARCHAR(255)	NOT NULL
-	,direction_id		INT				NOT NULL
-	,stop_id			VARCHAR(255)	NOT NULL
-	,stop_sequence		INT				NOT NULL
-	,vehicle_id			VARCHAR(255)	NOT NULL
-	,event_type			CHAR(3)			NOT NULL
-	,event_time			INT				NOT NULL
-	,event_identifier	VARCHAR(255)	NULL
+	service_date		DATE			
+	,file_time			INT				
+	,route_id			VARCHAR(255)	
+	,trip_id			VARCHAR(255)	
+	,direction_id		INT				
+	,stop_id			VARCHAR(255)	
+	,stop_sequence		INT				
+	,vehicle_id			VARCHAR(255)	
+	,event_type			CHAR(3)			
+	,event_time			INT				
+	,event_identifier	VARCHAR(255)	
 );
 
 CREATE NONCLUSTERED INDEX IX_event_rt_trip_archive_index_1
@@ -188,6 +188,40 @@ CREATE TABLE rt_alert_informed_entity
 	,stop_id				VARCHAR(255) NULL
 	,PRIMARY KEY (alert_id, version_id)
 )
+
+-- create gtfsrt_tripupdate_denormalized to store all trip update data
+IF OBJECT_ID('dbo.gtfsrt_tripupdate_denormalized', 'U') IS NOT NULL
+  DROP TABLE dbo.gtfsrt_tripupdate_denormalized
+;
+
+CREATE TABLE dbo.gtfsrt_tripupdate_denormalized(
+	gtfs_realtime_version				VARCHAR(255)
+	,incrementality						VARCHAR(255)
+	,header_timestamp					INT NOT NULL
+	,feed_entity_id						VARCHAR(255)
+	,trip_id							VARCHAR(255) NOT NULL
+	,trip_delay							INT
+	,route_id							VARCHAR(255) 
+	,direction_id						INT 
+	,trip_start_date					CHAR(8) 
+	,trip_start_time					VARCHAR(8)
+	,trip_schedule_relationship			VARCHAR(255)
+	,vehicle_id							VARCHAR(255)
+	,vehicle_label						VARCHAR(255)
+	,vehicle_license_plate				VARCHAR(255)
+	,vehicle_timestamp					INT
+	,stop_id							VARCHAR(255)
+	,stop_sequence						INT
+	,predicted_arrival_time				INT
+	,predicted_arrival_delay			INT
+	,predicted_arrival_uncertainty		INT	
+	,predicted_departure_time			INT
+	,predicted_departure_delay			INT
+	,predicted_departure_uncertainty	INT	
+	,stop_schedule_relationship			VARCHAR(255)
+	)
+
+CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_start_date ON gtfsrt_tripupdate_denormalized(trip_start_date);
 
 -- Create all historical tables 
 IF OBJECT_ID('dbo.historical_event','U') IS NOT NULL
@@ -474,7 +508,6 @@ ON [dbo].[historical_wait_time_od_threshold_pax] (service_date)
 IF OBJECT_ID('dbo.historical_metrics','U') IS NOT NULL
 	DROP TABLE dbo.historical_metrics
 
--- 
 CREATE TABLE dbo.historical_metrics
 (
 	service_date		VARCHAR(255)	NOT NULL
@@ -492,6 +525,45 @@ CREATE TABLE dbo.historical_metrics
 
 CREATE NONCLUSTERED INDEX IX_historical_metrics_service_date
 ON dbo.historical_metrics (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics
+
+CREATE TABLE dbo.historical_prediction_metrics
+(
+		service_date							VARCHAR(255) NOT NULL
+		,route_id								VARCHAR(255) NOT NULL
+		,threshold_id							VARCHAR(255) NOT NULL
+		,threshold_name							VARCHAR(255) NOT NULL
+		,threshold_type							VARCHAR(255)
+		,total_predictions_within_threshold		INT
+		,total_predictions_in_bin				INT
+		,metric_result							FLOAT
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_service_date
+ON dbo.historical_prediction_metrics (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics_disaggregate','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_disaggregate
+
+CREATE TABLE dbo.historical_prediction_metrics_disaggregate
+(
+		service_date							VARCHAR(255) NOT NULL
+		,route_id								VARCHAR(255) NOT NULL
+		,direction_id							INT NOT NULL
+		,stop_id								VARCHAR(255) NOT NULL
+		,time_slice_id							VARCHAR(255) NOT NULL
+		,threshold_id							VARCHAR(255) NOT NULL
+		,threshold_name							VARCHAR(255) NOT NULL
+		,threshold_type							VARCHAR(255)
+		,total_predictions_within_threshold		INT
+		,total_predictions_in_bin				INT
+		,metric_result							FLOAT
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_disaggregate_service_date
+ON dbo.historical_prediction_metrics_disaggregate (service_date);
 
 IF OBJECT_ID('dbo.historical_schedule_adherence_disaggregate','U') IS NOT NULL
 	DROP TABLE dbo.historical_schedule_adherence_disaggregate;
@@ -823,3 +895,19 @@ CREATE TABLE dbo.config_time_slice
 	,time_slice_start_date_time	TIME
 	,time_slice_end_date_time	TIME
 );
+
+--Create Prediction Thresholds Table
+IF OBJECT_Id('dbo.config_prediction_threshold','U') IS NOT NULL
+	DROP TABLE dbo.config_prediction_threshold
+
+CREATE TABLE dbo.config_prediction_threshold
+(
+	threshold_id				VARCHAR(255)	NOT NULL
+	,threshold_name				VARCHAR(255)	NOT NULL
+	,threshold_type				VARCHAR(255)	NOT NULL
+	,route_type					INT				
+	,bin_lower					INT
+	,bin_upper					INT
+	,pred_error_threshold_lower	INT
+	,pred_error_threshold_upper	INT
+)
