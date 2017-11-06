@@ -31,33 +31,23 @@ BEGIN
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date 
 
-	--DECLARE @day_type_process VARCHAR(255) =
-	--	(
-	--	  		SELECT 
-	--				cdt.day_type
-	--			FROM dbo.config_day_type_dow cdtd
-	--			JOIN dbo.config_day_type cdt
-	--				ON cdtd.day_type_id = cdt.day_type_id
-	--			WHERE cdtd.day_of_the_week = DATENAME(dw, @service_date_process)
-	--	)
-
 	--store daily predictions from the trip_update_denormalized table
 	IF OBJECT_ID('dbo.daily_prediction', 'U') IS NOT NULL
 	  DROP TABLE dbo.daily_prediction
 	;
 
 	CREATE TABLE dbo.daily_prediction(
-		service_date					DATE NOT NULL
-		,file_time						INT NOT NULL
+		service_date					DATE			NOT NULL
+		,file_time						INT				NOT NULL
 		,file_time_dt					DATETIME
-		,route_id						VARCHAR(255) NOT NULL
-		,trip_id						VARCHAR(255) NOT NULL
-		,direction_id					INT NOT NULL
-		,stop_id						VARCHAR(255) NOT NULL
-		,stop_sequence					INT NOT NULL
+		,route_id						VARCHAR(255)	NOT NULL
+		,trip_id						VARCHAR(255)	NOT NULL
+		,direction_id					INT				NOT NULL
+		,stop_id						VARCHAR(255)	NOT NULL
+		,stop_sequence					INT				NOT NULL
 		,vehicle_id						VARCHAR(255) 
 		,vehicle_label					VARCHAR(255) 
-		,predicted_arrival_time			INT NOT NULL
+		,predicted_arrival_time			INT				
 		,predicted_departure_time		INT
 		,predicted_arrival_time_sec		INT
 		,predicted_departure_time_sec	INT
@@ -112,17 +102,17 @@ BEGIN
 	;
 
 	CREATE TABLE dbo.daily_prediction_consolidated(
-		service_date				DATE NOT NULL
-		,file_time					INT NOT NULL
+		service_date				DATE			NOT NULL
+		,file_time					INT				NOT NULL
 		,file_time_dt				DATETIME
-		,route_id					VARCHAR(255) NOT NULL
-		,trip_id					VARCHAR(255) NOT NULL
-		,direction_id				INT NOT NULL
-		,stop_id					VARCHAR(255) NOT NULL
-		,stop_sequence				INT NOT NULL
+		,route_id					VARCHAR(255)	NOT NULL
+		,trip_id					VARCHAR(255)	NOT NULL
+		,direction_id				INT				NOT NULL
+		,stop_id					VARCHAR(255)	NOT NULL
+		,stop_sequence				INT				NOT NULL
 		,vehicle_id					VARCHAR(255) 
 		,vehicle_label				VARCHAR(255) 
-		,predicted_arrival_time		INT NOT NULL
+		,predicted_arrival_time		INT 
 		,predicted_departure_time	INT
 		,predicted_arrival_time_sec		INT
 		,predicted_departure_time_sec	INT
@@ -188,7 +178,7 @@ BEGIN
 		dbo.daily_prediction
 	) t
 	WHERE rn = 1
-	ORDER BY trip_id, stop_id, file_time_dt
+	--ORDER BY trip_id, stop_id, file_time_dt
 
 	--save the scheduled and actual times for the last updated prediction of each minute
 	IF OBJECT_ID('dbo.daily_prediction_disaggregate', 'U') IS NOT NULL
@@ -196,21 +186,21 @@ BEGIN
 	;
 
 	CREATE TABLE dbo.daily_prediction_disaggregate(
-		service_date				DATE NOT NULL
-		,file_time					INT NOT NULL
+		service_date				DATE			NOT NULL
+		,file_time					INT				NOT NULL
 		,file_time_dt				DATETIME
 		,route_type					INT
-		,route_id					VARCHAR(255) NOT NULL
-		,trip_id					VARCHAR(255) NOT NULL
-		,direction_id				INT NOT NULL
-		,stop_id					VARCHAR(255) NOT NULL
-		,stop_sequence				INT NOT NULL
+		,route_id					VARCHAR(255)	NOT NULL
+		,trip_id					VARCHAR(255)	NOT NULL
+		,direction_id				INT				NOT NULL
+		,stop_id					VARCHAR(255)	NOT NULL
+		,stop_sequence				INT				NOT NULL
 		,vehicle_id					VARCHAR(255) 
 		,vehicle_label				VARCHAR(255) 
 		,stop_order_flag			INT --1 for origin, 2 for mid, 3 for destination stop
 		,scheduled_arrival_time		INT
 		,scheduled_departure_time	INT	
-		,predicted_arrival_time		INT NOT NULL
+		,predicted_arrival_time		INT 
 		,predicted_departure_time	INT
 		,predicted_arrival_time_sec		INT
 		,predicted_departure_time_sec	INT
@@ -319,24 +309,23 @@ BEGIN
 		AND
 			p.stop_sequence = st.stop_sequence
 
-
+	--create table with bins and thresholds for each prediction
 	IF OBJECT_ID('dbo.daily_prediction_threshold','U') IS NOT NULL
 		DROP TABLE dbo.daily_prediction_threshold
 	;
 
 	CREATE TABLE dbo.daily_prediction_threshold(
-		service_date				DATE NOT NULL
-		,file_time					INT NOT NULL
+		service_date				DATE			NOT NULL
+		,file_time					INT				NOT NULL
 		,route_type					INT
-		,route_id					VARCHAR(255) NOT NULL
-		,trip_id					VARCHAR(255) NOT NULL
-		,direction_id				INT NOT NULL
-		,stop_id					VARCHAR(255) NOT NULL
-		,stop_sequence				INT NOT NULL
+		,route_id					VARCHAR(255)	NOT NULL
+		,trip_id					VARCHAR(255)	NOT NULL
+		,direction_id				INT				NOT NULL
+		,stop_id					VARCHAR(255)	NOT NULL
+		,stop_sequence				INT				NOT NULL
 		,stop_order_flag			INT --1 for origin, 2 for mid, 3 for destination stop
 		,predicted_time				INT
 		,actual_time				INT
-		--,time_period_id				VARCHAR(255)
 		,time_slice_id				VARCHAR(255)
 		,seconds_away				INT
 		,prediction_error			INT
@@ -362,7 +351,6 @@ BEGIN
 		,stop_order_flag			
 		,predicted_time				
 		,actual_time				
-		--,time_period_id
 		,time_slice_id			
 		,seconds_away				
 		,prediction_error			
@@ -387,7 +375,6 @@ BEGIN
 		,t.stop_order_flag
 		,t.predicted_time
 		,t.actual_time
-		--,b.time_period_id
 		,b.time_slice_id
 		,t.seconds_away
 		,t.prediction_error
@@ -449,29 +436,24 @@ BEGIN
 			a.route_type = t.route_type
 		AND
 			t.actual_time IS NOT NULL
-	--JOIN dbo.config_time_period b
-	--ON
-	--		@day_type_process = b.day_type
-	--	AND
-	--		t.predicted_time_sec >= b.time_period_start_time_sec   --use predicted time to place in time slice?
-	--	AND
-	--		t.predicted_time_sec < b.time_period_end_time_sec
 	JOIN dbo.config_time_slice b
 	ON
 			t.predicted_time_sec >= b.time_slice_start_sec
 		AND
 			t.predicted_time_sec < b.time_slice_end_sec
 
+	--calculate prediction quality
+
+	--create table for daily metrics
 	IF OBJECT_ID('dbo.daily_prediction_metrics', 'U') IS NOT NULL
 	  DROP TABLE dbo.daily_prediction_metrics
 	;
 
-	--calculate prediction quality
 	CREATE TABLE dbo.daily_prediction_metrics(
 		route_id								VARCHAR(255) NOT NULL
 		,threshold_id							VARCHAR(255) NOT NULL
 		,threshold_name							VARCHAR(255) NOT NULL
-		,threshold_type							VARCHAR(255)
+		,threshold_type							VARCHAR(255) NOT NULL
 		,total_predictions_within_threshold		INT
 		,total_predictions_in_bin				INT
 		,metric_result							FLOAT
@@ -515,19 +497,19 @@ BEGIN
 		,cpt.threshold_name
 		,cpt.threshold_type
 
+	--create table for daily disaggregate metrics (by route, direction, stop and time slice)
 	IF OBJECT_ID('dbo.daily_prediction_metrics_disaggregate', 'U') IS NOT NULL
 	  DROP TABLE dbo.daily_prediction_metrics_disaggregate
 	;
 
-	--calculate prediction quality
 	CREATE TABLE dbo.daily_prediction_metrics_disaggregate(
-		route_id								VARCHAR(255) NOT NULL
-		,direction_id							INT	NOT NULL
-		,stop_id								VARCHAR(255) NOT NULL
-		,time_slice_id							VARCHAR(255) NOT NULL
-		,threshold_id							VARCHAR(255) NOT NULL
-		,threshold_name							VARCHAR(255) NOT NULL
-		,threshold_type							VARCHAR(255)
+		route_id								VARCHAR(255)	NOT NULL
+		,direction_id							INT				NOT NULL
+		,stop_id								VARCHAR(255)	NOT NULL
+		,time_slice_id							VARCHAR(255)	NOT NULL
+		,threshold_id							VARCHAR(255)	NOT NULL
+		,threshold_name							VARCHAR(255)	NOT NULL
+		,threshold_type							VARCHAR(255)	NOT NULL
 		,total_predictions_within_threshold		INT
 		,total_predictions_in_bin				INT
 		,metric_result							FLOAT
