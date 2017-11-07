@@ -171,7 +171,6 @@ CREATE TABLE rt_alert_active_period
 	,version_id				INT NOT NULL
 	,active_period_start	INT NULL
 	,active_period_end		INT NULL
-	,PRIMARY KEY (alert_id, version_id)
 )
 
 IF OBJECT_ID('rt_alert_informed_entity','U') IS NOT NULL
@@ -186,7 +185,6 @@ CREATE TABLE rt_alert_informed_entity
 	,route_type				INT NULL
 	,trip_id				VARCHAR(255) NULL
 	,stop_id				VARCHAR(255) NULL
-	,PRIMARY KEY (alert_id, version_id)
 )
 
 -- create gtfsrt_tripupdate_denormalized to store all trip update data
