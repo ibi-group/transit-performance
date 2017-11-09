@@ -21,4 +21,4 @@ threshold_id_19,late < 6 min.,wait_time_schedule_based,1,equal,upper,threshold_i
 threshold_id_20,late < 5 min.,wait_time_schedule_based,1,equal,upper,threshold_id_23,3
 threshold_id_21,Headway + 3 min.,wait_time_headway_based,1,equal,upper,threshold_id_23,3
 threshold_id_22,delayed 20%,travel_time,1,equal,upper,threshold_id_23,3
-threshold_id_23,On-Time,reliability,1,equal,both,,1
+threshold_id_23,On-Time,reliability,1,equal,,,1
