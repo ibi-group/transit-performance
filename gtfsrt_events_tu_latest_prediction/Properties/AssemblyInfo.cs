@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("gtfs-realtime-trip-service")]
+[assembly: AssemblyTitle("gtfsrt_events_tu_latest_prediction")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("IBI Group")]
-[assembly: AssemblyProduct("gtfs-realtime-trip-service")]
+[assembly: AssemblyProduct("gtfsrt_events_tu_latest_prediction")]
 [assembly: AssemblyCopyright("Copyright © IBI Group 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

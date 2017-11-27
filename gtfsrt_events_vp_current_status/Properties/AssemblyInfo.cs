@@ -4,11 +4,11 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("GTFS-realtime-service")]
+[assembly: AssemblyTitle("gtfsrt_events_vp_current_status")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("IBI Group")]
-[assembly: AssemblyProduct("GTFS-realtime-service")]
+[assembly: AssemblyProduct("gtfsrt_events_vp_current_status")]
 [assembly: AssemblyCopyright("Copyright © IBI Group 2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
