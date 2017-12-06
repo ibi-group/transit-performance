@@ -151,7 +151,7 @@ CREATE TABLE rt_alert
 (
 	record_id					INT IDENTITY
 	,file_time					INT NOT NULL
-	,alert_id					INT NOT NULL
+	,alert_id					VARCHAR(255) NOT NULL
 	,version_id					INT NOT NULL	
 	,cause						VARCHAR(255)
 	,effect						VARCHAR(255)
@@ -167,7 +167,7 @@ DROP TABLE rt_alert_active_period
 
 CREATE TABLE rt_alert_active_period
 (
-	alert_id				INT NOT NULL
+	alert_id				VARCHAR(255) NOT NULL
 	,version_id				INT NOT NULL
 	,active_period_start	INT NULL
 	,active_period_end		INT NULL
@@ -178,7 +178,7 @@ DROP TABLE rt_alert_informed_entity
 
 CREATE TABLE rt_alert_informed_entity
 (
-	alert_id				INT NOT NULL
+	alert_id				VARCHAR(255) NOT NULL
 	,version_id				INT NOT NULL
 	,agency_id				VARCHAR(255) NULL
 	,route_id				VARCHAR(255) NULL
