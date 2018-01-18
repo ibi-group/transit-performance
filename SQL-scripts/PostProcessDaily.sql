@@ -2971,6 +2971,8 @@
 				OR 
 					route_id IN (SELECT route_id FROM @route_ids )
 				)
+			AND
+				ct.parent_child = 0
 
 		GROUP BY
 			route_id
@@ -2996,6 +2998,7 @@
 				,dbo.config_threshold ct
 		WHERE
 			ct.threshold_id = dtt.threshold_id
+			AND	ct.parent_child = 0
 			AND (
 			(
 				SELECT
@@ -3059,6 +3062,7 @@
 			,ct.threshold_name
 			,ct.threshold_type
 			,ct.threshold_id
+
 		UNION
 		
 		SELECT
@@ -3077,6 +3081,8 @@
 			,dbo.config_threshold ct
 		WHERE
 				ct.threshold_id = cap.threshold_id
+			AND
+				ct.parent_child = 0
 			AND
 				(
 					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
@@ -3121,6 +3127,7 @@
 				,dbo.config_threshold ct
 		WHERE
 			ct.threshold_id = dtt.threshold_id
+			AND ct.parent_child = 0
 			AND (
 			(
 				SELECT
@@ -3446,7 +3453,7 @@
 			
 		ORDER BY
 			route_id,threshold_id
-/*
+
 	-- Save daily disaggregate travel times 
 
 	IF OBJECT_ID('dbo.daily_travel_time_disaggregate','U') IS NOT NULL
@@ -4094,7 +4101,7 @@
 			,departure_delay_sec
 			,stop_order_flag
 			,threshold_id
-			,threshold_value
+			,threshold_value_upper
 			,denominator_pax
 			,scheduled_threshold_numerator_pax
 			,NULL
@@ -4401,11 +4408,11 @@
 	IF OBJECT_ID('tempdb..#daily_departure_time_sec','U') IS NOT NULL
 		DROP TABLE #daily_departure_time_sec
 
-END
+--END
 
 
 
-GO
+--GO
 
-*/
+
 

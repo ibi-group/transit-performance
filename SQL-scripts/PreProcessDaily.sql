@@ -27,6 +27,20 @@
 	
 	DECLARE @service_date DATE = '2017-10-30'
 
+	--create a table to store route types that will be processed
+	DECLARE @route_types AS TABLE
+	(
+		route_type INT
+	)
+
+	INSERT INTO @route_types
+	VALUES
+		(0),(1),(2),(3)
+
+	--variable for using timepoints only in bus metrics TRUE = 1, FALSE = 0
+	DECLARE @use_timepoints_only BIT
+	SET @use_timepoints_only = 1
+
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
 
@@ -157,9 +171,15 @@
 			t.service_id = c.service_id
 			AND t.route_id = r.route_id
 			AND 
-				r.route_type IN (0,1,2,3)
-			AND
-				r.route_id IN ('1','7','9','68','69','325','749','751','712','713')
+				(
+					r.route_type IN (0,1,2)
+				OR
+					(
+						r.route_type = 3
+					AND
+						r.route_id IN ('1','7','9','68','69','325','749','751','712','713')
+					)
+				)
 			AND (
 			(@day_of_the_week = 'Monday'
 			AND monday = 1)
@@ -199,7 +219,7 @@
 			AND
 			cd.date = @service_date_process
 			AND 
-				r.route_type IN (0,1,2,3)
+				r.route_type IN (0,1,2,3) --(SELECT route_type FROM @route_types)
 	
 
 
@@ -467,6 +487,21 @@
 			ti.trip_id = sta.trip_id
 			AND wtt.trip_id = ti.trip_id
 			AND wtt.trip_id = sta.trip_id
+			--added for bus
+			--AND
+			--	(
+			--			(
+			--					@use_timepoints_only = 1 
+			--				AND 
+			--					(
+			--						(ti.route_type = 3 AND sta.checkpoint_id IS NOT NULL)
+			--					OR
+			--						(ti.route_type <> 3)
+			--					)
+			--			)
+			--		OR
+			--			@use_timepoints_only = 0
+			--	)
 	;
 
 
@@ -528,8 +563,8 @@
 			,stb.departure_time_sec AS to_departure_time_sec
 			,stb.arrival_time_sec - sta.departure_time_sec AS travel_time_sec
 
-		FROM	gtfs.stop_times sta
-				,gtfs.stop_times stb
+		FROM	daily_stop_times_sec sta
+				,daily_stop_times_sec stb
 				,dbo.daily_trips ti
 
 		WHERE
