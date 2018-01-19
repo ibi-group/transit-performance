@@ -90,6 +90,147 @@
 			dbo.event_rt_trip_archive.direction_id IS NULL
 			AND dbo.event_rt_trip_archive.service_date = @service_date_process
 
+	--Create Trip Updates Table which stores predicted arrival and departure events and times for the day being processed
+
+	IF OBJECT_ID('dbo.daily_trip_updates', 'U') IS NOT NULL
+	  DROP TABLE dbo.daily_trip_updates
+	;
+
+	CREATE TABLE dbo.daily_trip_updates(
+		record_id				INT PRIMARY KEY NOT NULL IDENTITY 
+		,service_date			DATE NOT NULL
+		,file_time				INT NOT NULL
+		,route_id				VARCHAR(255) NOT NULL
+		,route_type				INT NOT NULL
+		,trip_id				VARCHAR(255) NOT NULL
+		,direction_id			INT NOT NULL
+		,stop_id				VARCHAR(255) NOT NULL
+		,stop_sequence			INT NOT NULL
+		,vehicle_id				VARCHAR(255) NOT NULL
+		,event_type				CHAR(3) NOT NULL
+		,event_time				INT NOT NULL
+		,event_time_sec			INT NOT NULL
+		,event_processed_rt		BIT NOT NULL
+		,event_processed_daily	BIT NOT NULL
+		,suspect_record			BIT DEFAULT 0 NOT NULL
+		)
+	;
+
+	INSERT INTO dbo.daily_trip_updates
+	(
+		service_date
+		,file_time
+		,route_id
+		,route_type
+		,trip_id
+		,direction_id
+		,stop_id
+		,stop_sequence
+		,vehicle_id
+		,event_type
+		,event_time
+		,event_time_sec
+		,event_processed_rt
+		,event_processed_daily
+	)
+
+	SELECT
+		ert.service_date
+		,ert.file_time
+		,ert.route_id
+		,r.route_type
+		,ert.trip_id
+		,ert.direction_id
+		,ert.stop_id
+		,ert.stop_sequence
+		,ert.vehicle_id
+		,ert.event_type
+		,ert.event_time
+		,DATEDIFF(s,ert.service_date,dbo.fnConvertEpochToDateTime(ert.event_time)) AS event_time_sec
+		,0 AS event_processed_rt
+		,0 AS event_processed_daily
+	FROM dbo.event_rt_trip_archive ert, gtfs.routes r
+	WHERE 
+			ert.service_date = @service_date_process
+		AND
+			r.route_id = ert.route_id
+
+	UPDATE dbo.daily_trip_updates
+	SET suspect_record = 1
+	WHERE
+		stop_sequence = 0
+
+	UPDATE dbo.daily_trip_updates
+	SET suspect_record = 1
+	WHERE
+		event_time = 0
+
+	UPDATE dbo.daily_trip_updates
+	SET suspect_record = 1
+	FROM
+		dbo.daily_trip_updates dtu
+	JOIN
+		(
+			SELECT
+                service_date
+                ,trip_id
+                ,stop_sequence
+                ,stop_id
+                ,event_type
+                ,COUNT(vehicle_id) as num_duplicates
+            FROM
+                dbo.daily_trip_updates 
+            GROUP BY
+                service_date
+                ,trip_id
+                ,stop_sequence
+                ,stop_id
+                ,event_type
+            HAVING
+                COUNT(vehicle_id) > 1) t
+        ON
+            (
+                dtu.service_date = t.service_date    
+            AND
+                dtu.trip_id = t.trip_id
+            AND
+                dtu.stop_sequence = t.stop_sequence
+            AND
+                dtu.stop_id = t.stop_id
+            )
+
+	UPDATE dbo.daily_trip_updates
+	SET suspect_record = 1
+	FROM
+		dbo.daily_trip_updates dtu
+	JOIN 
+		( 
+			SELECT
+				service_date
+				,trip_id
+				,COUNT(DISTINCT file_time) as num_file_time
+			FROM
+				dbo.daily_trip_updates
+			WHERE
+				route_type IN (0,3)
+			GROUP BY
+				service_date
+				,trip_id
+			HAVING 
+				COUNT(DISTINCT file_time) = 1) t
+		ON
+			(
+				dtu.service_date = t.service_date
+			AND
+				dtu.trip_id = t.trip_id
+			)
+	
+	
+	UPDATE dbo.daily_trip_updates
+	SET suspect_record = 1
+	WHERE
+			event_time - file_time > 300
+
 	--Create Event Time Table which stores arrival and departure events and times for the day being processed
 	IF OBJECT_ID('dbo.daily_event','U') IS NOT NULL
 		DROP TABLE dbo.daily_event
@@ -196,7 +337,87 @@
 		WHERE
 			event_time_sec > 99000
 
-	-------finding missed CR events at the destination and adding last available prediction from trip_udpates----------
+	
+	--Records where stop_sequence = 0
+	UPDATE dbo.daily_event
+		SET suspect_record = 1
+		WHERE
+			stop_sequence = 0
+
+	--records where a trip-vehicle only had 2 or fewer records
+	UPDATE dbo.daily_event
+		SET suspect_record = 1
+		FROM dbo.daily_event ed
+			JOIN
+			(
+				SELECT
+					service_date
+					,route_id
+					,vehicle_id
+					,trip_id
+					,count_event
+				FROM
+				(
+					SELECT
+						service_date
+						,route_id
+						,route_type
+						,vehicle_id
+						,trip_id
+						,COUNT(*) AS count_event
+					FROM dbo.daily_event ed
+					GROUP BY
+						service_date
+						,route_id
+						,route_type
+						,vehicle_id
+						,trip_id
+				) t
+				WHERE
+					t.count_event <= 2
+					AND t.route_type IN (1,2,3) --MBTA specific
+			) s
+				ON
+					(
+					ed.service_date = s.service_date
+					AND ed.vehicle_id = s.vehicle_id
+					AND ed.trip_id = s.trip_id
+					)
+
+	--Records where there are duplicate events for trip-stop that are not already suspect
+	UPDATE dbo.daily_event
+		SET suspect_record = 1
+		FROM dbo.daily_event ed
+			JOIN
+			(
+				SELECT
+					service_date
+					,trip_id
+					,stop_sequence
+					,stop_id
+					,event_type
+					,COUNT(*) AS num_duplicates
+				FROM dbo.daily_event
+				WHERE
+					suspect_record = 0
+				GROUP BY
+					service_date
+					,trip_id
+					,stop_sequence
+					,stop_id
+					,event_type
+				HAVING COUNT(*) > 1
+			) t
+				ON
+					(
+					ed.service_date = t.service_date
+					AND ed.trip_id = t.trip_id
+					AND ed.stop_sequence = t.stop_sequence
+					AND ed.stop_id = t.stop_id
+					AND ed.event_type = t.event_type
+					)
+
+	-------finding missed CR events at the destination and missed bus events----------
 	IF OBJECT_ID('tempdb..##missed_events','U') IS NOT NULL
 		DROP TABLE ##missed_events
 
@@ -204,29 +425,36 @@
 	(
 		service_date		DATE
 		,trip_id			VARCHAR(255)
+		,vehicle_id			VARCHAR(255)
 		,route_type			INT
 		,stop_id			VARCHAR(255)
 		,stop_sequence		INT
 		,stop_order_flag	INT
+		,event_type			CHAR(3) NOT NULL
 	)
 
+	--finding missed CR events at the destination
 	INSERT INTO ##missed_events
 	(
 		service_date
 		,trip_id
+		,vehicle_id
 		,route_type
 		,stop_id
 		,stop_sequence
 		,stop_order_flag
+		,event_type
 	)
 
 		SELECT DISTINCT
 			st.service_date
 			,st.trip_id
+			,de.vehicle_id
 			,st.route_type
 			,st.stop_id
 			,st.stop_sequence
 			,st.stop_order_flag
+			,de.event_type
 		FROM	dbo.daily_stop_times_sec st
 				,dbo.daily_event de
 		WHERE
@@ -234,15 +462,51 @@
 			AND de.service_date = st.service_date
 			AND st.route_type = 2
 			AND st.stop_order_flag = 3
+			AND de.event_type = 'ARR'   --only arrival events at terminals
 
+	--finding missed bus events
+	INSERT INTO ##missed_events
+    (
+        service_date
+		,trip_id
+		,vehicle_id
+        ,route_type
+        ,stop_id
+        ,stop_sequence
+		,stop_order_flag
+		,event_type
+    )
+
+		SELECT DISTINCT
+			st.service_date
+			,st.trip_id
+			,de.vehicle_id     
+			,st.route_type
+			,st.stop_id
+			,st.stop_sequence
+			,st.stop_order_flag
+			,de.event_type
+		FROM
+			dbo.daily_stop_times_sec st, dbo.daily_event de
+		WHERE
+				de.trip_id = st.trip_id
+			AND
+				de.service_date = st.service_date
+			AND
+				st.route_type = 3
+	
+	--remove stops from missed events that have events in daily_event
 	DELETE FROM ##missed_events
 	FROM	##missed_events me
 			,dbo.daily_event de
 	WHERE
 		me.trip_id = de.trip_id
+		AND me.vehicle_id = de.vehicle_id
 		AND me.stop_id = de.stop_id
 		AND me.stop_sequence = de.stop_sequence
 		AND me.service_date = de.service_date
+		AND me.event_type = de.event_type
+
 
 	--add events from trip_updates into daily event---------------------
 	IF OBJECT_ID('tempdb..##valid_trip_update_events','U') IS NOT NULL
@@ -285,60 +549,184 @@
 	)
 
 		SELECT DISTINCT
-			tue.service_date
-			,tue.file_time
-			,tue.route_id
-			,me.route_type
-			,tue.trip_id
-			,tue.direction_id
-			,tue.stop_id
-			,tue.stop_sequence
-			,tue.vehicle_id
-			,tue.event_type
-			,tue.event_time
-			,DATEDIFF(s,tue.service_date,dbo.fnConvertEpochToDateTime(tue.event_time)) AS event_time_sec
-			,0 AS event_processed_rt
-			,0 AS event_processed_daily
+			dtu.service_date
+			,dtu.file_time
+			,dtu.route_id
+			,dtu.route_type
+			,dtu.trip_id
+			,dtu.direction_id
+			,dtu.stop_id
+			,dtu.stop_sequence
+			,dtu.vehicle_id
+			,dtu.event_type
+			,dtu.event_time
+			,dtu.event_time_sec
+			,dtu.event_processed_rt
+			,dtu.event_processed_daily
 
-		FROM dbo.event_rt_trip_archive tue
+		FROM dbo.daily_trip_updates dtu
 		JOIN ##missed_events me
 			ON
 				(
-				tue.trip_id = me.trip_id
-				AND tue.stop_id = me.stop_id
-				AND tue.stop_sequence = me.stop_sequence
-				AND tue.service_date = me.service_date
-				AND tue.event_type = 'PRA'   --add only arrival predictions
-				AND
-				tue.event_time > 0
+					dtu.trip_id = me.trip_id
+				AND dtu.stop_id = me.stop_id
+				AND dtu.stop_sequence = me.stop_sequence
+				AND dtu.service_date = me.service_date
+				AND dtu.event_type = 
+					CASE
+						WHEN me.event_type = 'ARR' THEN 'PRA'
+						WHEN me.event_type = 'DEP' THEN 'PRD'
+					END
+				AND dtu.suspect_record = 0
 				)
-		JOIN
+
+	----find the departure/arrival times at the "previous" stop x and the "next" stop z for the "current" stop y with a missed event 
+	IF OBJECT_ID('dbo.daily_missed_events') IS NOT NULL
+	DROP TABLE dbo.daily_missed_events
+
+	CREATE TABLE dbo.daily_missed_events
+	(
+			record_id							INT IDENTITY PRIMARY KEY
+			,service_date						DATE
+			,trip_id							VARCHAR(255)
+			,vehicle_id							VARCHAR(255)
+			,route_type							INT
+			,stop_sequence						INT
+			,stop_id							VARCHAR(255)
+			,event_type							CHAR(3)
+			,predicted_event_time				INT
+			,max_before_stop_sequence			INT
+			,max_before_stop_id					VARCHAR(255)
+			,max_before_event_type				CHAR(3)
+			,max_before_event_time				INT
+			,min_after_stop_sequence			INT
+			,min_after_stop_id					VARCHAR(255)
+			,min_after_event_type				CHAR(3)
+			,min_after_event_time				INT
+	)
+
+	INSERT INTO dbo.daily_missed_events
+
+	SELECT 
+		y.service_date
+		,y.trip_id
+		,y.vehicle_id
+		,y.route_type
+		,y.stop_sequence
+		,y.stop_id
+		,y.event_type
+		,y.event_time
+		,t1.max_before_stop_sequence
+		,t1.max_before_stop_id
+		,t1.max_before_event_type
+		,t1.max_before_event_time
+		,t2.min_after_stop_sequence
+		,t2.min_after_stop_id
+		,t2.min_after_event_type
+		,t2.min_after_event_time
+	FROM ##valid_trip_update_events y
+	LEFT JOIN
 		(
-			SELECT
-				service_date
-				,trip_id
-				,stop_sequence
-				,stop_id
-				,event_type
-				,COUNT(vehicle_id) AS num_duplicates
-			FROM dbo.event_rt_trip_archive
-			WHERE
-				service_date = @service_date_process
-			GROUP BY
-				service_date
-				,trip_id
-				,stop_sequence
-				,stop_id
-				,event_type
-			HAVING COUNT(vehicle_id) = 1
-		) t --valid trip updates for a stop should only have one vehicle_id
-			ON
-				(
-				tue.service_date = t.service_date
-				AND tue.trip_id = t.trip_id
-				AND tue.stop_sequence = t.stop_sequence
-				AND tue.stop_id = t.stop_id
-				)
+		SELECT 
+			y.service_date
+			,y.trip_id
+			,y.vehicle_id
+			,y.route_type
+			,y.stop_sequence
+			,y.stop_id
+			,y.event_type
+			,y.event_time
+			,x.stop_sequence as max_before_stop_sequence
+			,x.stop_id as max_before_stop_id
+			,x.event_type	as max_before_event_type
+			,x.event_time as max_before_event_time
+			,ROW_NUMBER () OVER ( -- Partition finds the most recent relevant "previous" stop on the trip
+				PARTITION BY 
+					y.trip_id, y.stop_id, y.event_type
+					ORDER BY  x.stop_sequence DESC) AS rn
+		FROM ##valid_trip_update_events y
+
+			JOIN dbo.daily_event x --x is the most recent relevant "previous" 
+				
+						ON (
+								y.service_date = x.service_date
+							AND
+								y.route_id = x.route_id
+							AND
+								y.direction_id = x.direction_id
+							AND
+								y.trip_id = x.trip_id
+							AND
+								y.stop_sequence > x.stop_sequence --make sure x stop is before y stop
+							AND 
+								x.suspect_record = 0
+							AND
+								x.event_type = 'DEP'
+						)
+			) t1
+		ON
+				y.service_date = t1.service_date
+			AND
+				y.trip_id = t1.trip_id
+			AND
+				y.stop_id = t1.stop_id
+			AND
+				y.stop_sequence = t1.stop_sequence
+			AND
+				y.event_type = t1.event_type
+			AND
+				t1.rn = 1
+	LEFT JOIN
+		(
+			SELECT 
+			y.service_date
+			,y.trip_id
+			,y.vehicle_id
+			,y.route_type
+			,y.stop_sequence
+			,y.stop_id
+			,y.event_type
+			,y.event_time
+			,z.stop_sequence as min_after_stop_sequence
+			,z.stop_id as min_after_stop_id
+			,z.event_type	as min_after_event_type
+			,z.event_time as min_after_event_time
+			,ROW_NUMBER () OVER ( -- Partition finds the most recent relevant "after" stop on the trip
+				PARTITION BY 
+					y.trip_id, y.stop_id, y.event_type
+					ORDER BY  z.stop_sequence asc) AS rn
+		FROM ##valid_trip_update_events y
+
+			JOIN dbo.daily_event z --z is the most recent relevant "after" 
+				
+						ON (
+								y.service_date = z.service_date
+							AND
+								y.route_id = z.route_id
+							AND
+								y.direction_id = z.direction_id
+							AND
+								y.trip_id = z.trip_id
+							AND
+								y.stop_sequence < z.stop_sequence --make sure z stop is after y  event
+							AND 
+								z.suspect_record = 0
+							AND
+								z.event_type = 'ARR'
+						)
+			) t2
+		ON
+				y.service_date = t2.service_date
+			AND
+				y.trip_id = t2.trip_id
+			AND
+				y.stop_id = t2.stop_id
+			AND
+				y.stop_sequence = t2.stop_sequence
+			AND
+				y.event_type = t2.event_type
+			AND
+				t2.rn = 1
 
 	INSERT INTO dbo.daily_event
 	(
@@ -358,65 +746,68 @@
 		,event_processed_daily
 	)
 
-
 		SELECT
-			t.y_service_date
-			,t.y_file_time
-			,t.y_route_id
-			,t.y_route_type
-			,t.y_trip_id
-			,t.y_direction_id
-			,t.y_stop_id
-			,t.y_stop_sequence
-			,t.y_vehicle_id
-			,t.y_event_type
-			,t.y_event_time
-			,t.y_event_time_sec
-			,t.y_event_processed_rt
-			,t.y_event_processed_daily
-
-		FROM
-		(
-			SELECT
-				y.service_date AS y_service_date
-				,y.file_time AS y_file_time
-				,y.route_id AS y_route_id
-				,y.route_type AS y_route_type
-				,y.trip_id AS y_trip_id
-				,y.direction_id AS y_direction_id
-				,y.stop_id AS y_stop_id
-				,y.stop_sequence AS y_stop_sequence
-				,y.vehicle_id AS y_vehicle_id
-				,y.event_type AS y_event_type
-				,y.event_time AS y_event_time
-				,y.event_time_sec AS y_event_time_sec
-				,y.event_processed_rt AS y_event_processed_rt
-				,y.event_processed_daily AS y_event_processed_daily
-				,ROW_NUMBER() OVER ( -- Partition finds the most recent relevant "previous" stop on the trip
-				PARTITION BY
-				y.trip_id
-				ORDER BY x.event_time_sec DESC) AS rn
-
-			FROM ##valid_trip_update_events y --y is the "current" 
-
-			JOIN dbo.daily_event x --x is the most recent relevant "previous" 
-
-				ON
-					(
-					y.service_date = x.service_date
-					AND y.route_id = x.route_id
-					AND y.direction_id = x.direction_id
-					AND y.trip_id = x.trip_id
-					AND y.event_time_sec > x.event_time_sec --make sure x DEP/ARR event is before y PRA event
-					AND y.stop_sequence > x.stop_sequence --make sure x DEP/ARR stop sequence is before y PRA stop sequence
-					AND y.event_type = 'PRA'
-					AND x.suspect_record = 0
-					AND x.event_time_sec < 99000 --make sure x event is valid
-					AND y.file_time + 900 >= y.event_time --make sure the predicted event is less than 15 minutes from file time
-					)
-		) t
-		WHERE
-			rn = 1
+			tue.service_date
+			,tue.file_time
+			,tue.route_id
+			,tue.route_type
+			,tue.trip_id
+			,tue.direction_id
+			,tue.stop_id
+			,tue.stop_sequence
+			,tue.vehicle_id
+			,tue.event_type
+			,tue.event_time
+			,tue.event_time_sec
+			,tue.event_processed_rt
+			,tue.event_processed_daily
+		FROM ##valid_trip_update_events tue
+		JOIN daily_missed_events dme
+		ON
+				tue.service_date = dme.service_date
+			AND
+				tue.trip_id = dme.trip_id
+			AND
+				tue.stop_id = dme.stop_id
+			AND
+				tue.stop_sequence = dme.stop_sequence
+			AND
+				tue.event_type = dme.event_type
+			AND
+				dme.predicted_event_time BETWEEN 
+					ISNULL(max_before_event_time, dme.predicted_event_time) AND ISNULL(min_after_event_time, dme.predicted_event_time)
+			AND
+				dme.record_id NOT IN --check for stops that have one event
+				(
+					SELECT 
+						dme.record_id
+					FROM daily_missed_events dme
+					JOIN daily_event de
+					ON
+						dme.service_date = de.service_date
+					AND
+						dme.trip_id = de.trip_id
+					AND
+						dme.stop_id = de.stop_id
+					AND
+						dme.stop_sequence = de.stop_sequence
+					WHERE
+							(	
+								dme.event_type = 'PRD' 
+							AND 
+								de.event_type = 'ARR'
+							AND
+								dme.predicted_event_time < de.event_time 
+							)
+						OR
+							(
+								dme.event_type = 'PRA'
+							AND
+								de.event_type = 'DEP'
+							AND
+								dme.predicted_event_time > de.event_time
+							)
+				)
 
 	--MARK SUSPECT RECORDS
 
@@ -428,12 +819,14 @@
 				OR event_type = 'PRD')
 			AND event_time = 0
 
+--not needed
+/*
 	--Records where stop_sequence = 0
 	UPDATE dbo.daily_event
 		SET suspect_record = 1
 		WHERE
 			stop_sequence = 0
-
+*/
 	--records where a trip-vehicle only had 2 or fewer records
 	UPDATE dbo.daily_event
 		SET suspect_record = 1
@@ -443,7 +836,7 @@
 				SELECT
 					service_date
 					,route_id
-					,vehicle_id
+					--,vehicle_id
 					,trip_id
 					,count_event
 				FROM
@@ -452,7 +845,7 @@
 						service_date
 						,route_id
 						,route_type
-						,vehicle_id
+						--,vehicle_id
 						,trip_id
 						,COUNT(*) AS count_event
 					FROM dbo.daily_event ed
@@ -460,23 +853,26 @@
 						service_date
 						,route_id
 						,route_type
-						,vehicle_id
+						--,vehicle_id
 						,trip_id
 				) t
 				WHERE
 					t.count_event <= 2
-					AND t.route_type IN (1,2) --MBTA specific
+					AND t.route_type IN (1,2,3) --MBTA specific
 			) s
 				ON
 					(
 					ed.service_date = s.service_date
-					AND ed.vehicle_id = s.vehicle_id
+					--AND ed.vehicle_id = s.vehicle_id
 					AND ed.trip_id = s.trip_id
 					)
 
+--not needed
+/*
 	--Records where there are duplicate events for trip-stop that are not already suspect
 	UPDATE dbo.daily_event
 		SET suspect_record = 1
+		SELECT *
 		FROM dbo.daily_event ed
 			JOIN
 			(
@@ -506,7 +902,8 @@
 					AND ed.stop_id = t.stop_id
 					AND ed.event_type = t.event_type
 					)
-
+					WHERE suspect_record = 0
+*/
 	-----------------------------processing starts-------------------------------------------------------------------------------------------------
 
 	--Create temp table daily_cd_time. This table stores the dwell times for the day being processed.
@@ -569,9 +966,8 @@
 		JOIN dbo.daily_event edc -- c is arrival at "From" stop
 			ON
 				(
-				(edc.event_type = 'ARR'
-				OR edc.event_type = 'PRA')
-				AND edd.event_type = 'DEP'
+					edc.event_type IN ('ARR','PRA')
+				AND edd.event_type IN ('DEP','PRD')
 				AND edc.service_date = edd.service_date
 				AND edc.stop_id = edd.stop_id
 				AND edc.stop_sequence = edd.stop_sequence
@@ -651,9 +1047,8 @@
 		JOIN dbo.daily_event edd -- d is departure at "From" stop
 			ON
 				(
-				edd.event_type = 'DEP'
-				AND (ede.event_type = 'ARR'
-				OR ede.event_type = 'PRA')
+				edd.event_type IN ('DEP','PRD')
+				AND ede.event_type IN ('ARR','PRA')
 				AND ede.service_date = edd.service_date
 				AND ede.vehicle_id = edd.vehicle_id
 				AND ede.trip_id = edd.trip_id
@@ -994,8 +1389,8 @@
 
 				ON
 					(
-					y.event_type = 'DEP'
-					AND x.event_type = 'DEP'
+					y.event_type IN ('DEP','PRD')
+					AND x.event_type IN ('DEP','PRD')
 					AND y.service_date = x.service_date
 					AND y.stop_id = x.stop_id
 					AND y.direction_id = x.direction_id
@@ -1106,8 +1501,8 @@
 
 				ON
 					(
-					y.event_type = 'DEP'
-					AND x.event_type = 'DEP'
+					y.event_type IN ('DEP','PRD')
+					AND x.event_type IN ('DEP','PRD')
 					AND y.service_date = x.service_date
 					AND y.stop_id = x.stop_id
 					AND y.direction_id = x.direction_id
@@ -1185,8 +1580,7 @@
 		FROM	dbo.daily_stop_times_sec ds
 				,dbo.daily_event rea
 		WHERE
-			(rea.event_type = 'ARR'
-			OR rea.event_type = 'PRA')
+			rea.event_type IN ('ARR','PRA')
 			AND rea.service_date = ds.service_date
 			AND rea.trip_id = ds.trip_id
 			AND rea.stop_id = ds.stop_id
@@ -1248,7 +1642,7 @@
 		FROM	dbo.daily_stop_times_sec ds
 				,dbo.daily_event red
 		WHERE
-			red.event_type = 'DEP'
+			red.event_type IN ('DEP','PRD')
 			AND red.service_date = ds.service_date
 			AND red.trip_id = ds.trip_id
 			AND red.stop_id = ds.stop_id
@@ -4413,6 +4807,4 @@
 
 
 --GO
-
-
 

@@ -504,6 +504,93 @@
 			--	)
 	;
 
+	--create table for daily scheduled headway times
+	IF OBJECT_ID('dbo.daily_stop_times_headway_sec','U') IS NOT NULL
+		DROP TABLE dbo.daily_stop_times_headway_sec
+
+	CREATE TABLE dbo.daily_stop_times_headway_sec
+	(
+		service_date				DATE			NOT NULL
+		,route_type					INT				NOT NULL
+		,route_id					VARCHAR(255)	NOT NULL
+		,direction_id				INT				NOT NULL
+		,trip_id					VARCHAR(255)	NOT NULL
+		,stop_id					VARCHAR(255)	NOT NULL	
+		,stop_sequence				INT				NOT NULL
+		,arrival_time_sec			INT				NOT NULL
+		,departure_time_sec			INT				NOT NULL
+		,prev_trip_id				VARCHAR(255)
+		,prev_stop_sequence			INT
+		,prev_arrival_time_sec		INT
+		,prev_departure_time_sec	INT
+		,headway_time_sec			INT				
+	)
+	;
+
+	INSERT INTO dbo.daily_stop_times_headway_sec
+	(
+		service_date				
+		,route_type					
+		,route_id				
+		,direction_id			
+		,trip_id					
+		,stop_id				
+		,stop_sequence				
+		,arrival_time_sec			
+		,departure_time_sec			
+		,prev_trip_id				
+		,prev_stop_sequence			
+		,prev_arrival_time_sec		
+		,prev_departure_time_sec	
+		,headway_time_sec				
+	)
+
+		SELECT
+			service_date
+			,route_type
+			,route_id
+			,direction_id
+			,trip_id
+			,stop_id
+			,stop_sequence
+			,arrival_time_sec
+			,departure_time_sec
+			,prev_trip_id
+			,prev_stop_sequence
+			,prev_arrival_time_sec
+			,prev_departure_time_sec
+			,headway_time_sec
+		FROM
+		(
+			SELECT
+				sta.service_date
+				,sta.route_type
+				,sta.route_id
+				,sta.direction_id
+				,sta.trip_id
+				,sta.stop_id
+				,sta.stop_sequence
+				,sta.arrival_time_sec
+				,sta.departure_time_sec
+				,stb.trip_id as prev_trip_id
+				,stb.stop_sequence as prev_stop_sequence
+				,stb.arrival_time_sec as prev_arrival_time_sec
+				,stb.departure_time_sec as prev_departure_time_sec
+				,sta.departure_time_sec - stb.departure_time_sec as headway_time_sec
+				,ROW_NUMBER() OVER (PARTITION BY sta.route_id, sta.direction_id, sta.trip_id, sta.stop_id ORDER BY sta.departure_time_sec) AS rn
+			FROM	daily_stop_times_sec sta
+			LEFT JOIN
+					daily_stop_times_sec stb
+			ON
+					sta.route_id = stb.route_id
+				AND
+					sta.direction_id = stb.direction_id
+				AND
+					sta.stop_id = stb.stop_id
+				AND
+					sta.departure_time_sec > stb.departure_time_sec
+		) t
+		WHERE rn = 1
 
 	--create temp table for travel times which helps calculate benchmarks
 
@@ -890,7 +977,8 @@
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
-
+--not needed?
+/*
 	--insert missing time slices for bus
 	INSERT INTO daily_travel_time_benchmark
 	SELECT
@@ -987,6 +1075,7 @@
 			b.time_slice_rn < a.next_time_slice_rn
 	WHERE 
 			next_time_slice_rn - current_time_slice_rn > 1
+*/
 
 	-- Create table to store travel time threshold for day being processed
 
@@ -1572,6 +1661,8 @@
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
+--not needed?
+/*
 	--insert headway benchmarks (all routes) for missing time slices
 	INSERT INTO daily_headway_time_sr_all_benchmark
 	SELECT
@@ -1654,6 +1745,7 @@
 			b.time_slice_rn < a.next_time_slice_rn
 	WHERE 
 			next_time_slice_rn - current_time_slice_rn > 1
+*/
 
 	----create table to store thresholds for headway trip metrics
 
@@ -1903,6 +1995,8 @@
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
+--not needed?
+/*
 	--insert headway benchmarks (same route) for missing time slices
 	INSERT INTO daily_headway_time_sr_same_benchmark
 	SELECT
@@ -1992,7 +2086,7 @@
 			b.time_slice_rn < a.next_time_slice_rn
 	WHERE 
 			next_time_slice_rn - current_time_slice_rn > 1
-
+*/
 
 	--Create table to store wait time threshold for daily
 
