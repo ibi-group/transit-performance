@@ -1304,7 +1304,7 @@ BEGIN
 					trip_id
 				FROM dbo.daily_event
 			)
-			AND st.route_type IN (0,1)
+			AND st.route_type IN (1)
 
 	--delete all stop times for scheduled trips where we got an event. we should be left with all stop times for scheduled trips where we did not get an event		
 	DELETE FROM daily_missed_stop_times_scheduled
