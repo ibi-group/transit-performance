@@ -27,14 +27,14 @@
 --BEGIN
 --	SET NOCOUNT ON;
 
-	DECLARE @service_date DATE = '2017-10-30'
+	DECLARE @service_date DATE = '2017-10-23'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
 
 	--variable for using checkpoints only in bus metrics TRUE = 1, FALSE = 0
 	DECLARE @use_checkpoints_only BIT
-	SET @use_checkpoints_only = 1 
+	SET @use_checkpoints_only = 1
 
 	--ensure events from vehicle positions have direction_id and event_time_sec----------------------
 	UPDATE dbo.rt_event
@@ -116,8 +116,7 @@
 		)
 	;
 
-	INSERT INTO dbo.daily_trip_updates
-	(
+	INSERT INTO dbo.daily_trip_updates (
 		service_date
 		,file_time
 		,route_id
@@ -133,7 +132,6 @@
 		,event_processed_rt
 		,event_processed_daily
 	)
-
 	SELECT
 		ert.service_date
 		,ert.file_time
@@ -146,98 +144,80 @@
 		,ert.vehicle_id
 		,ert.event_type
 		,ert.event_time
-		,DATEDIFF(s,ert.service_date,dbo.fnConvertEpochToDateTime(ert.event_time)) AS event_time_sec
+		,DATEDIFF(s,ert.service_date,dbo.fnConvertEpochToDateTime(ert.event_time)) AS event_time_sec-- + 3600 AS event_time_sec  --FOR DAYLIGHT SAVINGS CHANGE
 		,0 AS event_processed_rt
 		,0 AS event_processed_daily
 	FROM dbo.event_rt_trip_archive ert, gtfs.routes r
 	WHERE 
-			ert.service_date = @service_date_process
-		AND
-			r.route_id = ert.route_id
+		ert.service_date = @service_date_process
+		AND r.route_id = ert.route_id
 
 	UPDATE dbo.daily_trip_updates
 	SET suspect_record = 1
-	WHERE
-		stop_sequence = 0
+	WHERE stop_sequence = 0
 
 	UPDATE dbo.daily_trip_updates
 	SET suspect_record = 1
-	WHERE
-		event_time = 0
+	WHERE event_time = 0
 
 	UPDATE dbo.daily_trip_updates
 	SET suspect_record = 1
 	FROM
 		dbo.daily_trip_updates dtu
-	JOIN
-		(
+		JOIN (
 			SELECT
-                service_date
-                ,trip_id
-                ,stop_sequence
-                ,stop_id
-                ,event_type
-                ,COUNT(vehicle_id) as num_duplicates
-            FROM
-                dbo.daily_trip_updates 
-            GROUP BY
-                service_date
-                ,trip_id
-                ,stop_sequence
-                ,stop_id
-                ,event_type
-            HAVING
-                COUNT(vehicle_id) > 1) t
-        ON
-            (
-                dtu.service_date = t.service_date    
-            AND
-                dtu.trip_id = t.trip_id
-            AND
-                dtu.stop_sequence = t.stop_sequence
-            AND
-                dtu.stop_id = t.stop_id
-            )
+				service_date
+				,trip_id
+				,stop_sequence
+				,stop_id
+				,event_type
+				,COUNT(vehicle_id) as num_duplicates
+			FROM dbo.daily_trip_updates 
+			GROUP BY
+				service_date
+				,trip_id
+				,stop_sequence
+				,stop_id
+				,event_type
+			HAVING COUNT(vehicle_id) > 1
+		) t
+			ON
+				dtu.service_date = t.service_date    
+				AND dtu.trip_id = t.trip_id
+				AND dtu.stop_sequence = t.stop_sequence
+				AND dtu.stop_id = t.stop_id
 
 	UPDATE dbo.daily_trip_updates
 	SET suspect_record = 1
 	FROM
 		dbo.daily_trip_updates dtu
-	JOIN 
-		( 
+		JOIN ( 
 			SELECT
 				service_date
 				,trip_id
 				,COUNT(DISTINCT file_time) as num_file_time
-			FROM
-				dbo.daily_trip_updates
-			WHERE
-				route_type IN (0,3)
+			FROM dbo.daily_trip_updates
+			WHERE route_type IN (0,3)
 			GROUP BY
 				service_date
 				,trip_id
-			HAVING 
-				COUNT(DISTINCT file_time) = 1) t
-		ON
-			(
+			HAVING COUNT(DISTINCT file_time) = 1
+		) t
+			ON
 				dtu.service_date = t.service_date
-			AND
-				dtu.trip_id = t.trip_id
-			)
+				AND dtu.trip_id = t.trip_id
 	
 	
 	UPDATE dbo.daily_trip_updates
 	SET suspect_record = 1
-	WHERE
-			event_time - file_time > 300
+	WHERE event_time - file_time > 300
 
 	--Create Event Time Table which stores arrival and departure events and times for the day being processed
 	IF OBJECT_ID('dbo.daily_event','U') IS NOT NULL
 		DROP TABLE dbo.daily_event
 		;
 
-	CREATE TABLE dbo.daily_event
-	(
+	CREATE TABLE dbo.daily_event (
 		record_id				INT				PRIMARY KEY NOT NULL IDENTITY
 		,service_date			DATE			NOT NULL
 		,file_time				INT				NOT NULL
@@ -256,40 +236,24 @@
 		,suspect_record			BIT				DEFAULT 0 NOT NULL
 	)
 	;
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_service_date ON daily_event (service_date);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_route_id ON daily_event (route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_route_type ON daily_event (route_type);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_trip_id ON daily_event (trip_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_direction_id ON daily_event (direction_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_stop_id ON daily_event (stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_stop_sequence ON daily_event (stop_sequence);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_vehicle_id ON daily_event (vehicle_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_type ON daily_event (event_type);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_time ON daily_event (event_time);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_time_sec ON daily_event (event_time_sec);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_processed_rt ON daily_event (event_processed_rt);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_processed_daily ON daily_event (event_processed_daily);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_suspect_record ON daily_event (suspect_record);
-
 	CREATE NONCLUSTERED INDEX IX_daily_event_1 ON dbo.daily_event (event_type)
 	INCLUDE (trip_id,stop_sequence,event_time_sec)
 
-	INSERT INTO dbo.daily_event
-	(
+	INSERT INTO dbo.daily_event (
 		service_date
 		,file_time
 		,route_id
@@ -378,11 +342,9 @@
 					AND t.route_type IN (1,2,3) --MBTA specific
 			) s
 				ON
-					(
 					ed.service_date = s.service_date
 					AND ed.vehicle_id = s.vehicle_id
 					AND ed.trip_id = s.trip_id
-					)
 
 	--Records where there are duplicate events for trip-stop that are not already suspect
 	UPDATE dbo.daily_event
@@ -409,20 +371,17 @@
 				HAVING COUNT(*) > 1
 			) t
 				ON
-					(
 					ed.service_date = t.service_date
 					AND ed.trip_id = t.trip_id
 					AND ed.stop_sequence = t.stop_sequence
 					AND ed.stop_id = t.stop_id
 					AND ed.event_type = t.event_type
-					)
 
 	-------finding missed CR events at the destination and missed bus events----------
 	IF OBJECT_ID('tempdb..##missed_events','U') IS NOT NULL
 		DROP TABLE ##missed_events
 
-	CREATE TABLE ##missed_events
-	(
+	CREATE TABLE ##missed_events (
 		service_date		DATE
 		,trip_id			VARCHAR(255)
 		,vehicle_id			VARCHAR(255)
@@ -445,28 +404,27 @@
 		,stop_order_flag
 		,event_type
 	)
-
-		SELECT DISTINCT
-			st.service_date
-			,st.trip_id
-			,de.vehicle_id
-			,st.route_type
-			,st.stop_id
-			,st.stop_sequence
-			,st.stop_order_flag
-			,de.event_type
-		FROM	dbo.daily_stop_times_sec st
-				,dbo.daily_event de
-		WHERE
-			de.trip_id = st.trip_id
-			AND de.service_date = st.service_date
-			AND st.route_type = 2
-			AND st.stop_order_flag = 3
-			AND de.event_type = 'ARR'   --only arrival events at terminals
+	SELECT DISTINCT
+		st.service_date
+		,st.trip_id
+		,de.vehicle_id
+		,st.route_type
+		,st.stop_id
+		,st.stop_sequence
+		,st.stop_order_flag
+		,de.event_type
+	FROM
+		dbo.daily_stop_times_sec st
+		,dbo.daily_event de
+	WHERE
+		de.trip_id = st.trip_id
+		AND de.service_date = st.service_date
+		AND st.route_type = 2
+		AND st.stop_order_flag = 3
+		AND de.event_type = 'ARR'   --only arrival events at terminals
 
 	--finding missed bus events
-	INSERT INTO ##missed_events
-    (
+	INSERT INTO ##missed_events (
         service_date
 		,trip_id
 		,vehicle_id
@@ -476,29 +434,27 @@
 		,stop_order_flag
 		,event_type
     )
-
-		SELECT DISTINCT
-			st.service_date
-			,st.trip_id
-			,de.vehicle_id     
-			,st.route_type
-			,st.stop_id
-			,st.stop_sequence
-			,st.stop_order_flag
-			,de.event_type
-		FROM
-			dbo.daily_stop_times_sec st, dbo.daily_event de
-		WHERE
-				de.trip_id = st.trip_id
-			AND
-				de.service_date = st.service_date
-			AND
-				st.route_type = 3
+	SELECT DISTINCT
+		st.service_date
+		,st.trip_id
+		,de.vehicle_id     
+		,st.route_type
+		,st.stop_id
+		,st.stop_sequence
+		,st.stop_order_flag
+		,de.event_type
+	FROM
+		dbo.daily_stop_times_sec st, dbo.daily_event de
+	WHERE
+		de.trip_id = st.trip_id
+		AND de.service_date = st.service_date
+		AND st.route_type = 3
 	
 	--remove stops from missed events that have events in daily_event
 	DELETE FROM ##missed_events
-	FROM	##missed_events me
-			,dbo.daily_event de
+	FROM
+		##missed_events me
+		,dbo.daily_event de
 	WHERE
 		me.trip_id = de.trip_id
 		AND me.vehicle_id = de.vehicle_id
@@ -512,8 +468,7 @@
 	IF OBJECT_ID('tempdb..##valid_trip_update_events','U') IS NOT NULL
 		DROP TABLE ##valid_trip_update_events
 
-	CREATE TABLE ##valid_trip_update_events
-	(
+	CREATE TABLE ##valid_trip_update_events (
 		service_date			DATE			NOT NULL
 		,file_time				INT				NOT NULL
 		,route_id				VARCHAR(255)	NOT NULL
@@ -530,8 +485,7 @@
 		,event_processed_daily	BIT				NOT NULL
 	)
 
-	INSERT INTO ##valid_trip_update_events
-	(
+	INSERT INTO ##valid_trip_update_events (
 		service_date
 		,file_time
 		,route_id
@@ -547,28 +501,26 @@
 		,event_processed_rt
 		,event_processed_daily
 	)
-
-		SELECT DISTINCT
-			dtu.service_date
-			,dtu.file_time
-			,dtu.route_id
-			,dtu.route_type
-			,dtu.trip_id
-			,dtu.direction_id
-			,dtu.stop_id
-			,dtu.stop_sequence
-			,dtu.vehicle_id
-			,dtu.event_type
-			,dtu.event_time
-			,dtu.event_time_sec
-			,dtu.event_processed_rt
-			,dtu.event_processed_daily
-
-		FROM dbo.daily_trip_updates dtu
+	SELECT DISTINCT
+		dtu.service_date
+		,dtu.file_time
+		,dtu.route_id
+		,dtu.route_type
+		,dtu.trip_id
+		,dtu.direction_id
+		,dtu.stop_id
+		,dtu.stop_sequence
+		,dtu.vehicle_id
+		,dtu.event_type
+		,dtu.event_time
+		,dtu.event_time_sec
+		,dtu.event_processed_rt
+		,dtu.event_processed_daily
+	FROM
+		dbo.daily_trip_updates dtu
 		JOIN ##missed_events me
 			ON
-				(
-					dtu.trip_id = me.trip_id
+				dtu.trip_id = me.trip_id
 				AND dtu.stop_id = me.stop_id
 				AND dtu.stop_sequence = me.stop_sequence
 				AND dtu.service_date = me.service_date
@@ -578,14 +530,12 @@
 						WHEN me.event_type = 'DEP' THEN 'PRD'
 					END
 				AND dtu.suspect_record = 0
-				)
 
 	----find the departure/arrival times at the "previous" stop x and the "next" stop z for the "current" stop y with a missed event 
 	IF OBJECT_ID('dbo.daily_missed_events') IS NOT NULL
 	DROP TABLE dbo.daily_missed_events
 
-	CREATE TABLE dbo.daily_missed_events
-	(
+	CREATE TABLE dbo.daily_missed_events (
 			record_id							INT IDENTITY PRIMARY KEY
 			,service_date						DATE
 			,trip_id							VARCHAR(255)
@@ -606,7 +556,6 @@
 	)
 
 	INSERT INTO dbo.daily_missed_events
-
 	SELECT 
 		y.service_date
 		,y.trip_id
@@ -624,60 +573,44 @@
 		,t2.min_after_stop_id
 		,t2.min_after_event_type
 		,t2.min_after_event_time
-	FROM ##valid_trip_update_events y
-	LEFT JOIN
-		(
-		SELECT 
-			y.service_date
-			,y.trip_id
-			,y.vehicle_id
-			,y.route_type
-			,y.stop_sequence
-			,y.stop_id
-			,y.event_type
-			,y.event_time
-			,x.stop_sequence as max_before_stop_sequence
-			,x.stop_id as max_before_stop_id
-			,x.event_type	as max_before_event_type
-			,x.event_time as max_before_event_time
-			,ROW_NUMBER () OVER ( -- Partition finds the most recent relevant "previous" stop on the trip
-				PARTITION BY 
-					y.trip_id, y.stop_id, y.event_type
-					ORDER BY  x.stop_sequence DESC) AS rn
-		FROM ##valid_trip_update_events y
-
-			JOIN dbo.daily_event x --x is the most recent relevant "previous" 
-				
-						ON (
-								y.service_date = x.service_date
-							AND
-								y.route_id = x.route_id
-							AND
-								y.direction_id = x.direction_id
-							AND
-								y.trip_id = x.trip_id
-							AND
-								y.stop_sequence > x.stop_sequence --make sure x stop is before y stop
-							AND 
-								x.suspect_record = 0
-							AND
-								x.event_type = 'DEP'
-						)
-			) t1
-		ON
+	FROM
+		##valid_trip_update_events y
+		LEFT JOIN (
+			SELECT 
+				y.service_date
+				,y.trip_id
+				,y.vehicle_id
+				,y.route_type
+				,y.stop_sequence
+				,y.stop_id
+				,y.event_type
+				,y.event_time
+				,x.stop_sequence as max_before_stop_sequence
+				,x.stop_id as max_before_stop_id
+				,x.event_type	as max_before_event_type
+				,x.event_time as max_before_event_time
+				,ROW_NUMBER () OVER ( -- Partition finds the most recent relevant "previous" stop on the trip
+					PARTITION BY y.trip_id, y.stop_id, y.event_type ORDER BY  x.stop_sequence DESC) AS rn
+			FROM
+				##valid_trip_update_events y
+				JOIN dbo.daily_event x --x is the most recent relevant "previous" 
+					ON
+						y.service_date = x.service_date
+						AND y.route_id = x.route_id
+						AND y.direction_id = x.direction_id
+						AND y.trip_id = x.trip_id
+						AND y.stop_sequence > x.stop_sequence --make sure x stop is before y stop
+						AND x.suspect_record = 0
+						AND x.event_type = 'DEP'
+		) t1
+			ON
 				y.service_date = t1.service_date
-			AND
-				y.trip_id = t1.trip_id
-			AND
-				y.stop_id = t1.stop_id
-			AND
-				y.stop_sequence = t1.stop_sequence
-			AND
-				y.event_type = t1.event_type
-			AND
-				t1.rn = 1
-	LEFT JOIN
-		(
+				AND y.trip_id = t1.trip_id
+				AND y.stop_id = t1.stop_id
+				AND y.stop_sequence = t1.stop_sequence
+				AND y.event_type = t1.event_type
+				AND t1.rn = 1
+		LEFT JOIN (
 			SELECT 
 			y.service_date
 			,y.trip_id
@@ -692,44 +625,28 @@
 			,z.event_type	as min_after_event_type
 			,z.event_time as min_after_event_time
 			,ROW_NUMBER () OVER ( -- Partition finds the most recent relevant "after" stop on the trip
-				PARTITION BY 
-					y.trip_id, y.stop_id, y.event_type
-					ORDER BY  z.stop_sequence asc) AS rn
-		FROM ##valid_trip_update_events y
-
-			JOIN dbo.daily_event z --z is the most recent relevant "after" 
-				
-						ON (
-								y.service_date = z.service_date
-							AND
-								y.route_id = z.route_id
-							AND
-								y.direction_id = z.direction_id
-							AND
-								y.trip_id = z.trip_id
-							AND
-								y.stop_sequence < z.stop_sequence --make sure z stop is after y  event
-							AND 
-								z.suspect_record = 0
-							AND
-								z.event_type = 'ARR'
-						)
-			) t2
-		ON
+				PARTITION BY y.trip_id, y.stop_id, y.event_type ORDER BY  z.stop_sequence asc) AS rn
+			FROM
+				##valid_trip_update_events y
+				JOIN dbo.daily_event z --z is the most recent relevant "after" 
+					ON
+						y.service_date = z.service_date
+						AND y.route_id = z.route_id
+						AND y.direction_id = z.direction_id
+						AND y.trip_id = z.trip_id
+						AND y.stop_sequence < z.stop_sequence --make sure z stop is after y  event
+						AND z.suspect_record = 0
+						AND z.event_type = 'ARR'
+		) t2
+			ON
 				y.service_date = t2.service_date
-			AND
-				y.trip_id = t2.trip_id
-			AND
-				y.stop_id = t2.stop_id
-			AND
-				y.stop_sequence = t2.stop_sequence
-			AND
-				y.event_type = t2.event_type
-			AND
-				t2.rn = 1
+				AND y.trip_id = t2.trip_id
+				AND y.stop_id = t2.stop_id
+				AND y.stop_sequence = t2.stop_sequence
+				AND y.event_type = t2.event_type
+				AND t2.rn = 1
 
-	INSERT INTO dbo.daily_event
-	(
+	INSERT INTO dbo.daily_event (
 		service_date
 		,file_time
 		,route_id
@@ -745,79 +662,66 @@
 		,event_processed_rt
 		,event_processed_daily
 	)
-
-		SELECT
-			tue.service_date
-			,tue.file_time
-			,tue.route_id
-			,tue.route_type
-			,tue.trip_id
-			,tue.direction_id
-			,tue.stop_id
-			,tue.stop_sequence
-			,tue.vehicle_id
-			,tue.event_type
-			,tue.event_time
-			,tue.event_time_sec
-			,tue.event_processed_rt
-			,tue.event_processed_daily
-		FROM ##valid_trip_update_events tue
+	SELECT
+		tue.service_date
+		,tue.file_time
+		,tue.route_id
+		,tue.route_type
+		,tue.trip_id
+		,tue.direction_id
+		,tue.stop_id
+		,tue.stop_sequence
+		,tue.vehicle_id
+		,tue.event_type
+		,tue.event_time
+		,tue.event_time_sec
+		,tue.event_processed_rt
+		,tue.event_processed_daily
+	FROM
+		##valid_trip_update_events tue
 		JOIN daily_missed_events dme
-		ON
+			ON
 				tue.service_date = dme.service_date
-			AND
-				tue.trip_id = dme.trip_id
-			AND
-				tue.stop_id = dme.stop_id
-			AND
-				tue.stop_sequence = dme.stop_sequence
-			AND
-				tue.event_type = dme.event_type
-			AND
-				dme.predicted_event_time BETWEEN 
-					ISNULL(max_before_event_time, dme.predicted_event_time) AND ISNULL(min_after_event_time, dme.predicted_event_time)
-			AND
-				dme.record_id NOT IN --check for stops that have one event
-				(
-					SELECT 
-						dme.record_id
-					FROM daily_missed_events dme
-					JOIN daily_event de
-					ON
-						dme.service_date = de.service_date
-					AND
-						dme.trip_id = de.trip_id
-					AND
-						dme.stop_id = de.stop_id
-					AND
-						dme.stop_sequence = de.stop_sequence
-					WHERE
+				AND tue.trip_id = dme.trip_id
+				AND tue.stop_id = dme.stop_id
+				AND tue.stop_sequence = dme.stop_sequence
+				AND tue.event_type = dme.event_type
+				AND dme.predicted_event_time BETWEEN ISNULL(max_before_event_time, dme.predicted_event_time) AND ISNULL(min_after_event_time, dme.predicted_event_time)
+				AND dme.record_id NOT IN --check for stops that have one event
+					(
+						SELECT dme.record_id
+						FROM
+							daily_missed_events dme
+							JOIN daily_event de
+								ON
+									dme.service_date = de.service_date
+									AND dme.trip_id = de.trip_id
+									AND dme.stop_id = de.stop_id
+									AND dme.stop_sequence = de.stop_sequence
+						WHERE
 							(	
 								dme.event_type = 'PRD' 
-							AND 
-								de.event_type = 'ARR'
-							AND
-								dme.predicted_event_time < de.event_time 
+								AND de.event_type = 'ARR'
+								AND dme.predicted_event_time < de.event_time 
 							)
-						OR
-							(
+							OR (
 								dme.event_type = 'PRA'
-							AND
-								de.event_type = 'DEP'
-							AND
-								dme.predicted_event_time > de.event_time
+								AND de.event_type = 'DEP'
+								AND dme.predicted_event_time > de.event_time
 							)
-				)
+					)
 
 	--MARK SUSPECT RECORDS
 
 	--mark trip update events with 0 epoch time as suspect
 	UPDATE dbo.daily_event
-		SET suspect_record = 1
-		WHERE
-			(event_type = 'PRA'
-				OR event_type = 'PRD')
-			AND event_time = 0
+	SET suspect_record = 1
+	WHERE
+		(
+			event_type = 'PRA'
+			OR event_type = 'PRD'
+		)
+		AND event_time = 0
 
 --not needed
 /*
@@ -829,43 +733,40 @@
 */
 	--records where a trip-vehicle only had 2 or fewer records
 	UPDATE dbo.daily_event
-		SET suspect_record = 1
-		FROM dbo.daily_event ed
-			JOIN
-			(
+	SET suspect_record = 1
+	FROM
+		dbo.daily_event ed
+		JOIN (
+			SELECT
+				service_date
+				,route_id
+				--,vehicle_id
+				,trip_id
+				,count_event
+			FROM (
 				SELECT
 					service_date
 					,route_id
+					,route_type
 					--,vehicle_id
 					,trip_id
-					,count_event
-				FROM
-				(
-					SELECT
-						service_date
-						,route_id
-						,route_type
-						--,vehicle_id
-						,trip_id
-						,COUNT(*) AS count_event
-					FROM dbo.daily_event ed
-					GROUP BY
-						service_date
-						,route_id
-						,route_type
-						--,vehicle_id
-						,trip_id
+					,COUNT(*) AS count_event
+				FROM dbo.daily_event ed
+				GROUP BY
+					service_date
+					,route_id
+					,route_type
+					--,vehicle_id
+					,trip_id
 				) t
-				WHERE
-					t.count_event <= 2
-					AND t.route_type IN (1,2,3) --MBTA specific
-			) s
-				ON
-					(
-					ed.service_date = s.service_date
-					--AND ed.vehicle_id = s.vehicle_id
-					AND ed.trip_id = s.trip_id
-					)
+			WHERE
+				t.count_event <= 2
+				AND t.route_type IN (1,2,3) --MBTA specific
+		) s
+			ON
+				ed.service_date = s.service_date
+				--AND ed.vehicle_id = s.vehicle_id
+				AND ed.trip_id = s.trip_id
 
 --not needed
 /*
@@ -895,14 +796,12 @@
 				HAVING COUNT(*) > 1
 			) t
 				ON
-					(
 					ed.service_date = t.service_date
 					AND ed.trip_id = t.trip_id
 					AND ed.stop_sequence = t.stop_sequence
 					AND ed.stop_id = t.stop_id
 					AND ed.event_type = t.event_type
-					)
-					WHERE suspect_record = 0
+			WHERE suspect_record = 0
 */
 	-----------------------------processing starts-------------------------------------------------------------------------------------------------
 
@@ -912,8 +811,7 @@
 	IF OBJECT_ID('tempdb..##daily_cd_time','U') IS NOT NULL
 		DROP TABLE ##daily_cd_time
 
-	CREATE TABLE ##daily_cd_time
-	(
+	CREATE TABLE ##daily_cd_time (
 		service_date		VARCHAR(255)	NOT NULL
 		,cd_stop_id			VARCHAR(255)	NOT NULL
 		,cd_stop_sequence	INT				NOT NULL
@@ -929,8 +827,7 @@
 		,cd_time_sec		INT				NOT NULL
 	)
 
-	INSERT INTO ##daily_cd_time
-	(
+	INSERT INTO ##daily_cd_time (
 		service_date
 		,cd_stop_id
 		,cd_stop_sequence
@@ -945,28 +842,25 @@
 		,d_time_sec
 		,cd_time_sec
 	)
-
-		SELECT
-			edc.service_date
-			,edc.stop_id AS cd_stop_id
-			,edc.stop_sequence AS cd_stop_sequence
-			,edc.direction_id AS cd_direction_id
-			,edc.route_id AS cd_route_id
-			,edc.route_type AS cd_route_type
-			,edc.trip_id AS cd_trip_id
-			,edc.vehicle_id AS cd_vehicle_id
-			,edc.record_id AS c_record_id
-			,edd.record_id AS d_record_id
-			,edc.event_time_sec AS c_time_sec
-			,edd.event_time_sec AS d_time_sec
-			,edd.event_time_sec - edc.event_time_sec AS cd_time_sec
-
-		FROM dbo.daily_event edd -- d is departure at "From" stop
-
+	SELECT
+		edc.service_date
+		,edc.stop_id AS cd_stop_id
+		,edc.stop_sequence AS cd_stop_sequence
+		,edc.direction_id AS cd_direction_id
+		,edc.route_id AS cd_route_id
+		,edc.route_type AS cd_route_type
+		,edc.trip_id AS cd_trip_id
+		,edc.vehicle_id AS cd_vehicle_id
+		,edc.record_id AS c_record_id
+		,edd.record_id AS d_record_id
+		,edc.event_time_sec AS c_time_sec
+		,edd.event_time_sec AS d_time_sec
+		,edd.event_time_sec - edc.event_time_sec AS cd_time_sec
+	FROM
+		dbo.daily_event edd -- d is departure at "From" stop
 		JOIN dbo.daily_event edc -- c is arrival at "From" stop
 			ON
-				(
-					edc.event_type IN ('ARR','PRA')
+				edc.event_type IN ('ARR','PRA')
 				AND edd.event_type IN ('DEP','PRD')
 				AND edc.service_date = edd.service_date
 				AND edc.stop_id = edd.stop_id
@@ -975,10 +869,9 @@
 				AND edc.vehicle_id = edd.vehicle_id
 				AND edc.trip_id = edd.trip_id
 				AND edd.event_time_sec >= edc.event_time_sec
-				)
-		WHERE
-			edd.suspect_record = 0
-			AND edc.suspect_record = 0
+	WHERE
+		edd.suspect_record = 0
+		AND edc.suspect_record = 0
 
 	--Create temp table daily_de_time. This table stores the travel times for the day being processed.
 	-- d is departure at "From" stop, e is arrival at "To" stop
@@ -986,8 +879,7 @@
 	IF OBJECT_ID('tempdb..##daily_de_time','U') IS NOT NULL
 		DROP TABLE ##daily_de_time
 
-	CREATE TABLE ##daily_de_time
-	(
+	CREATE TABLE ##daily_de_time (
 		service_date		VARCHAR(255)	NOT NULL
 		,d_stop_id			VARCHAR(255)	NOT NULL
 		,e_stop_id			VARCHAR(255)	NOT NULL
@@ -1005,8 +897,7 @@
 		,de_time_sec		INT				NOT NULL
 	)
 
-	INSERT INTO ##daily_de_time
-	(
+	INSERT INTO ##daily_de_time (
 		service_date
 		,d_stop_id
 		,e_stop_id
@@ -1023,30 +914,26 @@
 		,e_time_sec
 		,de_time_sec
 	)
-
-
-		SELECT
-			edd.service_date
-			,edd.stop_id AS d_stop_id
-			,ede.stop_id AS e_stop_id
-			,edd.stop_sequence AS d_stop_sequence
-			,ede.stop_sequence AS e_stop_sequence
-			,edd.direction_id AS de_direction_id
-			,edd.route_id AS de_route_id
-			,edd.route_type AS route_type
-			,edd.trip_id AS de_trip_id
-			,edd.vehicle_id AS de_vehicle_id
-			,edd.record_id AS d_record_id
-			,ede.record_id AS e_record_id
-			,edd.event_time_sec AS d_time_sec
-			,ede.event_time_sec AS e_time_sec
-			,ede.event_time_sec - edd.event_time_sec AS de_time_sec
-
-		FROM dbo.daily_event ede -- e is arrival at "To" stop
-
+	SELECT
+		edd.service_date
+		,edd.stop_id AS d_stop_id
+		,ede.stop_id AS e_stop_id
+		,edd.stop_sequence AS d_stop_sequence
+		,ede.stop_sequence AS e_stop_sequence
+		,edd.direction_id AS de_direction_id
+		,edd.route_id AS de_route_id
+		,edd.route_type AS route_type
+		,edd.trip_id AS de_trip_id
+		,edd.vehicle_id AS de_vehicle_id
+		,edd.record_id AS d_record_id
+		,ede.record_id AS e_record_id
+		,edd.event_time_sec AS d_time_sec
+		,ede.event_time_sec AS e_time_sec
+		,ede.event_time_sec - edd.event_time_sec AS de_time_sec
+	FROM
+		dbo.daily_event ede -- e is arrival at "To" stop
 		JOIN dbo.daily_event edd -- d is departure at "From" stop
 			ON
-				(
 				edd.event_type IN ('DEP','PRD')
 				AND ede.event_type IN ('ARR','PRA')
 				AND ede.service_date = edd.service_date
@@ -1055,18 +942,16 @@
 				AND ede.direction_id = edd.direction_id
 				AND ede.stop_sequence > edd.stop_sequence
 				AND ede.event_time_sec > edd.event_time_sec
-				)
-		WHERE
-			ede.suspect_record = 0
-			AND edd.suspect_record = 0
+	WHERE
+		ede.suspect_record = 0
+		AND edd.suspect_record = 0
 
 	--Create temp table daily_cde_time. This table stores the dwell + travel times for the day being processed.
 
 	IF OBJECT_ID('tempdb..##daily_cde_time','U') IS NOT NULL
 		DROP TABLE ##daily_cde_time
 
-	CREATE TABLE ##daily_cde_time
-	(
+	CREATE TABLE ##daily_cde_time (
 		service_date		VARCHAR(255)	NOT NULL
 		,cd_stop_id			VARCHAR(255)	NOT NULL
 		,e_stop_id			VARCHAR(255)	NOT NULL
@@ -1087,8 +972,7 @@
 		,de_time_sec		INT				NOT NULL
 	)
 
-	INSERT INTO ##daily_cde_time
-	(
+	INSERT INTO ##daily_cde_time (
 		service_date
 		,cd_stop_id
 		,e_stop_id
@@ -1108,41 +992,35 @@
 		,cd_time_sec
 		,de_time_sec
 	)
-
-		SELECT
-			de.service_date
-			,cd.cd_stop_id
-			,de.e_stop_id
-			,cd.cd_stop_sequence
-			,de.e_stop_sequence
-			,cd.cd_direction_id AS cde_direction_id
-			,cd.cd_route_id AS cde_route_id
-			,cd.cd_route_type AS cde_route_type
-			,cd.cd_trip_id AS cde_trip_id
-			,cd.cd_vehicle_id AS cde_vehicle_id
-			,cd.c_record_id
-			,cd.d_record_id
-			,de.e_record_id
-			,cd.c_time_sec
-			,cd.d_time_sec
-			,de.e_time_sec
-			,cd.cd_time_sec
-			,de.de_time_sec
-
-		FROM ##daily_de_time de -- de is travel between "From" stop and "To" stop
-
+	SELECT
+		de.service_date
+		,cd.cd_stop_id
+		,de.e_stop_id
+		,cd.cd_stop_sequence
+		,de.e_stop_sequence
+		,cd.cd_direction_id AS cde_direction_id
+		,cd.cd_route_id AS cde_route_id
+		,cd.cd_route_type AS cde_route_type
+		,cd.cd_trip_id AS cde_trip_id
+		,cd.cd_vehicle_id AS cde_vehicle_id
+		,cd.c_record_id
+		,cd.d_record_id
+		,de.e_record_id
+		,cd.c_time_sec
+		,cd.d_time_sec
+		,de.e_time_sec
+		,cd.cd_time_sec
+		,de.de_time_sec
+	FROM
+		##daily_de_time de -- de is travel between "From" stop and "To" stop
 		JOIN ##daily_cd_time cd --cd is dwell time at "From" stop
-			ON
-				(
-				de.d_record_id = cd.d_record_id
-				)
+			ON de.d_record_id = cd.d_record_id
 
 	--Create temp table daily_abcde_time. This table stores the day being processed joined events (abcde_time)
 	IF OBJECT_ID('tempdb..##daily_abcde_time','U') IS NOT NULL
 		DROP TABLE ##daily_abcde_time
 
-	CREATE TABLE ##daily_abcde_time
-	(
+	CREATE TABLE ##daily_abcde_time (
 		service_date		VARCHAR(255)	NOT NULL
 		,abcd_stop_id		VARCHAR(255)	NOT NULL
 		,e_stop_id			VARCHAR(255)	NOT NULL
@@ -1170,11 +1048,9 @@
 		,cd_time_sec		INT				NOT NULL
 		,de_time_sec		INT				NOT NULL
 		,bd_time_sec		INT				NOT NULL
-
 	)
 
-	INSERT INTO ##daily_abcde_time
-	(
+	INSERT INTO ##daily_abcde_time (
 		service_date
 		,abcd_stop_id
 		,e_stop_id
@@ -1203,37 +1079,35 @@
 		,de_time_sec
 		,bd_time_sec
 	)
-
-		SELECT
-			service_date
-			,abcd_stop_id
-			,e_stop_id
-			,ab_stop_sequence
-			,cd_stop_sequence
-			,e_stop_sequence
-			,abcde_direction_id
-			,ab_route_id
-			,cde_route_id
-			,abcde_route_type
-			,ab_trip_id
-			,cde_trip_id
-			,ab_vehicle_id
-			,cde_vehicle_id
-			,a_record_id
-			,b_record_id
-			,c_record_id
-			,d_record_id
-			,e_record_id
-			,a_time_sec
-			,b_time_sec
-			,c_time_sec
-			,d_time_sec
-			,e_time_sec
-			,cd_time_sec
-			,de_time_sec
-			,bd_time_sec
-
-		FROM
+	SELECT
+		service_date
+		,abcd_stop_id
+		,e_stop_id
+		,ab_stop_sequence
+		,cd_stop_sequence
+		,e_stop_sequence
+		,abcde_direction_id
+		,ab_route_id
+		,cde_route_id
+		,abcde_route_type
+		,ab_trip_id
+		,cde_trip_id
+		,ab_vehicle_id
+		,cde_vehicle_id
+		,a_record_id
+		,b_record_id
+		,c_record_id
+		,d_record_id
+		,e_record_id
+		,a_time_sec
+		,b_time_sec
+		,c_time_sec
+		,d_time_sec
+		,e_time_sec
+		,cd_time_sec
+		,de_time_sec
+		,bd_time_sec
+	FROM
 		(
 			SELECT
 				y.service_date
@@ -1263,41 +1137,29 @@
 				,y.cd_time_sec
 				,y.de_time_sec
 				,y.d_time_sec - x.d_time_sec AS bd_time_sec
-
 				,ROW_NUMBER() OVER ( -- Partition finds the most recent relevant "previous" trip travelling from d to e.
-				PARTITION BY
-				y.c_record_id
-				,y.d_record_id
-				,y.e_record_id
-				ORDER BY x.d_time_sec DESC) AS rn
-
-			FROM ##daily_cde_time y --y is the "current" trip
-
-			JOIN ##daily_cde_time x --x is the most recent relevant "previous" trip
-
-				ON
-					(
-					y.service_date = x.service_date
-					AND y.cd_stop_id = x.cd_stop_id
-					AND y.e_stop_id = x.e_stop_id
-					AND y.cde_direction_id = x.cde_direction_id
-					AND y.cde_vehicle_id <> x.cde_vehicle_id
-					AND y.cde_trip_id <> x.cde_trip_id
-					AND y.c_time_sec > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
-					--, but not by more than 30 minutes, as determined by the next statement
-					AND
-					y.c_time_sec - x.d_time_sec <= 1800
-					)
+					PARTITION BY y.c_record_id, y.d_record_id, y.e_record_id ORDER BY x.d_time_sec DESC) AS rn
+			FROM
+				##daily_cde_time y --y is the "current" trip
+				JOIN ##daily_cde_time x --x is the most recent relevant "previous" trip
+					ON
+						y.service_date = x.service_date
+						AND y.cd_stop_id = x.cd_stop_id
+						AND y.e_stop_id = x.e_stop_id
+						AND y.cde_direction_id = x.cde_direction_id
+						AND y.cde_vehicle_id <> x.cde_vehicle_id
+						AND y.cde_trip_id <> x.cde_trip_id
+						AND y.c_time_sec > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
+						--, but not by more than 30 minutes, as determined by the next statement
+						AND y.c_time_sec - x.d_time_sec <= 1800
 		) temp
-		WHERE
-			rn = 1
+	WHERE rn = 1
 
 	--Create temp table bd_sr_all_time. This table stores the day being processed's headway times at a stop between trips of all routes
 	IF OBJECT_ID('tempdb..##daily_bd_sr_all_time','u') IS NOT NULL
 		DROP TABLE ##daily_bd_sr_all_time;
 
-	CREATE TABLE ##daily_bd_sr_all_time
-	(
+	CREATE TABLE ##daily_bd_sr_all_time (
 		service_date		VARCHAR(255)	NOT NULL
 		,bd_stop_id			VARCHAR(255)	NOT NULL
 		,b_stop_sequence	INT				NOT NULL
@@ -1318,8 +1180,7 @@
 	)
 	;
 
-	INSERT INTO ##daily_bd_sr_all_time
-	(
+	INSERT INTO ##daily_bd_sr_all_time (
 		service_date
 		,bd_stop_id
 		,b_stop_sequence
@@ -1338,27 +1199,25 @@
 		,d_time_sec
 		,bd_time_sec
 	)
-
-		SELECT
-			service_date
-			,bd_stop_id
-			,b_stop_sequence
-			,d_stop_sequence
-			,b_route_id
-			,d_route_id
-			,bd_route_type
-			,bd_direction_id
-			,b_trip_id
-			,d_trip_id
-			,b_vehicle_id
-			,d_vehicle_id
-			,b_record_id
-			,d_record_id
-			,b_time_sec
-			,d_time_sec
-			,bd_time_sec
-
-		FROM
+	SELECT
+		service_date
+		,bd_stop_id
+		,b_stop_sequence
+		,d_stop_sequence
+		,b_route_id
+		,d_route_id
+		,bd_route_type
+		,bd_direction_id
+		,b_trip_id
+		,d_trip_id
+		,b_vehicle_id
+		,d_vehicle_id
+		,b_record_id
+		,d_record_id
+		,b_time_sec
+		,d_time_sec
+		,bd_time_sec
+	FROM
 		(
 			SELECT
 				y.service_date
@@ -1378,42 +1237,33 @@
 				,x.event_time_sec AS b_time_sec
 				,y.event_time_sec AS d_time_sec
 				,y.event_time_sec - x.event_time_sec AS bd_time_sec
-				,ROW_NUMBER() OVER (
-				PARTITION BY
-				y.record_id
-				ORDER BY x.event_time_sec DESC) AS rn
-
-			FROM dbo.daily_event y --y is the "current" trip
-
-			JOIN dbo.daily_event x --x is the most recent "previous" trip
-
-				ON
-					(
-					y.event_type IN ('DEP','PRD')
-					AND x.event_type IN ('DEP','PRD')
-					AND y.service_date = x.service_date
-					AND y.stop_id = x.stop_id
-					AND y.direction_id = x.direction_id
-					AND y.vehicle_id <> x.vehicle_id
-					AND y.trip_id <> x.trip_id
-					--AND 
-					--	y.route_id =x.route_id
-					AND y.event_time_sec >= x.event_time_sec --Green Line at park can have two with exactly the same time
-					AND y.event_time_sec - x.event_time_sec <= 1800
-					)
+				,ROW_NUMBER() OVER (PARTITION BY y.record_id ORDER BY x.event_time_sec DESC) AS rn
+			FROM
+				dbo.daily_event y --y is the "current" trip
+				JOIN dbo.daily_event x --x is the most recent "previous" trip
+					ON
+						y.event_type IN ('DEP','PRD')
+						AND x.event_type IN ('DEP','PRD')
+						AND y.service_date = x.service_date
+						AND y.stop_id = x.stop_id
+						AND y.direction_id = x.direction_id
+						AND y.vehicle_id <> x.vehicle_id
+						AND y.trip_id <> x.trip_id
+						--AND y.route_id =x.route_id
+						AND y.event_time_sec >= x.event_time_sec --Green Line at park can have two with exactly the same time
+						AND y.event_time_sec - x.event_time_sec <= 1800
 			WHERE
 				y.suspect_record = 0
 				AND x.suspect_record = 0
 		) temp
-		WHERE
-			rn = 1
+	WHERE rn = 1
 
 	--Create temp table rt_bd_sr_same_time. This table stores the day being processed's headway times at a stop between trips of the same routes in real-time
+
 	IF OBJECT_ID('tempdb..##daily_bd_sr_same_time','u') IS NOT NULL
 		DROP TABLE ##daily_bd_sr_same_time
 
-	CREATE TABLE ##daily_bd_sr_same_time
-	(
+	CREATE TABLE ##daily_bd_sr_same_time (
 		service_date		VARCHAR(255)	NOT NULL
 		,bd_stop_id			VARCHAR(255)	NOT NULL
 		,b_stop_sequence	INT				NOT NULL
@@ -1433,8 +1283,7 @@
 	)
 	;
 
-	INSERT INTO ##daily_bd_sr_same_time
-	(
+	INSERT INTO ##daily_bd_sr_same_time (
 		service_date
 		,bd_stop_id
 		,b_stop_sequence
@@ -1452,25 +1301,24 @@
 		,d_time_sec
 		,bd_time_sec
 	)
-
-		SELECT
-			service_date
-			,bd_stop_id
-			,b_stop_sequence
-			,d_stop_sequence
-			,bd_route_id
-			,bd_route_type
-			,bd_direction_id
-			,b_trip_id
-			,d_trip_id
-			,b_vehicle_id
-			,d_vehicle_id
-			,b_record_id
-			,d_record_id
-			,b_time_sec
-			,d_time_sec
-			,bd_time_sec
-		FROM
+	SELECT
+		service_date
+		,bd_stop_id
+		,b_stop_sequence
+		,d_stop_sequence
+		,bd_route_id
+		,bd_route_type
+		,bd_direction_id
+		,b_trip_id
+		,d_trip_id
+		,b_vehicle_id
+		,d_vehicle_id
+		,b_record_id
+		,d_record_id
+		,b_time_sec
+		,d_time_sec
+		,bd_time_sec
+	FROM
 		(
 			SELECT
 				y.service_date
@@ -1489,36 +1337,204 @@
 				,x.event_time_sec AS b_time_sec
 				,y.event_time_sec AS d_time_sec
 				,y.event_time_sec - x.event_time_sec AS bd_time_sec
+				,ROW_NUMBER() OVER (PARTITION BY y.record_id ORDER BY x.event_time_sec DESC) AS rn
+			FROM
+				dbo.daily_event y --y is the most recent "previous" trip
+				JOIN dbo.daily_event x --x is the "current" trip
+					ON
+						y.event_type IN ('DEP','PRD')
+						AND x.event_type IN ('DEP','PRD')
+						AND y.service_date = x.service_date
+						AND y.stop_id = x.stop_id
+						AND y.direction_id = x.direction_id
+						--AND y.vehicle_id <> x.vehicle_id
+						AND CASE
+							WHEN y.route_type <>3 AND y.route_id <> 'Mattapan' THEN y.vehicle_id
+							ELSE '0'
+							END <> x.vehicle_id
+						AND y.trip_id <> x.trip_id
+						AND y.route_id = x.route_id --for routes that are the same
+						AND y.event_time_sec >= x.event_time_sec --Green Line at park can have two with exactly the same time
+						AND y.event_time_sec - x.event_time_sec <= 1800
+			WHERE y.suspect_record = 0 AND x.suspect_record = 0
+		) temp
+	WHERE rn = 1
 
-				,ROW_NUMBER() OVER (
-				PARTITION BY
-				y.record_id
-				ORDER BY x.event_time_sec DESC) AS rn
+	/*INSERT INTO ##daily_bd_sr_same_time (
+		service_date
+		,bd_stop_id
+		,b_stop_sequence
+		,d_stop_sequence
+		,bd_route_id
+		,bd_route_type
+		,bd_direction_id
+		,b_trip_id
+		,d_trip_id
+		,b_vehicle_id
+		,d_vehicle_id
+		,b_record_id
+		,d_record_id
+		,b_time_sec
+		,d_time_sec
+		,bd_time_sec
+	)
+	SELECT
+		service_date
+		,bd_stop_id
+		,b_stop_sequence
+		,d_stop_sequence
+		,bd_route_id
+		,bd_route_type
+		,bd_direction_id
+		,b_trip_id
+		,d_trip_id
+		,b_vehicle_id
+		,d_vehicle_id
+		,b_record_id
+		,d_record_id
+		,b_time_sec
+		,d_time_sec
+		,d_time_sec - b_time_sec as bd_time_sec
+	FROM (
+		SELECT
+			service_date
+			,stop_id AS bd_stop_id
+			,stop_sequence AS b_stop_sequence
+			,LAG(stop_sequence, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_stop_sequence
+			,route_id AS bd_route_id
+			,route_type AS bd_route_type
+			,direction_id AS bd_direction_id
+			,trip_id AS b_trip_id
+			,LAG(trip_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_trip_id
+			,vehicle_id AS b_vehicle_id
+			,LAG(vehicle_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_vehicle_id
+			,record_id AS b_record_id
+			,LAG(record_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_record_id
+			,event_time_sec AS b_time_sec
+			,LAG(event_time_sec, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_time_sec
+		FROM (
+			SELECT
+				record_id
+				,service_date
+				,route_id
+				,route_type
+				,trip_id
+				,direction_id
+				,stop_id
+				,stop_sequence
+				,vehicle_id
+				,event_type
+				,event_time_sec
+				,suspect_record
+				,LAG(vehicle_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS rn_v
+			FROM dbo.daily_event
+			WHERE
+				suspect_record = 0
+				AND event_type IN ('DEP','PRD')
+		) de
+		WHERE CASE WHEN route_type IN (0,1,2,4,5,6) AND route_id <> 'Mattapan' THEN vehicle_id ELSE '0' END <> rn_v
+		--WHERE vehicle_id <> rn_v
+	) t
+	WHERE d_time_sec - b_time_sec <= 1800 --AND (b_vehicle_id = d_vehicle_id OR b_trip_id = d_trip_id)
 
-			FROM dbo.daily_event y --y is the most recent "previous" trip
+	SELECT * FROM dbo.daily_event WHERE route_id LIKE 'M%' AND suspect_record = 0 AND event_type IN ('DEP','PRD') ORDER BY service_date, route_id, direction_id, stop_id, event_time_sec
 
+	SELECT DISTINCT *
+	FROM (SELECT
+		service_date
+		,bd_stop_id
+		,b_stop_sequence
+		,d_stop_sequence
+		,bd_route_id
+		,bd_route_type
+		,bd_direction_id
+		,b_trip_id
+		,d_trip_id
+		,b_vehicle_id
+		,d_vehicle_id
+		,b_record_id
+		,d_record_id
+		,b_time_sec
+		,d_time_sec
+		,d_time_sec - b_time_sec as bd_time_sec
+	FROM (
+		SELECT
+			service_date
+			,stop_id AS bd_stop_id
+			,stop_sequence AS b_stop_sequence
+			,LAG(stop_sequence, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_stop_sequence
+			,route_id AS bd_route_id
+			,route_type AS bd_route_type
+			,direction_id AS bd_direction_id
+			,trip_id AS b_trip_id
+			,LAG(trip_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_trip_id
+			,vehicle_id AS b_vehicle_id
+			,LAG(vehicle_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_vehicle_id
+			,record_id AS b_record_id
+			,LAG(record_id, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_record_id
+			,event_time_sec AS b_time_sec
+			,LAG(event_time_sec, 1) OVER (PARTITION BY service_date, stop_id, direction_id, route_id ORDER BY event_time_sec DESC) AS d_time_sec
+		FROM dbo.daily_event
+		WHERE
+			suspect_record = 0
+			AND event_type IN ('DEP','PRD')
+	) t
+	WHERE d_time_sec - b_time_sec <= 1800 AND (b_vehicle_id = d_vehicle_id OR b_trip_id = d_trip_id)
+	UNION
+	SELECT
+		service_date
+		,bd_stop_id
+		,b_stop_sequence
+		,d_stop_sequence
+		,bd_route_id
+		,bd_route_type
+		,bd_direction_id
+		,b_trip_id
+		,d_trip_id
+		,b_vehicle_id
+		,d_vehicle_id
+		,b_record_id
+		,d_record_id
+		,b_time_sec
+		,d_time_sec
+		,bd_time_sec
+	FROM (
+		SELECT
+			y.service_date
+			,y.stop_id AS bd_stop_id
+			,x.stop_sequence AS b_stop_sequence
+			,y.stop_sequence AS d_stop_sequence
+			,y.route_id AS bd_route_id
+			,y.route_type AS bd_route_type
+			,y.direction_id AS bd_direction_id
+			,x.trip_id AS b_trip_id
+			,y.trip_id AS d_trip_id
+			,x.vehicle_id AS b_vehicle_id
+			,y.vehicle_id AS d_vehicle_id
+			,x.record_id AS b_record_id
+			,y.record_id AS d_record_id
+			,x.event_time_sec AS b_time_sec
+			,y.event_time_sec AS d_time_sec
+			,y.event_time_sec - x.event_time_sec AS bd_time_sec
+			,ROW_NUMBER() OVER (PARTITION BY y.record_id ORDER BY x.event_time_sec DESC) AS rn
+		FROM dbo.daily_event y --y is the most recent "previous" trip
 			JOIN dbo.daily_event x --x is the "current" trip
-
-				ON
-					(
+				ON (
 					y.event_type IN ('DEP','PRD')
 					AND x.event_type IN ('DEP','PRD')
 					AND y.service_date = x.service_date
 					AND y.stop_id = x.stop_id
 					AND y.direction_id = x.direction_id
-					AND y.vehicle_id <> x.vehicle_id
+					--AND y.vehicle_id <> x.vehicle_id
 					AND y.trip_id <> x.trip_id
 					AND y.route_id = x.route_id --for routes that are the same
 					AND y.event_time_sec >= x.event_time_sec --Green Line at park can have two with exactly the same time
 					AND y.event_time_sec - x.event_time_sec <= 1800
-					)
-			WHERE
-				y.suspect_record = 0
-				AND x.suspect_record = 0
-		) temp
-		WHERE
-			rn = 1
-
+				)
+		WHERE y.suspect_record = 0 AND x.suspect_record = 0
+	) temp
+	WHERE rn = 1 ) p
+	WHERE bd_time_sec = 0 b_vehicle_id = d_vehicle_id OR b_trip_id = d_trip_id*/
 
 	--------------------------------------------------------------------schedule adherence inputs part starts------------------------------------------------
 
@@ -1527,8 +1543,7 @@
 	IF OBJECT_ID('tempdb..#daily_arrival_time_sec','U') IS NOT NULL
 		DROP TABLE #daily_arrival_time_sec
 
-	CREATE TABLE #daily_arrival_time_sec
-	(
+	CREATE TABLE #daily_arrival_time_sec (
 		service_date				VARCHAR(255)	NOT NULL
 		,route_id					VARCHAR(255)	NOT NULL
 		,route_type					INT				NOT NULL
@@ -1541,12 +1556,11 @@
 		,actual_arrival_time_sec	INT
 		,arrival_delay_sec			INT
 		,stop_order_flag			INT -- 1 is first stop, 2 is mid stop, 3 is last stop
-		,checkpoint_id		VARCHAR(255)
+		,checkpoint_id				VARCHAR(255)
 	)
 	;
 
-	INSERT INTO #daily_arrival_time_sec
-	(
+	INSERT INTO #daily_arrival_time_sec (
 		service_date
 		,route_id
 		,route_type
@@ -1561,37 +1575,35 @@
 		,stop_order_flag
 		,checkpoint_id
 	)
-
-		SELECT
-			ds.service_date
-			,ds.route_id
-			,ds.route_type
-			,ds.direction_id
-			,ds.trip_id
-			,ds.stop_sequence
-			,ds.stop_id
-			,rea.vehicle_id
-			,ds.arrival_time_sec AS scheduled_arrival_time
-			,rea.event_time_sec AS actual_arrival_time
-			,rea.event_time_sec - ds.arrival_time_sec AS arrival_delay
-			,ds.stop_order_flag
-			,ds.checkpoint_id
-
-		FROM	dbo.daily_stop_times_sec ds
-				,dbo.daily_event rea
-		WHERE
-			rea.event_type IN ('ARR','PRA')
-			AND rea.service_date = ds.service_date
-			AND rea.trip_id = ds.trip_id
-			AND rea.stop_id = ds.stop_id
-			AND rea.stop_sequence = ds.stop_sequence
-			AND rea.suspect_record = 0
+	SELECT
+		ds.service_date
+		,ds.route_id
+		,ds.route_type
+		,ds.direction_id
+		,ds.trip_id
+		,ds.stop_sequence
+		,ds.stop_id
+		,rea.vehicle_id
+		,ds.arrival_time_sec AS scheduled_arrival_time
+		,rea.event_time_sec AS actual_arrival_time
+		,rea.event_time_sec - ds.arrival_time_sec AS arrival_delay
+		,ds.stop_order_flag
+		,ds.checkpoint_id
+	FROM
+		dbo.daily_stop_times_sec ds
+		,dbo.daily_event rea
+	WHERE
+		rea.event_type IN ('ARR','PRA')
+		AND rea.service_date = ds.service_date
+		AND rea.trip_id = ds.trip_id
+		AND rea.stop_id = ds.stop_id
+		AND rea.stop_sequence = ds.stop_sequence
+		AND rea.suspect_record = 0
 
 	IF OBJECT_ID('tempdb..#daily_departure_time_sec','U') IS NOT NULL
 		DROP TABLE #daily_departure_time_sec
 
-	CREATE TABLE #daily_departure_time_sec
-	(
+	CREATE TABLE #daily_departure_time_sec (
 		service_date					VARCHAR(255)	NOT NULL
 		,route_id						VARCHAR(255)	NOT NULL
 		,route_type						INT				NOT NULL
@@ -1604,12 +1616,11 @@
 		,actual_departure_time_sec		INT
 		,departure_delay_sec			INT
 		,stop_order_flag				INT
-		,checkpoint_id			VARCHAR(255)
+		,checkpoint_id					VARCHAR(255)
 	)
 	;
 
-	INSERT INTO #daily_departure_time_sec
-	(
+	INSERT INTO #daily_departure_time_sec (
 		service_date
 		,route_id
 		,route_type
@@ -1624,30 +1635,30 @@
 		,stop_order_flag
 		,checkpoint_id
 	)
-
-		SELECT
-			ds.service_date
-			,ds.route_id
-			,ds.route_type
-			,ds.direction_id
-			,ds.trip_id
-			,ds.stop_sequence
-			,ds.stop_id
-			,red.vehicle_id
-			,ds.departure_time_sec AS scheduled_departure_time
-			,red.event_time_sec AS actual_departure_time
-			,red.event_time_sec - ds.departure_time_sec AS departure_delay
-			,ds.stop_order_flag
-			,ds.checkpoint_id
-		FROM	dbo.daily_stop_times_sec ds
-				,dbo.daily_event red
-		WHERE
-			red.event_type IN ('DEP','PRD')
-			AND red.service_date = ds.service_date
-			AND red.trip_id = ds.trip_id
-			AND red.stop_id = ds.stop_id
-			AND red.stop_sequence = ds.stop_sequence
-			AND red.suspect_record = 0
+	SELECT
+		ds.service_date
+		,ds.route_id
+		,ds.route_type
+		,ds.direction_id
+		,ds.trip_id
+		,ds.stop_sequence
+		,ds.stop_id
+		,red.vehicle_id
+		,ds.departure_time_sec AS scheduled_departure_time
+		,red.event_time_sec AS actual_departure_time
+		,red.event_time_sec - ds.departure_time_sec AS departure_delay
+		,ds.stop_order_flag
+		,ds.checkpoint_id
+	FROM
+		dbo.daily_stop_times_sec ds
+		,dbo.daily_event red
+	WHERE
+		red.event_type IN ('DEP','PRD')
+		AND red.service_date = ds.service_date
+		AND red.trip_id = ds.trip_id
+		AND red.stop_id = ds.stop_id
+		AND red.stop_sequence = ds.stop_sequence
+		AND red.suspect_record = 0
 
 	--------------------------------------------------------------------schedule adherence inputs part ends---------------------------------------------------
 
@@ -1658,8 +1669,7 @@
 		DROP TABLE dbo.daily_missed_stop_times_scheduled
 		;
 
-	CREATE TABLE dbo.daily_missed_stop_times_scheduled
-	(
+	CREATE TABLE dbo.daily_missed_stop_times_scheduled (
 		record_id								INT	IDENTITY PRIMARY KEY
 		,service_date							DATE
 		,trip_id								VARCHAR(255)
@@ -1704,8 +1714,7 @@
 		FROM dbo.daily_stop_times_sec st
 
 		WHERE
-			st.trip_id IN
-			(
+			st.trip_id IN (
 				SELECT DISTINCT
 					trip_id
 				FROM dbo.daily_event
@@ -1760,8 +1769,6 @@
 					AND mst.stop_sequence = ed.stop_sequence
 					AND ed.event_type = 'DEP'
 					AND ed.suspect_record = 0
-
-
 
 	---first update for arrivals----------	
 	--fill in the expected times for the missed events based on the actual times of the previous event and next event
@@ -1896,7 +1903,6 @@
 				GROUP BY
 					mst.record_id
 			) AS ma
-
 		WHERE
 			mst.record_id = ma.record_id
 
@@ -1944,8 +1950,7 @@
 			service_date = @service_date_process
 
 	--save the records we are going to delete from ##daily_abcde_time where the headway is missed at the from stop
-	INSERT INTO dbo.deleted_from_abcde_time
-	(
+	INSERT INTO dbo.deleted_from_abcde_time (
 		service_date
 		,abcd_stop_id
 		,e_stop_id
@@ -1974,48 +1979,50 @@
 		,de_time_sec
 		,bd_time_sec
 	)
-		SELECT
-			abcde.service_date
-			,abcde.abcd_stop_id
-			,abcde.e_stop_id
-			,abcde.ab_stop_sequence
-			,abcde.cd_stop_sequence
-			,abcde.e_stop_sequence
-			,abcde.abcde_direction_id
-			,abcde.ab_route_id
-			,abcde.cde_route_id
-			,abcde.abcde_route_type
-			,abcde.ab_trip_id
-			,abcde.cde_trip_id
-			,abcde.ab_vehicle_id
-			,abcde.cde_vehicle_id
-			,abcde.a_record_id
-			,abcde.b_record_id
-			,abcde.c_record_id
-			,abcde.d_record_id
-			,abcde.e_record_id
-			,abcde.a_time_sec
-			,abcde.b_time_sec
-			,abcde.c_time_sec
-			,abcde.d_time_sec
-			,abcde.e_time_sec
-			,abcde.cd_time_sec
-			,abcde.de_time_sec
-			,abcde.bd_time_sec
-		FROM	##daily_abcde_time abcde
-				,daily_missed_stop_times_scheduled mst
-		WHERE
-			abcde.service_date = mst.service_date
-			AND abcde.abcd_stop_id = mst.stop_id
-			AND abcde.b_time_sec < expected_departure_time_sec
-			AND abcde.d_time_sec > expected_departure_time_sec
-			AND abcde.abcd_stop_id NOT IN ('70061','70105','70093','70094','70060','70038','70036','70001') ---these are terminal stops on Red, Orange, Blue lines
-			AND mst.actual_departure_time_sec IS NULL
+	SELECT
+		abcde.service_date
+		,abcde.abcd_stop_id
+		,abcde.e_stop_id
+		,abcde.ab_stop_sequence
+		,abcde.cd_stop_sequence
+		,abcde.e_stop_sequence
+		,abcde.abcde_direction_id
+		,abcde.ab_route_id
+		,abcde.cde_route_id
+		,abcde.abcde_route_type
+		,abcde.ab_trip_id
+		,abcde.cde_trip_id
+		,abcde.ab_vehicle_id
+		,abcde.cde_vehicle_id
+		,abcde.a_record_id
+		,abcde.b_record_id
+		,abcde.c_record_id
+		,abcde.d_record_id
+		,abcde.e_record_id
+		,abcde.a_time_sec
+		,abcde.b_time_sec
+		,abcde.c_time_sec
+		,abcde.d_time_sec
+		,abcde.e_time_sec
+		,abcde.cd_time_sec
+		,abcde.de_time_sec
+		,abcde.bd_time_sec
+	FROM
+		##daily_abcde_time abcde
+		,daily_missed_stop_times_scheduled mst
+	WHERE
+		abcde.service_date = mst.service_date
+		AND abcde.abcd_stop_id = mst.stop_id
+		AND abcde.b_time_sec < expected_departure_time_sec
+		AND abcde.d_time_sec > expected_departure_time_sec
+		AND abcde.abcd_stop_id NOT IN ('70061','70105','70093','70094','70060','70038','70036','70001') ---these are terminal stops on Red, Orange, Blue lines
+		AND mst.actual_departure_time_sec IS NULL
 
 	-- DELETE where the headway is missed at the from stop------------------
 	DELETE FROM ##daily_abcde_time
-	FROM	##daily_abcde_time abcde
-			,daily_missed_stop_times_scheduled mst
+	FROM
+		##daily_abcde_time abcde
+		,daily_missed_stop_times_scheduled mst
 	WHERE
 		abcde.service_date = mst.service_date
 		AND abcde.abcd_stop_id = mst.stop_id
@@ -2025,8 +2032,9 @@
 		AND mst.actual_departure_time_sec IS NULL
 
 	DELETE FROM ##daily_bd_sr_same_time
-	FROM	##daily_bd_sr_same_time hsr
-			,daily_missed_stop_times_scheduled mst
+	FROM
+		##daily_bd_sr_same_time hsr
+		,daily_missed_stop_times_scheduled mst
 	WHERE
 		hsr.service_date = mst.service_date
 		AND hsr.bd_stop_id = mst.stop_id
@@ -2036,8 +2044,9 @@
 		AND mst.actual_departure_time_sec IS NULL
 
 	DELETE FROM ##daily_bd_sr_all_time
-	FROM	##daily_bd_sr_all_time hsr
-			,daily_missed_stop_times_scheduled mst
+	FROM
+		##daily_bd_sr_all_time hsr
+		,daily_missed_stop_times_scheduled mst
 	WHERE
 		hsr.service_date = mst.service_date
 		AND hsr.bd_stop_id = mst.stop_id
@@ -2047,8 +2056,7 @@
 		AND mst.actual_departure_time_sec IS NULL
 
 	--put records that are deleted to remove records where we know we missed the arrival at the to_stop (e) for abcde
-	INSERT INTO dbo.deleted_from_abcde_time
-	(
+	INSERT INTO dbo.deleted_from_abcde_time (
 		service_date
 		,abcd_stop_id
 		,e_stop_id
@@ -2077,71 +2085,72 @@
 		,de_time_sec
 		,bd_time_sec
 	)
-		SELECT
-			abcde.service_date
-			,abcde.abcd_stop_id
-			,abcde.e_stop_id
-			,abcde.ab_stop_sequence
-			,abcde.cd_stop_sequence
-			,abcde.e_stop_sequence
-			,abcde.abcde_direction_id
-			,abcde.ab_route_id
-			,abcde.cde_route_id
-			,abcde.abcde_route_type
-			,abcde.ab_trip_id
-			,abcde.cde_trip_id
-			,abcde.ab_vehicle_id
-			,abcde.cde_vehicle_id
-			,abcde.a_record_id
-			,abcde.b_record_id
-			,abcde.c_record_id
-			,abcde.d_record_id
-			,abcde.e_record_id
-			,abcde.a_time_sec
-			,abcde.b_time_sec
-			,abcde.c_time_sec
-			,abcde.d_time_sec
-			,abcde.e_time_sec
-			,abcde.cd_time_sec
-			,abcde.de_time_sec
-			,abcde.bd_time_sec
-		FROM	##daily_abcde_time abcde
-				,
-				(
-					SELECT
-						mst.stop_id AS e_stop_id
-						,cd.cd_stop_id
-						,cd.d_time_sec
-					FROM	##daily_cd_time cd
-							,daily_missed_stop_times_scheduled mst
-					WHERE
-						cd.cd_trip_id = mst.trip_id
-						AND cd.cd_stop_sequence < mst.stop_sequence
-						AND mst.actual_arrival_time_sec IS NULL
-				) temp
-		WHERE
-			abcde.abcd_stop_id = temp.cd_stop_id
-			AND abcde.b_time_sec < temp.d_time_sec
-			AND abcde.d_time_sec > temp.d_time_sec
-			AND abcde.e_stop_id = temp.e_stop_id
-
+	SELECT
+		abcde.service_date
+		,abcde.abcd_stop_id
+		,abcde.e_stop_id
+		,abcde.ab_stop_sequence
+		,abcde.cd_stop_sequence
+		,abcde.e_stop_sequence
+		,abcde.abcde_direction_id
+		,abcde.ab_route_id
+		,abcde.cde_route_id
+		,abcde.abcde_route_type
+		,abcde.ab_trip_id
+		,abcde.cde_trip_id
+		,abcde.ab_vehicle_id
+		,abcde.cde_vehicle_id
+		,abcde.a_record_id
+		,abcde.b_record_id
+		,abcde.c_record_id
+		,abcde.d_record_id
+		,abcde.e_record_id
+		,abcde.a_time_sec
+		,abcde.b_time_sec
+		,abcde.c_time_sec
+		,abcde.d_time_sec
+		,abcde.e_time_sec
+		,abcde.cd_time_sec
+		,abcde.de_time_sec
+		,abcde.bd_time_sec
+	FROM
+		##daily_abcde_time abcde
+		,(
+			SELECT
+				mst.stop_id AS e_stop_id
+				,cd.cd_stop_id
+				,cd.d_time_sec
+			FROM
+				##daily_cd_time cd
+				,daily_missed_stop_times_scheduled mst
+			WHERE
+				cd.cd_trip_id = mst.trip_id
+				AND cd.cd_stop_sequence < mst.stop_sequence
+				AND mst.actual_arrival_time_sec IS NULL
+		) temp
+	WHERE
+		abcde.abcd_stop_id = temp.cd_stop_id
+		AND abcde.b_time_sec < temp.d_time_sec
+		AND abcde.d_time_sec > temp.d_time_sec
+		AND abcde.e_stop_id = temp.e_stop_id
 
 	--DELETE to remove records where we know we missed the arrival at the to_stop (e) for abcde--------
 	DELETE FROM ##daily_abcde_time
-	FROM	##daily_abcde_time abcde
-			,
-			(
-				SELECT
-					mst.stop_id AS e_stop_id
-					,cd.cd_stop_id
-					,cd.d_time_sec
-				FROM	##daily_cd_time cd
-						,daily_missed_stop_times_scheduled mst
-				WHERE
-					cd.cd_trip_id = mst.trip_id
-					AND cd.cd_stop_sequence < mst.stop_sequence
-					AND mst.actual_arrival_time_sec IS NULL
-			) temp
+	FROM
+		##daily_abcde_time abcde
+		,(
+			SELECT
+				mst.stop_id AS e_stop_id
+				,cd.cd_stop_id
+				,cd.d_time_sec
+			FROM
+				##daily_cd_time cd
+				,daily_missed_stop_times_scheduled mst
+			WHERE
+				cd.cd_trip_id = mst.trip_id
+				AND cd.cd_stop_sequence < mst.stop_sequence
+				AND mst.actual_arrival_time_sec IS NULL
+		) temp
 	WHERE
 		abcde.abcd_stop_id = temp.cd_stop_id
 		AND abcde.b_time_sec < temp.d_time_sec
@@ -2149,8 +2158,7 @@
 		AND abcde.e_stop_id = temp.e_stop_id
 
 	--put records that will be DELETED headways between events with suspect records in the middle
-	INSERT INTO dbo.deleted_from_abcde_time
-	(
+	INSERT INTO dbo.deleted_from_abcde_time (
 		service_date
 		,abcd_stop_id
 		,e_stop_id
@@ -2179,49 +2187,51 @@
 		,de_time_sec
 		,bd_time_sec
 	)
-		SELECT
-			abcde.service_date
-			,abcde.abcd_stop_id
-			,abcde.e_stop_id
-			,abcde.ab_stop_sequence
-			,abcde.cd_stop_sequence
-			,abcde.e_stop_sequence
-			,abcde.abcde_direction_id
-			,abcde.ab_route_id
-			,abcde.cde_route_id
-			,abcde.abcde_route_type
-			,abcde.ab_trip_id
-			,abcde.cde_trip_id
-			,abcde.ab_vehicle_id
-			,abcde.cde_vehicle_id
-			,abcde.a_record_id
-			,abcde.b_record_id
-			,abcde.c_record_id
-			,abcde.d_record_id
-			,abcde.e_record_id
-			,abcde.a_time_sec
-			,abcde.b_time_sec
-			,abcde.c_time_sec
-			,abcde.d_time_sec
-			,abcde.e_time_sec
-			,abcde.cd_time_sec
-			,abcde.de_time_sec
-			,abcde.bd_time_sec
-		FROM	##daily_abcde_time abcde
-				,daily_event mst
-		WHERE
-			abcde.service_date = mst.service_date
-			AND abcde.abcd_stop_id = mst.stop_id
-			AND abcde.b_time_sec < event_time_sec
-			AND abcde.d_time_sec > event_time_sec
-			AND abcde.abcd_stop_id NOT IN ('70061','70105','70093','70094','70060','70038','70036','70001')
-			AND mst.suspect_record = 1
-			AND mst.event_type = 'DEP'
+	SELECT
+		abcde.service_date
+		,abcde.abcd_stop_id
+		,abcde.e_stop_id
+		,abcde.ab_stop_sequence
+		,abcde.cd_stop_sequence
+		,abcde.e_stop_sequence
+		,abcde.abcde_direction_id
+		,abcde.ab_route_id
+		,abcde.cde_route_id
+		,abcde.abcde_route_type
+		,abcde.ab_trip_id
+		,abcde.cde_trip_id
+		,abcde.ab_vehicle_id
+		,abcde.cde_vehicle_id
+		,abcde.a_record_id
+		,abcde.b_record_id
+		,abcde.c_record_id
+		,abcde.d_record_id
+		,abcde.e_record_id
+		,abcde.a_time_sec
+		,abcde.b_time_sec
+		,abcde.c_time_sec
+		,abcde.d_time_sec
+		,abcde.e_time_sec
+		,abcde.cd_time_sec
+		,abcde.de_time_sec
+		,abcde.bd_time_sec
+	FROM
+		##daily_abcde_time abcde
+		,daily_event mst
+	WHERE
+		abcde.service_date = mst.service_date
+		AND abcde.abcd_stop_id = mst.stop_id
+		AND abcde.b_time_sec < event_time_sec
+		AND abcde.d_time_sec > event_time_sec
+		AND abcde.abcd_stop_id NOT IN ('70061','70105','70093','70094','70060','70038','70036','70001')
+		AND mst.suspect_record = 1
+		AND mst.event_type = 'DEP'
 
 	---DELETE headways between events with suspect records in the middle-------------------------------
 	DELETE FROM ##daily_abcde_time
-	FROM	##daily_abcde_time abcde
-			,daily_event mst
+	FROM
+		##daily_abcde_time abcde
+		,daily_event mst
 	WHERE
 		abcde.service_date = mst.service_date
 		AND abcde.abcd_stop_id = mst.stop_id
@@ -2232,8 +2242,9 @@
 		AND mst.event_type = 'DEP'
 
 	DELETE FROM ##daily_bd_sr_same_time
-	FROM	##daily_bd_sr_same_time hsr
-			,daily_event mst
+	FROM
+		##daily_bd_sr_same_time hsr
+		,daily_event mst
 	WHERE
 		hsr.service_date = mst.service_date
 		AND hsr.bd_stop_id = mst.stop_id
@@ -2244,8 +2255,9 @@
 		AND mst.event_type = 'DEP'
 
 	DELETE FROM ##daily_bd_sr_all_time
-	FROM	##daily_bd_sr_all_time hsr
-			,daily_event mst
+	FROM
+		##daily_bd_sr_all_time hsr
+		,daily_event mst
 	WHERE
 		hsr.service_date = mst.service_date
 		AND hsr.bd_stop_id = mst.stop_id
@@ -2259,8 +2271,7 @@
 	IF OBJECT_ID('dbo.daily_travel_time_threshold_pax','U') IS NOT NULL
 		DROP TABLE dbo.daily_travel_time_threshold_pax
 
-	CREATE TABLE dbo.daily_travel_time_threshold_pax
-	(
+	CREATE TABLE dbo.daily_travel_time_threshold_pax (
 		service_date									VARCHAR(255)	NOT NULL
 		,from_stop_id									VARCHAR(255)	NOT NULL
 		,to_stop_id										VARCHAR(255)	NOT NULL
@@ -2280,21 +2291,13 @@
 		,historical_threshold_numerator_pax				FLOAT			NULL
 		,scheduled_threshold_numerator_pax				FLOAT			NULL
 	)
-
-
 	CREATE NONCLUSTERED INDEX IX_daily_travel_time_threshold_pax_from_stop_id ON daily_travel_time_threshold_pax (from_stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_travel_time_threshold_pax_to_stop_id ON daily_travel_time_threshold_pax (to_stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_travel_time_threshold_pax_prev_route_id ON daily_travel_time_threshold_pax (prev_route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_travel_time_threshold_pax_route_id ON daily_travel_time_threshold_pax (route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_travel_time_threshold_pax_direction_id ON daily_travel_time_threshold_pax (direction_id);
 
-
-	INSERT INTO dbo.daily_travel_time_threshold_pax
-	(
+	INSERT INTO dbo.daily_travel_time_threshold_pax (
 		service_date
 		,from_stop_id
 		,to_stop_id
@@ -2314,117 +2317,96 @@
 		,historical_threshold_numerator_pax
 		,scheduled_threshold_numerator_pax
 	)
-
-		SELECT
-			abcde.service_date AS service_date
-			,abcde.abcd_stop_id AS from_stop_id
-			,abcde.e_stop_id AS to_stop_id
-			,abcde.abcde_direction_id AS direction_id
-			,abcde.ab_route_id AS prev_route_id
-			,abcde.cde_route_id AS route_id
-			,abcde.cde_trip_id AS trip_id
-			,abcde.d_time_sec AS start_time_sec
-			,abcde.e_time_sec AS end_time_sec
-			,(abcde.e_time_sec - abcde.d_time_sec) AS travel_time_sec
-			,ttt.threshold_id AS threshold_id
-			,ttt.threshold_historical_median_travel_time_sec AS threshold_historical_median_travel_time_sec
-			,ttt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
-			,ttt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
-			,ttt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
-			,(abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec)) AS denominator_pax
-			,CASE
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec))
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
-				ELSE 0
-			END AS historical_threshold_numerator_pax
-			,CASE
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec))
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
-				ELSE 0
-			END AS scheduled_threshold_numerator_pax
-		FROM ##daily_abcde_time abcde
-
+	SELECT
+		abcde.service_date AS service_date
+		,abcde.abcd_stop_id AS from_stop_id
+		,abcde.e_stop_id AS to_stop_id
+		,abcde.abcde_direction_id AS direction_id
+		,abcde.ab_route_id AS prev_route_id
+		,abcde.cde_route_id AS route_id
+		,abcde.cde_trip_id AS trip_id
+		,abcde.d_time_sec AS start_time_sec
+		,abcde.e_time_sec AS end_time_sec
+		,(abcde.e_time_sec - abcde.d_time_sec) AS travel_time_sec
+		,ttt.threshold_id AS threshold_id
+		,ttt.threshold_historical_median_travel_time_sec AS threshold_historical_median_travel_time_sec
+		,ttt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
+		,ttt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
+		,ttt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
+		,(abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec)) AS denominator_pax
+		,CASE
+			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec))
+			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
+			ELSE 0
+		END AS historical_threshold_numerator_pax
+		,CASE
+			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec))
+			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
+			ELSE 0
+		END AS scheduled_threshold_numerator_pax
+	FROM
+		##daily_abcde_time abcde
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				abcde.e_time_sec >= ts.time_slice_start_sec
 				AND abcde.e_time_sec < ts.time_slice_end_sec
-				)
 		JOIN dbo.service_date sd
-			ON
-				(
-				abcde.service_date = sd.service_date
-				)
+			ON abcde.service_date = sd.service_date
 		LEFT JOIN dbo.config_passenger_arrival_rate par --changed to LEFT JOIN to still count trip-stops with no passenger rates
 			ON
-				(
 				par.day_type_id = sd.day_type_id
 				AND ts.time_slice_id = par.time_slice_id
 				AND abcde.abcd_stop_id = par.from_stop_id
 				AND abcde.e_stop_id = par.to_stop_id
-				)
 		JOIN dbo.daily_travel_time_threshold ttt
 			ON
-				(
 				abcde.service_date = ttt.service_date
 				AND abcde.abcde_direction_id = ttt.direction_id
 				AND abcde.abcd_stop_id = ttt.from_stop_id
 				AND abcde.e_stop_id = ttt.to_stop_id
 				AND ts.time_slice_id = ttt.time_slice_id
-				AND ttt.route_type IN (0,1,3)
-				--(ttt.route_type = 1
-				--OR ttt.route_type = 0) --subway and green line passenger weighted numbers
-				AND
-				abcde.cde_route_id = ttt.route_id --added for multiple routes visiting the same stops, green line
-				)
+				AND ttt.route_type IN (0,1,3) --(ttt.route_type = 1 OR ttt.route_type = 0) --subway and green line passenger weighted numbers
+				AND abcde.cde_route_id = ttt.route_id --added for multiple routes visiting the same stops, green line
 
-		---------------CR travel times pax start--------------------------------------------------------------------------------------------
-		UNION
-		SELECT
-			dat.service_date AS service_date
-			,dat.d_stop_id AS from_stop_id
-			,dat.e_stop_id AS to_stop_id
-			,dat.de_direction_id AS direction_id
-			,dat.de_route_id AS prev_route_id
-			,dat.de_route_id AS route_id
-			,dat.de_trip_id AS trip_id
-			,dat.d_time_sec AS start_time_sec
-			,dat.e_time_sec AS end_time_sec
-			,dat.de_time_sec AS travel_time_sec
-			,dtt.threshold_id AS threshold_id
-			,dtt.threshold_historical_median_travel_time_sec AS threshold_historical_median_travel_time_sec
-			,dtt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
-			,dtt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
-			,dtt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
-			,po.num_passenger_off_subset AS denominator_pax
-			,CASE
-				WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec > 0) THEN po.num_passenger_off_subset
-				WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec <= 0) THEN 0
-				ELSE 0
-			END AS historical_threshold_numerator_pax
-			,CASE
-				WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec > 0) THEN po.num_passenger_off_subset
-				WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
-				ELSE 0
-			END AS scheduled_threshold_numerator_pax
-		FROM ##daily_de_time dat
-
+	---------------CR travel times pax start--------------------------------------------------------------------------------------------
+	UNION
+	SELECT
+		dat.service_date AS service_date
+		,dat.d_stop_id AS from_stop_id
+		,dat.e_stop_id AS to_stop_id
+		,dat.de_direction_id AS direction_id
+		,dat.de_route_id AS prev_route_id
+		,dat.de_route_id AS route_id
+		,dat.de_trip_id AS trip_id
+		,dat.d_time_sec AS start_time_sec
+		,dat.e_time_sec AS end_time_sec
+		,dat.de_time_sec AS travel_time_sec
+		,dtt.threshold_id AS threshold_id
+		,dtt.threshold_historical_median_travel_time_sec AS threshold_historical_median_travel_time_sec
+		,dtt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
+		,dtt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
+		,dtt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
+		,po.num_passenger_off_subset AS denominator_pax
+		,CASE
+			WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec > 0) THEN po.num_passenger_off_subset
+			WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec <= 0) THEN 0
+			ELSE 0
+		END AS historical_threshold_numerator_pax
+		,CASE
+			WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec > 0) THEN po.num_passenger_off_subset
+			WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
+			ELSE 0
+		END AS scheduled_threshold_numerator_pax
+	FROM
+		##daily_de_time dat
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				dat.e_time_sec >= ts.time_slice_start_sec
 				AND dat.e_time_sec < ts.time_slice_end_sec
-				)
-
 		JOIN dbo.service_date sd
-			ON
-				(
-				dat.service_date = sd.service_date
-				)
-
+			ON dat.service_date = sd.service_date
 		JOIN dbo.daily_travel_time_threshold dtt
 			ON
-				(
 				dat.service_date = dtt.service_date
 				AND dat.de_direction_id = dtt.direction_id
 				AND dat.de_trip_id = dat.de_trip_id
@@ -2432,17 +2414,12 @@
 				AND dat.e_stop_id = dtt.to_stop_id
 				AND ts.time_slice_id = dtt.time_slice_id
 				AND dtt.route_type = 2 --commuter rail passenger weighted numbers
-				AND
-				dat.de_route_id = dtt.route_id --added for multiple routes visiting the same stops
-				)
-
+				AND dat.de_route_id = dtt.route_id --added for multiple routes visiting the same stops
 		LEFT JOIN dbo.config_passenger_od_load_CR po --changed to LEFT JOIN to still count trip-stops with no passenger rates
 			ON
-				(
 				dat.de_trip_id = po.trip_id
 				AND dat.d_stop_id = po.from_stop_id
 				AND dat.e_stop_id = po.to_stop_id
-				)
 
 	----------------------------------------------------------CR travel times pax end ---------------------------------------------------------
 
@@ -2450,8 +2427,7 @@
 	IF OBJECT_ID('dbo.daily_wait_time_od_threshold_pax','U') IS NOT NULL
 		DROP TABLE dbo.daily_wait_time_od_threshold_pax
 
-	CREATE TABLE dbo.daily_wait_time_od_threshold_pax
-	(
+	CREATE TABLE dbo.daily_wait_time_od_threshold_pax (
 		service_date								VARCHAR(255)	NOT NULL
 		,from_stop_id								VARCHAR(255)	NOT NULL
 		,to_stop_id									VARCHAR(255)	NOT NULL
@@ -2471,20 +2447,13 @@
 		,historical_threshold_numerator_pax			FLOAT			NULL
 		,scheduled_threshold_numerator_pax			FLOAT			NULL
 	)
-
 	CREATE NONCLUSTERED INDEX IX_daily_wait_time_od_threshold_pax_from_stop_id ON daily_wait_time_od_threshold_pax (from_stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_wait_time_od_threshold_pax_to_stop_id ON daily_wait_time_od_threshold_pax (to_stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_wait_time_od_threshold_pax_prev_route_id ON daily_wait_time_od_threshold_pax (prev_route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_wait_time_od_threshold_pax_route_id ON daily_wait_time_od_threshold_pax (route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_wait_time_od_threshold_pax_direction_id ON daily_wait_time_od_threshold_pax (direction_id);
 
-
-	INSERT INTO dbo.daily_wait_time_od_threshold_pax
-	(
+	INSERT INTO dbo.daily_wait_time_od_threshold_pax (
 		service_date
 		,from_stop_id
 		,to_stop_id
@@ -2504,79 +2473,62 @@
 		,historical_threshold_numerator_pax
 		,scheduled_threshold_numerator_pax
 	)
+	SELECT
+		abcde.service_date
+		,abcde.abcd_stop_id
+		,abcde.e_stop_id
+		,abcde.abcde_direction_id
+		,abcde.ab_route_id
+		,abcde.cde_route_id
+		,abcde.b_time_sec
+		,abcde.d_time_sec
+		,abcde.c_time_sec - abcde.b_time_sec
+		,abcde.d_time_sec - abcde.c_time_sec
+		,wtt.threshold_id
+		,wtt.threshold_historical_median_wait_time_sec
+		,wtt.threshold_scheduled_median_wait_time_sec
+		,wtt.threshold_historical_average_wait_time_sec
+		,wtt.threshold_scheduled_average_wait_time_sec
+		,(d_time_sec - b_time_sec) * par.passenger_arrival_rate AS denominator_pax
+		,CASE
+			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec) * par.passenger_arrival_rate
+			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec <= 0) THEN 0
+			ELSE 0
+		END AS historical_threshold_numerator_pax
+		,CASE
+			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_median_wait_time_sec) * par.passenger_arrival_rate
+			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec <= 0) THEN 0
+			ELSE 0
+		END AS scheduled_threshold_numerator_pax
 
-		SELECT
-			abcde.service_date
-			,abcde.abcd_stop_id
-			,abcde.e_stop_id
-			,abcde.abcde_direction_id
-			,abcde.ab_route_id
-			,abcde.cde_route_id
-			,abcde.b_time_sec
-			,abcde.d_time_sec
-			,abcde.c_time_sec - abcde.b_time_sec
-			,abcde.d_time_sec - abcde.c_time_sec
-			,wtt.threshold_id
-			,wtt.threshold_historical_median_wait_time_sec
-			,wtt.threshold_scheduled_median_wait_time_sec
-			,wtt.threshold_historical_average_wait_time_sec
-			,wtt.threshold_scheduled_average_wait_time_sec
-			,(d_time_sec - b_time_sec) * par.passenger_arrival_rate AS denominator_pax
-			,CASE
-				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec) * par.passenger_arrival_rate
-				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec <= 0) THEN 0
-				ELSE 0
-			END AS historical_threshold_numerator_pax
-			,CASE
-				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_median_wait_time_sec) * par.passenger_arrival_rate
-				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec <= 0) THEN 0
-				ELSE 0
-			END AS scheduled_threshold_numerator_pax
-
-		FROM ##daily_abcde_time abcde
-
+	FROM 
+		##daily_abcde_time abcde
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				abcde.d_time_sec >= ts.time_slice_start_sec
 				AND abcde.d_time_sec < ts.time_slice_end_sec
-				)
-
 		JOIN dbo.service_date sd
-			ON
-				(
-				abcde.service_date = sd.service_date
-				)
-
+			ON abcde.service_date = sd.service_date
 		LEFT JOIN dbo.config_passenger_arrival_rate par --changed to LEFT JOIN to still count trips where no pax rates
 			ON
-				(
 				par.day_type_id = sd.day_type_id -- will need to account for exceptions
-				AND
-				ts.time_slice_id = par.time_slice_id
+				AND ts.time_slice_id = par.time_slice_id
 				AND abcde.abcd_stop_id = par.from_stop_id
 				AND abcde.e_stop_id = par.to_stop_id
-				)
-
 		JOIN dbo.daily_wait_time_od_threshold wtt
 			ON
-				(
 				abcde.service_date = wtt.service_date
 				AND abcde.abcde_direction_id = wtt.direction_id
 				AND abcde.abcd_stop_id = wtt.stop_id
 				AND abcde.e_stop_id = wtt.to_stop_id
 				AND ts.time_slice_id = wtt.time_slice_id
-				AND wtt.route_type IN (0,1,3)
-				--(wtt.route_type = 1
-				--OR wtt.route_type = 0) --subway and green line passenger weighted numbers only
-				)
+				AND wtt.route_type IN (0,1,3) --(wtt.route_type = 1 OR wtt.route_type = 0) --subway and green line passenger weighted numbers only
 	--save headway trip metrics
 
 	IF OBJECT_ID('dbo.daily_headway_time_threshold_trip','U') IS NOT NULL
 		DROP TABLE dbo.daily_headway_time_threshold_trip
 	--
-	CREATE TABLE dbo.daily_headway_time_threshold_trip
-	(
+	CREATE TABLE dbo.daily_headway_time_threshold_trip (
 		service_date									VARCHAR(255)	NOT NULL
 		,stop_id										VARCHAR(255)	NOT NULL
 		,direction_id									INT				NOT NULL
@@ -2591,18 +2543,12 @@
 		,denominator_trip								FLOAT			NOT NULL
 		,scheduled_threshold_numerator_trip				FLOAT			NOT NULL
 	)
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_time_threshold_trip_stop_id ON daily_headway_time_threshold_trip (stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_time_threshold_trip_prev_route_id ON daily_headway_time_threshold_trip (prev_route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_time_threshold_trip_route_id ON daily_headway_time_threshold_trip (route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_time_threshold_trip_direction_id ON daily_headway_time_threshold_trip (direction_id);
 
-
-	INSERT INTO dbo.daily_headway_time_threshold_trip
-	(
+	INSERT INTO dbo.daily_headway_time_threshold_trip (
 		service_date
 		,stop_id
 		,direction_id
@@ -2617,56 +2563,45 @@
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
 	)
-
-		SELECT
-			bd.service_date AS service_date
-			,bd.bd_stop_id AS stop_id
-			,bd.bd_direction_id AS direction_id
-			,bd.b_route_id AS prev_route_id
-			,bd.d_route_id AS route_id
-			,bd.b_time_sec AS start_time_sec
-			,bd.d_time_sec AS end_time_sec
-			,bd.d_time_sec - bd.b_time_sec AS headway_time_sec
-			,wtt.threshold_id AS threshold_id
-			,wtt.threshold_scheduled_median_headway_time_sec AS threshold_scheduled_median_headway_time_sec
-			,wtt.threshold_scheduled_average_headway_time_sec AS threshold_scheduled_average_headway_time_sec
-			,1 AS denominator_trip
-			,CASE
-				WHEN ((bd.d_time_sec - bd.b_time_sec) > threshold_scheduled_average_headway_time_sec) THEN 1
-				ELSE 0
-			END AS scheduled_threshold_numerator_trip
-		FROM ##daily_bd_sr_all_time bd
-
+	SELECT
+		bd.service_date AS service_date
+		,bd.bd_stop_id AS stop_id
+		,bd.bd_direction_id AS direction_id
+		,bd.b_route_id AS prev_route_id
+		,bd.d_route_id AS route_id
+		,bd.b_time_sec AS start_time_sec
+		,bd.d_time_sec AS end_time_sec
+		,bd.d_time_sec - bd.b_time_sec AS headway_time_sec
+		,wtt.threshold_id AS threshold_id
+		,wtt.threshold_scheduled_median_headway_time_sec AS threshold_scheduled_median_headway_time_sec
+		,wtt.threshold_scheduled_average_headway_time_sec AS threshold_scheduled_average_headway_time_sec
+		,1 AS denominator_trip
+		,CASE
+			WHEN ((bd.d_time_sec - bd.b_time_sec) > threshold_scheduled_average_headway_time_sec) THEN 1
+			ELSE 0
+		END AS scheduled_threshold_numerator_trip
+	FROM
+		##daily_bd_sr_all_time bd
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				bd.d_time_sec >= ts.time_slice_start_sec
 				AND bd.d_time_sec < ts.time_slice_end_sec
-				)
-
 		JOIN dbo.service_date sd
-			ON
-				(
-				bd.service_date = sd.service_date
-				)
-
+			ON bd.service_date = sd.service_date
 		JOIN dbo.daily_headway_time_threshold wtt
 			ON
-				(
 				bd.service_date = wtt.service_date
 				AND bd.bd_direction_id = wtt.direction_id
 				AND bd.bd_stop_id = wtt.stop_id
 				AND ts.time_slice_id = wtt.time_slice_id
 				AND (wtt.route_type = 1) --subway numbers only
-				)
 	--end headway trip metrics
 
 	--save disaggreagate schedule adherence 
 	IF OBJECT_ID('dbo.daily_schedule_adherence_disaggregate','U') IS NOT NULL
 		DROP TABLE dbo.daily_schedule_adherence_disaggregate
 
-	CREATE TABLE dbo.daily_schedule_adherence_disaggregate
-	(
+	CREATE TABLE dbo.daily_schedule_adherence_disaggregate (
 		service_date					VARCHAR(255)	NOT NULL
 		,route_id						VARCHAR(255)	NOT NULL
 		,route_type						INT				NOT NULL
@@ -2685,8 +2620,8 @@
 		,checkpoint_id					VARCHAR(255)
 	)
 
-	INSERT INTO dbo.daily_schedule_adherence_disaggregate
-	(
+	-- COMBINED INSERT arrivals/departures depending on stop_order_flag into schedule adherence
+	/*INSERT INTO dbo.daily_schedule_adherence_disaggregate (
 		service_date
 		,route_id
 		,route_type
@@ -2704,37 +2639,81 @@
 		,stop_order_flag
 		,checkpoint_id
 	)
+	SELECT
+		da.service_date
+		,da.route_id
+		,da.route_type
+		,da.direction_id
+		,da.trip_id
+		,da.stop_sequence
+		,da.stop_id
+		,da.vehicle_id
+		,da.scheduled_arrival_time_sec
+		,da.actual_arrival_time_sec
+		,da.arrival_delay_sec
+		,CASE WHEN da.stop_order_flag = 3 THEN NULL ELSE dd.scheduled_departure_time_sec END
+		,CASE WHEN da.stop_order_flag = 3 THEN NULL ELSE dd.actual_departure_time_sec END
+		,CASE WHEN da.stop_order_flag = 3 THEN NULL ELSE dd.departure_delay_sec END
+		,da.stop_order_flag
+		,da.checkpoint_id
+	FROM
+		#daily_arrival_time_sec da
+		LEFT JOIN #daily_departure_time_sec dd
+			ON
+				da.service_date = dd.service_date
+				AND da.route_id = dd.route_id
+				AND da.trip_id = dd.trip_id
+				AND da.stop_id = dd.stop_id
+				AND da.vehicle_id = dd.vehicle_id*/
 
-		SELECT
-			da.service_date
-			,da.route_id
-			,da.route_type
-			,da.direction_id
-			,da.trip_id
-			,da.stop_sequence
-			,da.stop_id
-			,da.vehicle_id
-			,da.scheduled_arrival_time_sec
-			,da.actual_arrival_time_sec
-			,da.arrival_delay_sec
-			,dd.scheduled_departure_time_sec
-			,dd.actual_departure_time_sec
-			,dd.departure_delay_sec
-			,da.stop_order_flag
-			,da.checkpoint_id
-
-		FROM #daily_arrival_time_sec da
-		JOIN #daily_departure_time_sec dd
+	INSERT INTO dbo.daily_schedule_adherence_disaggregate (
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,stop_sequence
+		,stop_id
+		,vehicle_id
+		,scheduled_arrival_time_sec
+		,actual_arrival_time_sec
+		,arrival_delay_sec
+		,scheduled_departure_time_sec
+		,actual_departure_time_sec
+		,departure_delay_sec
+		,stop_order_flag
+		,checkpoint_id
+	)
+	SELECT
+		da.service_date
+		,da.route_id
+		,da.route_type
+		,da.direction_id
+		,da.trip_id
+		,da.stop_sequence
+		,da.stop_id
+		,da.vehicle_id
+		,da.scheduled_arrival_time_sec
+		,da.actual_arrival_time_sec
+		,da.arrival_delay_sec
+		,dd.scheduled_departure_time_sec 
+		,dd.actual_departure_time_sec
+		,dd.departure_delay_sec
+		,da.stop_order_flag
+		,da.checkpoint_id
+	FROM
+		#daily_arrival_time_sec da
+		FULL OUTER JOIN #daily_departure_time_sec dd
 			ON
 				da.service_date = dd.service_date
 				AND da.route_id = dd.route_id
 				AND da.trip_id = dd.trip_id
 				AND da.stop_id = dd.stop_id
 				AND da.vehicle_id = dd.vehicle_id
+	WHERE da.stop_order_flag IN (1,2) --TO NOT DOUBLE-COUNT ENDPOINTS
 
 	-- INSERT arrivals at the destination stop into schedule adherence
-	INSERT INTO dbo.daily_schedule_adherence_disaggregate
-	(
+	INSERT INTO dbo.daily_schedule_adherence_disaggregate (
 		service_date
 		,route_id
 		,route_type
@@ -2752,36 +2731,64 @@
 		,stop_order_flag
 		,checkpoint_id
 	)
+	SELECT
+		da.service_date
+		,da.route_id
+		,da.route_type
+		,da.direction_id
+		,da.trip_id
+		,da.stop_sequence
+		,da.stop_id
+		,da.vehicle_id
+		,da.scheduled_arrival_time_sec
+		,da.actual_arrival_time_sec
+		,da.arrival_delay_sec
+		,NULL AS scheduled_departure_time_sec
+		,NULL AS actual_departure_time_sec
+		,NULL AS departure_delay_sec
+		,da.stop_order_flag
+		,da.checkpoint_id
+	FROM #daily_arrival_time_sec da
+	WHERE da.stop_order_flag = 3
 
-		SELECT
-			da.service_date
-			,da.route_id
-			,da.route_type
-			,da.direction_id
-			,da.trip_id
-			,da.stop_sequence
-			,da.stop_id
-			,da.vehicle_id
-			,da.scheduled_arrival_time_sec
-			,da.actual_arrival_time_sec
-			,da.arrival_delay_sec
-			,NULL AS scheduled_departure_time_sec
-			,NULL AS actual_departure_time_sec
-			,NULL AS departure_delay_sec
-			,da.stop_order_flag
-			,da.checkpoint_id
-		FROM #daily_arrival_time_sec da
-		WHERE
-			da.stop_order_flag = 3
+	--SELECT * FROM #daily_arrival_time_sec
 
+	/*SELECT dats.* FROM
+	(SELECT *, ROW_NUMBER() OVER(PARTITION BY service_date, route_id, route_type, direction_id, trip_id, stop_sequence, stop_id, vehicle_id ORDER BY stop_order_flag) as rn FROM #daily_arrival_time_sec) dats,
+	(SELECT f.*, g.counter
+	FROM (
+	SELECT service_date, route_id, route_type, direction_id, trip_id, stop_sequence, stop_id, vehicle_id,COUNT(stop_order_flag) as counter
+	--SELECT *
+	FROM dbo.daily_schedule_adherence_disaggregate
+	GROUP BY service_date, route_id, route_type, direction_id, trip_id, stop_sequence, stop_id, vehicle_id
+	HAVING COUNT(stop_order_flag)>1) g
+	JOIN dbo.daily_schedule_adherence_disaggregate f
+	ON g.service_date = f.service_date AND g.route_id = f.route_id AND g.route_type = f.route_type AND g.direction_id = f.direction_id AND g.trip_id = f.trip_id AND g.stop_sequence = f.stop_sequence AND g.stop_id = f.stop_id AND g.vehicle_id = f.vehicle_id
+	ORDER BY g.service_date, g.route_id, g.route_type, g.direction_id, g.trip_id, g.stop_sequence, g.stop_id, g.vehicle_id, f.scheduled_departure_time_sec
+	) h
+	WHERE dats.service_date = h.service_date AND dats.route_id = h.route_id AND dats.route_type = h.route_type AND dats.direction_id = h.direction_id AND dats.trip_id = h.trip_id AND dats.stop_sequence = h.stop_sequence AND dats.stop_id = h.stop_id AND dats.vehicle_id = h.vehicle_id
+	
+
+	SELECT service_date, route_id, route_type, direction_id, trip_id, stop_sequence, stop_id, vehicle_id,COUNT(stop_order_flag) as counter
+	--SELECT *
+	FROM #daily_arrival_time_sec
+	GROUP BY service_date, route_id, route_type, direction_id, trip_id, stop_sequence, stop_id, vehicle_id
+	HAVING COUNT(stop_order_flag)>1
+	*/
+
+	/*SELECT COUNT(stop_order_flag)
+	--SELECT *
+	FROM dbo.daily_schedule_adherence_disaggregate
+	GROUP BY service_date, route_id, route_type, direction_id, trip_id
+	--HAVING COUNT(stop_order_flag)>1*/
+	
 	--Create table for schedule adherence weighted by passengers and trips ----
 
 	IF OBJECT_ID('dbo.daily_schedule_adherence_threshold_pax','U') IS NOT NULL
 		DROP TABLE dbo.daily_schedule_adherence_threshold_pax
 		;
 
-	CREATE TABLE dbo.daily_schedule_adherence_threshold_pax
-	(
+	CREATE TABLE dbo.daily_schedule_adherence_threshold_pax (
 		service_date						VARCHAR(255)	NOT NULL
 		,route_id							VARCHAR(255)	NOT NULL
 		,route_type							INT				NOT NULL
@@ -2806,15 +2813,11 @@
 		,denominator_pax					FLOAT			NULL
 		,scheduled_threshold_numerator_pax	FLOAT			NULL
 	)
-
 	CREATE NONCLUSTERED INDEX IX_daily_schedule_adherence_threshold_pax_stop_id ON daily_schedule_adherence_threshold_pax (stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_schedule_adherence_threshold_pax_route_id ON daily_schedule_adherence_threshold_pax (route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_schedule_adherence_threshold_pax_direction_id ON daily_schedule_adherence_threshold_pax (direction_id);
 
-	INSERT INTO dbo.daily_schedule_adherence_threshold_pax
-	(
+	INSERT INTO dbo.daily_schedule_adherence_threshold_pax (
 		service_date
 		,route_id
 		,route_type
@@ -2839,167 +2842,150 @@
 		,denominator_pax
 		,scheduled_threshold_numerator_pax
 	)
-
-		SELECT DISTINCT
-			sad.service_date
-			,sad.route_id
-			,sad.route_type
-			,sad.direction_id
-			,sad.trip_id
-			,sad.stop_sequence
-			,sad.stop_id
-			,sad.vehicle_id
-			,sad.scheduled_arrival_time_sec
-			,sad.actual_arrival_time_sec
-			,sad.arrival_delay_sec
-			,sad.scheduled_departure_time_sec
-			,sad.actual_departure_time_sec
-			,sad.departure_delay_sec
-			,sad.stop_order_flag
-			,sad.checkpoint_id
-			,th.threshold_id
-			,th.threshold_id_lower
-			,th.threshold_id_upper
-			,thc1.add_to as threshold_value_lower
-			,thc2.add_to as threshold_value_upper
-			,par.passenger_arrival_rate as denominator_pax
-			,CASE
-				WHEN sad.stop_order_flag = 1 AND
-					sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 1 --par.passenger_arrival_rate
-				WHEN sad.stop_order_flag = 2 AND
-					sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 1 -- par.passenger_arrival_rate
-				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to,sad.arrival_delay_sec) THEN 1 --par.passenger_arrival_rate
-				WHEN sad.stop_order_flag = 1 AND 
-					sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
-				WHEN sad.stop_order_flag = 2 AND
-					sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
-				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to,sad.arrival_delay_sec) THEN 0
-			END as scheduled_threshold_numerator_pax
-		
-		FROM daily_schedule_adherence_disaggregate sad
+	SELECT DISTINCT
+		sad.service_date
+		,sad.route_id
+		,sad.route_type
+		,sad.direction_id
+		,sad.trip_id
+		,sad.stop_sequence
+		,sad.stop_id
+		,sad.vehicle_id
+		,sad.scheduled_arrival_time_sec
+		,sad.actual_arrival_time_sec
+		,sad.arrival_delay_sec
+		,sad.scheduled_departure_time_sec
+		,sad.actual_departure_time_sec
+		,sad.departure_delay_sec
+		,sad.stop_order_flag
+		,sad.checkpoint_id
+		,th.threshold_id
+		,th.threshold_id_lower
+		,th.threshold_id_upper
+		,thc1.add_to as threshold_value_lower
+		,thc2.add_to as threshold_value_upper
+		,par.passenger_arrival_rate as denominator_pax
+		,CASE
+			WHEN sad.stop_order_flag = 1 AND
+				sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 1 --par.passenger_arrival_rate
+			WHEN sad.stop_order_flag = 2 AND
+				sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 1 -- par.passenger_arrival_rate
+			WHEN sad.stop_order_flag = 3 AND
+				sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to,sad.arrival_delay_sec) THEN 1 --par.passenger_arrival_rate
+			WHEN sad.stop_order_flag = 1 AND 
+				sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
+			WHEN sad.stop_order_flag = 2 AND
+				sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
+			WHEN sad.stop_order_flag = 3 AND
+				sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to,sad.arrival_delay_sec) THEN 0
+		END as scheduled_threshold_numerator_pax
+	FROM
+		daily_schedule_adherence_disaggregate sad
 		JOIN dbo.service_date sd
-			ON
-					sad.service_date = sd.service_date
-		CROSS JOIN
-			(
-				SELECT
-					ct.threshold_id
-					,ct.threshold_name
-					,ct.threshold_type
-					,ct1.threshold_id as threshold_id_lower
-					,ct2.threshold_id as threshold_id_upper
-				FROM config_threshold ct
+			ON sad.service_date = sd.service_date
+		CROSS JOIN (
+			SELECT
+				ct.threshold_id
+				,ct.threshold_name
+				,ct.threshold_type
+				,ct1.threshold_id as threshold_id_lower
+				,ct2.threshold_id as threshold_id_upper
+			FROM
+				config_threshold ct
 				LEFT JOIN config_threshold ct1
-					ON 
+					ON
 						ct.threshold_id = 
 							CASE 
-								when ct1.parent_child = 0 then ct1.threshold_id
-								when ct1.parent_child = 2 then ct1.parent_threshold_id
+								WHEN ct1.parent_child = 0 THEN ct1.threshold_id
+								WHEN ct1.parent_child = 2 THEN ct1.parent_threshold_id
 							END
-					AND 
-						ct1.upper_lower = 'lower'
+						AND ct1.upper_lower = 'lower'
 				LEFT JOIN config_threshold ct2
-					ON 
+					ON
 						ct.threshold_id = 
 							CASE 
 								when ct2.parent_child = 0 then ct2.threshold_id
 								when ct2.parent_child = 2 then ct2.parent_threshold_id
 							END
-					AND 
-						ct2.upper_lower = 'upper'
-				WHERE 
-						ct.parent_child <> 2
-					
+						AND ct2.upper_lower = 'upper'
+			WHERE ct.parent_child <> 2
 		) th
 		JOIN config_stop_order_flag_threshold sth
 			ON
-					sad.stop_order_flag = sth.stop_order_flag
-				AND
-					th.threshold_id = sth.threshold_id
-	
+				sad.stop_order_flag = sth.stop_order_flag
+				AND th.threshold_id = sth.threshold_id
 		LEFT JOIN config_threshold_calculation thc1
-			ON
-					th.threshold_id_lower = thc1.threshold_id
-	
+			ON th.threshold_id_lower = thc1.threshold_id
 		LEFT JOIN config_threshold_calculation thc2
-			ON
-					th.threshold_id_upper = thc2.threshold_id	
-	
+			ON th.threshold_id_upper = thc2.threshold_id
 		JOIN config_mode_threshold mt
 			ON
-					mt.threshold_id = th.threshold_id
-				AND
-					mt.route_type = sad.route_type
-			
+				mt.threshold_id = th.threshold_id
+				AND mt.route_type = sad.route_type	
 		LEFT JOIN config_passenger_arrival_rate par
 			ON
-					par.day_type_id = sd.day_type_id
-				AND 
-					sad.stop_id = par.from_stop_id
-		WHERE
-				sad.route_type = 3 --bus only
-			AND
-				th.threshold_type = 'wait_time_schedule_based'
+				par.day_type_id = sd.day_type_id
+				AND sad.stop_id = par.from_stop_id
+	WHERE
+		sad.route_type = 3 --bus only
+		AND th.threshold_type = 'wait_time_schedule_based'
 
-		UNION
+	UNION
 
-		SELECT DISTINCT
-			sad.service_date
-			,sad.route_id
-			,sad.route_type
-			,sad.direction_id
-			,sad.trip_id
-			,sad.stop_sequence
-			,sad.stop_id
-			,vehicle_id
-			,scheduled_arrival_time_sec
-			,actual_arrival_time_sec
-			,arrival_delay_sec
-			,scheduled_departure_time_sec
-			,actual_departure_time_sec
-			,departure_delay_sec
-			,stop_order_flag
-			,checkpoint_id
-			,th.threshold_id
-			,th.threshold_id_lower
-			,th.threshold_id_upper
-			,thc1.add_to as threshold_value_lower
-			,thc2.add_to as threshold_value_upper
-			,po.from_stop_passenger_on AS denominator_pax
-			,CASE
-				WHEN sad.stop_order_flag = 1 AND
-					sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN po.from_stop_passenger_on
-				WHEN sad.stop_order_flag = 2 AND
-					sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN po.from_stop_passenger_on
-				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN po.from_stop_passenger_on
-				WHEN sad.stop_order_flag = 1 AND
-					sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
-				WHEN sad.stop_order_flag = 2 AND
-					sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN 0
-				WHEN sad.stop_order_flag = 3 AND
-					sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN 0
-				ELSE 0
-			END AS scheduled_threshold_numerator_pax
-
-		FROM daily_schedule_adherence_disaggregate sad
+	SELECT DISTINCT
+		sad.service_date
+		,sad.route_id
+		,sad.route_type
+		,sad.direction_id
+		,sad.trip_id
+		,sad.stop_sequence
+		,sad.stop_id
+		,vehicle_id
+		,scheduled_arrival_time_sec
+		,actual_arrival_time_sec
+		,arrival_delay_sec
+		,scheduled_departure_time_sec
+		,actual_departure_time_sec
+		,departure_delay_sec
+		,stop_order_flag
+		,checkpoint_id
+		,th.threshold_id
+		,th.threshold_id_lower
+		,th.threshold_id_upper
+		,thc1.add_to as threshold_value_lower
+		,thc2.add_to as threshold_value_upper
+		,po.from_stop_passenger_on AS denominator_pax
+		,CASE
+			WHEN sad.stop_order_flag = 1 AND
+				sad.departure_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN po.from_stop_passenger_on
+			WHEN sad.stop_order_flag = 2 AND
+				sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN po.from_stop_passenger_on
+			WHEN sad.stop_order_flag = 3 AND
+				sad.arrival_delay_sec NOT BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN po.from_stop_passenger_on
+			WHEN sad.stop_order_flag = 1 AND
+				sad.departure_delay_sec BETWEEN ISNULL(thc1.add_to,sad.departure_delay_sec) AND ISNULL(thc2.add_to,sad.departure_delay_sec) THEN 0
+			WHEN sad.stop_order_flag = 2 AND
+				sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN 0
+			WHEN sad.stop_order_flag = 3 AND
+				sad.arrival_delay_sec BETWEEN ISNULL(thc1.add_to,sad.arrival_delay_sec) AND ISNULL(thc2.add_to, sad.arrival_delay_sec) THEN 0
+			ELSE 0
+		END AS scheduled_threshold_numerator_pax
+	FROM
+		daily_schedule_adherence_disaggregate sad
 		LEFT JOIN dbo.config_passenger_od_load_CR po --left join to include trip-stops where there are no pax rates
 			ON
 				sad.route_id = po.route_id
 				AND sad.trip_id = po.trip_id
 				AND sad.stop_id = po.from_stop_id
-
-		CROSS JOIN
-			(
-				SELECT
-					ct.threshold_id
-					,ct.threshold_name
-					,ct.threshold_type
-					,ct1.threshold_id as threshold_id_lower
-					,ct2.threshold_id as threshold_id_upper
-				FROM config_threshold ct
+		CROSS JOIN (
+			SELECT
+				ct.threshold_id
+				,ct.threshold_name
+				,ct.threshold_type
+				,ct1.threshold_id as threshold_id_lower
+				,ct2.threshold_id as threshold_id_upper
+			FROM
+				config_threshold ct
 				LEFT JOIN config_threshold ct1
 					ON 
 						ct.threshold_id = 
@@ -3007,48 +2993,35 @@
 								when ct1.parent_child = 0 then ct1.threshold_id
 								when ct1.parent_child = 2 then ct1.parent_threshold_id
 							END
-					AND 
-						ct1.upper_lower = 'lower'
+					AND ct1.upper_lower = 'lower'
 				LEFT JOIN config_threshold ct2
-					ON 
-						ct.threshold_id = 
+					ON
+						ct.threshold_id =
 							CASE 
 								when ct2.parent_child = 0 then ct2.threshold_id
 								when ct2.parent_child = 2 then ct2.parent_threshold_id
 							END
-					AND 
-						ct2.upper_lower = 'upper'
-				WHERE 
-						ct.parent_child <> 2
-					
+					AND ct2.upper_lower = 'upper'
+			WHERE ct.parent_child <> 2		
 		) th
-
 		LEFT JOIN config_threshold_calculation thc1
-			ON
-					th.threshold_id_lower = thc1.threshold_id
-	
+			ON th.threshold_id_lower = thc1.threshold_id
 		LEFT JOIN config_threshold_calculation thc2
-			ON
-					th.threshold_id_upper = thc2.threshold_id	
-	
+			ON th.threshold_id_upper = thc2.threshold_id	
 		JOIN config_mode_threshold mt
 			ON
-					mt.threshold_id = th.threshold_id
-				AND
-					mt.route_type = sad.route_type
-		WHERE
-				sad.route_type = 2 --commuter rail only
-			AND
-				th.threshold_type = 'wait_time_schedule_based'
-
+				mt.threshold_id = th.threshold_id
+				AND mt.route_type = sad.route_type
+	WHERE
+		sad.route_type = 2 --commuter rail only
+		AND th.threshold_type = 'wait_time_schedule_based'
 
 	--Create table for headway adherence weighted by passengers and trips ----
 	-- add pax numbers later ---
 	IF OBJECT_ID('dbo.daily_headway_adherence_threshold_pax','U') IS NOT NULL
 		DROP TABLE dbo.daily_headway_adherence_threshold_pax
 
-	CREATE TABLE dbo.daily_headway_adherence_threshold_pax
-	(
+	CREATE TABLE dbo.daily_headway_adherence_threshold_pax (
 		service_date									VARCHAR(255)	NOT NULL
 		,route_id										VARCHAR(255)	NOT NULL
 		,route_type										INT				NOT NULL
@@ -3059,8 +3032,8 @@
 		,checkpoint_id									VARCHAR(255)
 		,start_time_sec									INT				NOT NULL
 		,end_time_sec									INT				NOT NULL
-		,actual_headway_time_sec						INT				NOT NULL
-		,scheduled_headway_time_sec						INT				NOT NULL
+		,actual_headway_time_sec						INT				
+		,scheduled_headway_time_sec						INT
 		,threshold_id									VARCHAR(255)	NOT NULL
 		,threshold_id_lower								VARCHAR(255)	NULL
 		,threshold_id_upper								VARCHAR(255)	NULL
@@ -3069,200 +3042,362 @@
 		,denominator_pax								FLOAT			NULL
 		,scheduled_threshold_numerator_pax				FLOAT			NULL
 	)
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_stop_id ON daily_headway_adherence_threshold_pax (stop_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_route_id ON daily_headway_adherence_threshold_pax (route_id);
-
 	CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_direction_id ON daily_headway_adherence_threshold_pax (direction_id);
 
-	INSERT INTO daily_headway_adherence_threshold_pax
-	(
-		service_date									
-		,route_id										
-		,route_type														
-		,direction_id													
-		,trip_id																							
-		,stop_id											
-		,stop_order_flag												
-		,checkpoint_id									
-		,start_time_sec													
-		,end_time_sec													
-		,actual_headway_time_sec										
-		,scheduled_headway_time_sec										
-		,threshold_id										
-		,threshold_id_lower									
-		,threshold_id_upper									
-		,threshold_value_lower								
-		,threshold_value_upper								
-		,denominator_pax											
-		,scheduled_threshold_numerator_pax							
+	INSERT INTO daily_headway_adherence_threshold_pax (
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,stop_id
+		,stop_order_flag
+		,checkpoint_id
+		,start_time_sec
+		,end_time_sec
+		,actual_headway_time_sec
+		,scheduled_headway_time_sec
+		,threshold_id
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
 	)
-
-		SELECT
-			bd.service_date AS service_date
-			,bd.bd_route_id AS route_id
-			,bd.bd_route_type AS route_type
-			,bd.bd_direction_id AS direction_id
-			,bd.d_trip_id AS trip_id
-			,bd.bd_stop_id AS stop_id
-			,st.stop_order_flag
-			,st.checkpoint_id
-			,bd.b_time_sec AS start_time_sec
-			,bd.d_time_sec AS end_time_sec
-			,bd.d_time_sec - bd.b_time_sec AS actual_headway_time_sec
-			,st.scheduled_headway_time_sec
-			,th.threshold_id
-			,th.threshold_id_lower
-			,th.threshold_id_upper
-			,st.scheduled_headway_time_sec * thc1.multiply_by + thc1.add_to as threshold_value_lower
-			,st.scheduled_headway_time_sec * thc2.multiply_by + thc2.add_to as threshold_value_upper
-			,1 as denominator_pax
-			,CASE
-				WHEN 
-					bd.d_time_sec - bd.b_time_sec NOT BETWEEN ISNULL(st.scheduled_headway_time_sec * thc1.multiply_by + thc1.add_to,bd.d_time_sec - bd.b_time_sec) 
-						AND ISNULL(st.scheduled_headway_time_sec * thc2.multiply_by + thc2.add_to,bd.d_time_sec - bd.b_time_sec) THEN 1 --par.passenger_arrival_rate
-				WHEN bd.d_time_sec - bd.b_time_sec BETWEEN ISNULL(st.scheduled_headway_time_sec * thc1.multiply_by + thc1.add_to,bd.d_time_sec - bd.b_time_sec) 
-						AND ISNULL(st.scheduled_headway_time_sec * thc2.multiply_by + thc2.add_to,bd.d_time_sec - bd.b_time_sec) THEN 0 --par.passenger_arrival_rate
-			END as scheduled_threshold_numerator_pax
-		FROM ##daily_bd_sr_same_time bd
-
+	SELECT
+		bd.service_date AS service_date
+		,bd.bd_route_id AS route_id
+		,bd.bd_route_type AS route_type
+		,bd.bd_direction_id AS direction_id
+		,bd.d_trip_id AS trip_id
+		,bd.bd_stop_id AS stop_id
+		,st.stop_order_flag
+		,st.checkpoint_id
+		,bd.b_time_sec AS start_time_sec
+		,bd.d_time_sec AS end_time_sec
+		,bd.d_time_sec - bd.b_time_sec AS actual_headway_time_sec
+		,st.scheduled_headway_time_sec
+		,th.threshold_id
+		,th.threshold_id_lower
+		,th.threshold_id_upper
+		,st.scheduled_headway_time_sec * thc1.multiply_by + thc1.add_to as threshold_value_lower
+		,st.scheduled_headway_time_sec * thc2.multiply_by + thc2.add_to as threshold_value_upper
+		,1 as denominator_pax
+		,CASE
+			WHEN bd.d_time_sec - bd.b_time_sec NOT BETWEEN ISNULL(st.scheduled_headway_time_sec * thc1.multiply_by + thc1.add_to,bd.d_time_sec - bd.b_time_sec) 
+					AND ISNULL(st.scheduled_headway_time_sec * thc2.multiply_by + thc2.add_to, bd.d_time_sec - bd.b_time_sec) THEN 1 --par.passenger_arrival_rate
+			WHEN bd.d_time_sec - bd.b_time_sec BETWEEN ISNULL(st.scheduled_headway_time_sec * thc1.multiply_by + thc1.add_to,bd.d_time_sec - bd.b_time_sec) 
+					AND ISNULL(st.scheduled_headway_time_sec * thc2.multiply_by + thc2.add_to, bd.d_time_sec - bd.b_time_sec) THEN 0 --par.passenger_arrival_rate
+		END as scheduled_threshold_numerator_pax
+	FROM
+		##daily_bd_sr_same_time bd
 		JOIN dbo.service_date sd
-			ON
-				(
-				bd.service_date = sd.service_date
-				)
-
-		JOIN
-		(
-			SELECT
-						service_date
-						,stop_id
-						,stop_sequence
-						,checkpoint_id
-						,stop_order_flag
-						,route_type
-						,route_id
-						,direction_id
-						,b_trip_id
-						,d_trip_id
-						,b_time_sec
-						,d_time_sec
-						,scheduled_headway_time_sec
-					FROM
-					(
-						SELECT
-							y.service_date
-							,y.stop_id AS stop_id
-							,y.stop_sequence AS stop_sequence
-							,y.checkpoint_id
-							,y.stop_order_flag
-							,y.route_type AS route_type
-							,y.route_id AS route_id
-							,y.direction_id AS direction_id
-							,x.trip_id AS b_trip_id
-							,y.trip_id AS d_trip_id
-							,x.departure_time_sec AS b_time_sec
-							,y.departure_time_sec AS d_time_sec
-							,y.departure_time_sec - x.departure_time_sec AS scheduled_headway_time_sec
-							,ROW_NUMBER() OVER (PARTITION BY y.stop_id,y.trip_id
-							ORDER BY x.departure_time_sec DESC,x.trip_id DESC) AS rn
-
-						FROM	daily_stop_times_sec y
-								,daily_stop_times_sec x
-
-
-						WHERE
-							y.stop_id = x.stop_id
-							AND y.trip_id <> x.trip_id
-							AND y.direction_id = x.direction_id
-							AND y.route_id = x.route_id
-							AND (y.departure_time_sec > x.departure_time_sec
-							OR (y.departure_time_sec = x.departure_time_sec
-							AND y.trip_id > x.trip_id)) --changed to address green line trains at same time issue
-							AND
-							y.departure_time_sec - x.departure_time_sec <= 1800
-					) temp
-					WHERE
-						rn = 1
-		) st
-		ON
-				bd.service_date = st.service_date
-			AND
-				bd.d_trip_id = st.d_trip_id
-			AND
-				bd.bd_stop_id = st.stop_id
-			AND
-				bd.d_stop_sequence = st.stop_sequence		
-		CROSS JOIN
-			(
+			ON bd.service_date = sd.service_date
+		JOIN dbo.daily_stop_times_headway_same_sec st
+			/*(SELECT
+				service_date
+				,stop_id
+				,stop_sequence
+				,checkpoint_id
+				,stop_order_flag
+				,route_type
+				,route_id
+				,direction_id
+				,b_trip_id
+				,d_trip_id
+				,b_time_sec
+				,d_time_sec
+				,scheduled_headway_time_sec
+			FROM (
 				SELECT
-					ct.threshold_id
-					,ct.threshold_name
-					,ct.threshold_type
-					,ct1.threshold_id as threshold_id_lower
-					,ct1.min_max_equal as min_max_equal_lower
-					,ct2.threshold_id as threshold_id_upper
-					,ct2.min_max_equal as min_max_equal_upper
-				FROM config_threshold ct
-				LEFT JOIN config_threshold ct1
-					ON 
-						ct.threshold_id = 
-							CASE 
-								when ct1.parent_child = 0 then ct1.threshold_id
-								when ct1.parent_child = 2 then ct1.parent_threshold_id
-							END
-					AND 
-						ct1.upper_lower = 'lower'
-				LEFT JOIN config_threshold ct2
-					ON 
-						ct.threshold_id = 
-							CASE 
-								when ct2.parent_child = 0 then ct2.threshold_id
-								when ct2.parent_child = 2 then ct2.parent_threshold_id
-							END
-					AND 
-						ct2.upper_lower = 'upper'
-				WHERE 
-						ct.parent_child <> 2
-					
+						y.service_date
+						,y.stop_id AS stop_id
+						,y.stop_sequence AS stop_sequence
+						,y.checkpoint_id
+						,y.stop_order_flag
+						,y.route_type AS route_type
+						,y.route_id AS route_id
+						,y.direction_id AS direction_id
+						,x.trip_id AS b_trip_id
+						,y.trip_id AS d_trip_id
+						,x.departure_time_sec AS b_time_sec
+						,y.departure_time_sec AS d_time_sec
+						,y.departure_time_sec - x.departure_time_sec AS scheduled_headway_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY y.stop_id,y.trip_id ORDER BY x.departure_time_sec DESC,x.trip_id DESC) AS rn
+					FROM
+						daily_stop_times_sec y
+						,daily_stop_times_sec x
+					WHERE
+						y.stop_id = x.stop_id
+						AND y.trip_id <> x.trip_id
+						AND y.direction_id = x.direction_id
+						AND y.route_id = x.route_id
+						AND (y.departure_time_sec > x.departure_time_sec OR (y.departure_time_sec = x.departure_time_sec AND y.trip_id > x.trip_id)) --changed to address green line trains at same time issue
+						AND y.departure_time_sec - x.departure_time_sec <= 1800
+				
+				) temp
+			WHERE rn = 1 ) st */
+			ON
+				bd.service_date = st.service_date
+				AND bd.d_trip_id = st.d_trip_id
+				AND bd.bd_stop_id = st.stop_id
+				AND bd.d_stop_sequence = st.stop_sequence
+		CROSS JOIN (
+			SELECT
+				ct.threshold_id
+				,ct.threshold_name
+				,ct.threshold_type
+				,ct1.threshold_id as threshold_id_lower
+				,ct1.min_max_equal as min_max_equal_lower
+				,ct2.threshold_id as threshold_id_upper
+				,ct2.min_max_equal as min_max_equal_upper
+			FROM config_threshold ct
+			LEFT JOIN config_threshold ct1
+				ON 
+					ct.threshold_id = 
+						CASE 
+							when ct1.parent_child = 0 then ct1.threshold_id
+							when ct1.parent_child = 2 then ct1.parent_threshold_id
+						END
+				AND ct1.upper_lower = 'lower'
+			LEFT JOIN config_threshold ct2
+				ON 
+					ct.threshold_id = 
+						CASE 
+							when ct2.parent_child = 0 then ct2.threshold_id
+							when ct2.parent_child = 2 then ct2.parent_threshold_id
+						END
+				AND ct2.upper_lower = 'upper'
+			WHERE ct.parent_child <> 2			
 		) th
 		JOIN config_stop_order_flag_threshold sth
 			ON
-					st.stop_order_flag = sth.stop_order_flag
-				AND
-					th.threshold_id = sth.threshold_id
-	
+				st.stop_order_flag = sth.stop_order_flag
+				AND th.threshold_id = sth.threshold_id
 		LEFT JOIN config_threshold_calculation thc1
-			ON
-					th.threshold_id_lower = thc1.threshold_id
-	
+			ON th.threshold_id_lower = thc1.threshold_id	
 		LEFT JOIN config_threshold_calculation thc2
-			ON
-					th.threshold_id_upper = thc2.threshold_id	
-	
+			ON th.threshold_id_upper = thc2.threshold_id	
 		JOIN config_mode_threshold mt
 			ON
-					mt.threshold_id = th.threshold_id
-				AND
-					mt.route_type = bd.bd_route_type
-			
+				mt.threshold_id = th.threshold_id
+				AND mt.route_type = bd.bd_route_type
 		LEFT JOIN config_passenger_arrival_rate par
 			ON
-					par.day_type_id = sd.day_type_id
-				AND 
-					bd.bd_stop_id = par.from_stop_id
-		WHERE
-				bd.bd_route_type = 3 --bus only
-			AND
-				th.threshold_type = 'wait_time_headway_based'
+				par.day_type_id = sd.day_type_id
+				AND bd.bd_stop_id = par.from_stop_id
+	WHERE
+		bd.bd_route_type = 3 --bus only
+		AND th.threshold_type = 'wait_time_headway_based'
+	/*	DECLARE @service_date DATE = '2017-10-30'
+
+	DECLARE @service_date_process DATE
+	SET @service_date_process = @service_date
+
+	IF OBJECT_ID('dbo.daily_de_time','U') IS NOT NULL
+		DROP TABLE dbo.daily_de_time
+
+	CREATE TABLE dbo.daily_de_time (
+		service_date		VARCHAR(255)	NOT NULL
+		,d_stop_id			VARCHAR(255)	NOT NULL
+		,e_stop_id			VARCHAR(255)	NOT NULL
+		,d_stop_sequence	INT				NOT NULL
+		,e_stop_sequence	INT				NOT NULL
+		,de_direction_id	INT				NOT NULL
+		,de_route_id		VARCHAR(255)	NOT NULL
+		,de_route_type		INT				NOT NULL
+		,de_trip_id			VARCHAR(255)	NOT NULL
+		,de_vehicle_id		VARCHAR(255)	NOT NULL
+		,d_record_id		INT				NOT NULL
+		,e_record_id		INT				NOT NULL
+		,d_time_sec			INT				NOT NULL
+		,e_time_sec			INT				NOT NULL
+		,de_time_sec		INT				NOT NULL
+	)
+
+	INSERT INTO dbo.daily_de_time (
+		service_date
+		,d_stop_id
+		,e_stop_id
+		,d_stop_sequence
+		,e_stop_sequence
+		,de_direction_id
+		,de_route_id
+		,de_route_type
+		,de_trip_id
+		,de_vehicle_id
+		,d_record_id
+		,e_record_id
+		,d_time_sec
+		,e_time_sec
+		,de_time_sec
+	)
+	SELECT
+		edd.service_date
+		,edd.stop_id AS d_stop_id
+		,ede.stop_id AS e_stop_id
+		,edd.stop_sequence AS d_stop_sequence
+		,ede.stop_sequence AS e_stop_sequence
+		,edd.direction_id AS de_direction_id
+		,edd.route_id AS de_route_id
+		,edd.route_type AS route_type
+		,edd.trip_id AS de_trip_id
+		,edd.vehicle_id AS de_vehicle_id
+		,edd.record_id AS d_record_id
+		,ede.record_id AS e_record_id
+		,edd.event_time_sec AS d_time_sec
+		,ede.event_time_sec AS e_time_sec
+		,ede.event_time_sec - edd.event_time_sec AS de_time_sec
+	FROM
+		dbo.daily_event ede -- e is arrival at "To" stop
+		JOIN dbo.daily_event edd -- d is departure at "From" stop
+			ON
+				edd.event_type IN ('DEP','PRD')
+				AND ede.event_type IN ('ARR','PRA')
+				AND ede.service_date = edd.service_date
+				AND ede.vehicle_id = edd.vehicle_id
+				AND ede.trip_id = edd.trip_id
+				AND ede.direction_id = edd.direction_id
+				AND ede.stop_sequence > edd.stop_sequence
+				AND ede.event_time_sec > edd.event_time_sec
+	WHERE
+		ede.suspect_record = 0
+		AND edd.suspect_record = 0*/
+	--Create table for travel time adherence weighted by passengers and trips ----
+	-- add pax numbers later ---
+	IF OBJECT_ID('dbo.daily_trip_run_time_adherence_threshold_pax','U') IS NOT NULL
+		DROP TABLE dbo.daily_trip_run_time_adherence_threshold_pax
+
+	CREATE TABLE dbo.daily_trip_run_time_adherence_threshold_pax (
+		service_date									VARCHAR(255)	NOT NULL
+		,route_id										VARCHAR(255)	NOT NULL
+		,route_type										INT				NOT NULL
+		,direction_id									INT				NOT NULL
+		,trip_id										VARCHAR(255)	NOT NULL
+		,start_time_sec									INT				NOT NULL
+		,end_time_sec									INT				NOT NULL
+		,actual_run_time_sec							INT				NOT NULL
+		,scheduled_run_time_sec							INT				NOT NULL
+		,threshold_id									VARCHAR(255)	NOT NULL
+		,threshold_id_lower								VARCHAR(255)	NULL
+		,threshold_id_upper								VARCHAR(255)	NULL
+		,threshold_value_lower							VARCHAR(255)	NULL
+		,threshold_value_upper							VARCHAR(255)	NULL
+		,denominator_pax								FLOAT			NULL
+		,scheduled_threshold_numerator_pax				FLOAT			NULL
+	)
+	CREATE NONCLUSTERED INDEX IX_daily_travel_time_adherence_threshold_pax_route_id ON daily_trip_run_time_adherence_threshold_pax (route_id);
+	CREATE NONCLUSTERED INDEX IX_daily_travel_time_adherence_threshold_pax_direction_id ON daily_trip_run_time_adherence_threshold_pax (direction_id);
+
+	INSERT INTO daily_trip_run_time_adherence_threshold_pax (
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,start_time_sec
+		,end_time_sec
+		,actual_run_time_sec
+		,scheduled_run_time_sec
+		,threshold_id
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
+	)
+	SELECT
+		de.service_date AS service_date
+		,de.de_route_id AS route_id
+		,de.de_route_type AS route_type
+		,de.de_direction_id AS direction_id
+		,de.de_trip_id AS trip_id
+		,de.d_time_sec AS start_time_sec
+		,de.e_time_sec AS end_time_sec
+		,de.de_time_sec as actual_run_time_sec
+		,st.trip_end_time_sec - st.trip_start_time_sec as scheduled_run_time_sec
+		,th.threshold_id
+		,th.threshold_id_lower
+		,th.threshold_id_upper
+		,(st.trip_end_time_sec - st.trip_start_time_sec) * thc1.multiply_by + thc1.add_to as threshold_value_lower
+		,(st.trip_end_time_sec - st.trip_start_time_sec) * thc2.multiply_by + thc2.add_to as threshold_value_upper
+		,1 as denominator_pax
+		,CASE
+			WHEN de.de_time_sec NOT BETWEEN ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc1.multiply_by + thc1.add_to,de.de_time_sec)
+					AND ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc2.multiply_by + thc2.add_to, de.de_time_sec) THEN 1 --par.passenger_arrival_rate
+			WHEN de.de_time_sec BETWEEN ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc1.multiply_by + thc1.add_to,de.de_time_sec)
+					AND ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc2.multiply_by + thc2.add_to, de.de_time_sec) THEN 0 --par.passenger_arrival_rate
+		END as scheduled_threshold_numerator_pax
+	FROM
+		##daily_de_time de
+		JOIN dbo.service_date sd
+			ON de.service_date = sd.service_date
+		LEFT JOIN daily_stop_times_sec st
+			ON
+				de.service_date = st.service_date
+				AND de.de_route_id = st.route_id
+				AND de.de_route_type = st.route_type
+				AND de.de_direction_id = st.direction_id
+				AND de.de_trip_id = st.trip_id
+				AND de.d_stop_id = st.trip_first_stop_id
+				AND de.d_stop_sequence = st.trip_first_stop_sequence
+				AND de.e_stop_id = st.trip_last_stop_id
+				AND de.e_stop_sequence = st.trip_last_stop_sequence
+				AND de.e_stop_id = st.stop_id
+				AND de.e_stop_sequence = st.stop_sequence
+		CROSS JOIN (
+			SELECT
+				ct.threshold_id
+				,ct.threshold_name
+				,ct.threshold_type
+				,ct1.threshold_id as threshold_id_lower
+				,ct1.min_max_equal as min_max_equal_lower
+				,ct2.threshold_id as threshold_id_upper
+				,ct2.min_max_equal as min_max_equal_upper
+			FROM config_threshold ct
+			LEFT JOIN config_threshold ct1
+				ON 
+					ct.threshold_id =
+						CASE 
+							when ct1.parent_child = 0 then ct1.threshold_id
+							when ct1.parent_child = 2 then ct1.parent_threshold_id
+						END
+				AND ct1.upper_lower = 'lower'
+			LEFT JOIN config_threshold ct2
+				ON 
+					ct.threshold_id =
+						CASE 
+							when ct2.parent_child = 0 then ct2.threshold_id
+							when ct2.parent_child = 2 then ct2.parent_threshold_id
+						END
+				AND ct2.upper_lower = 'upper'
+			WHERE ct.parent_child <> 2
+		) th
+		JOIN config_stop_order_flag_threshold sth
+			ON
+				st.stop_order_flag = sth.stop_order_flag
+				AND th.threshold_id = sth.threshold_id
+		LEFT JOIN config_threshold_calculation thc1
+			ON th.threshold_id_lower = thc1.threshold_id
+		LEFT JOIN config_threshold_calculation thc2
+			ON th.threshold_id_upper = thc2.threshold_id
+		JOIN config_mode_threshold mt
+			ON
+				mt.threshold_id = th.threshold_id
+				AND mt.route_type = de.de_route_type
+	WHERE
+		de.de_route_type = 3 --bus only
+		AND th.threshold_type = 'travel_time'
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
 		DROP TABLE dbo.daily_metrics
-	--
-	CREATE TABLE dbo.daily_metrics
-	(
+	
+	CREATE TABLE dbo.daily_metrics (
 		route_id			VARCHAR(255)	NOT NULL
 		,threshold_id		VARCHAR(255)	NOT NULL
 		,threshold_name		VARCHAR(255)	NOT NULL
@@ -3273,39 +3408,37 @@
 		,denominator_pax	FLOAT			NULL
 		,numerator_trip		FLOAT			NULL
 		,denominator_trip	FLOAT			NULL
-
 	)
 
-	DECLARE @from_stop_ids TABLE
-	(
+	/*DECLARE @use_checkpoints_only BIT
+	SET @use_checkpoints_only = 1*/
+
+	DECLARE @from_stop_ids TABLE (
 		stop_id VARCHAR(255)
 	)
 
-	DECLARE @to_stop_ids TABLE
-	(
+	DECLARE @to_stop_ids TABLE (
 		stop_id VARCHAR(255)
 	)
 
-	DECLARE @direction_ids TABLE
-	(
+	DECLARE @direction_ids TABLE (
 		direction_id INT
 	)
 
-	DECLARE @route_ids TABLE
-	(
+	DECLARE @route_ids TABLE (
 		route_id VARCHAR(255)
 	)
-
 	INSERT INTO @route_ids
-		VALUES ('Red'),('Blue'),('Orange')
-		,('Green-B'),('Green-C'),('Green-D'),('Green-E')
+		VALUES ('Red'),('Blue'),('Orange'),('Green-B'),('Green-C'),('Green-D'),('Green-E')
 		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
 		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('749'),('69'),('68'),('325'),('9'),('1'),('7'),('751'),('712'),('713')
 
-
+	DECLARE @kbr TABLE (
+		route_id VARCHAR(255)
+	)
+	INSERT INTO @kbr VALUES ('1'),('15'),('22'),('23'),('28'),('32'),('39'),('57'),('66'),('71'),('73'),('77'),('11'),('741'),('742'),('751'),('749')
 	
-	INSERT INTO dbo.daily_metrics
-	(
+	INSERT INTO dbo.daily_metrics (
 		route_id
 		,threshold_id
 		,threshold_name
@@ -3335,39 +3468,27 @@
 				,dbo.config_threshold ct
 		WHERE
 			ct.threshold_id = dwt.threshold_id
-			AND 
-				(
+			AND (
 					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
-				OR 
-					from_stop_id IN (SELECT stop_id FROM @from_stop_ids)
+				OR from_stop_id IN (SELECT stop_id FROM @from_stop_ids)
 				)
-			AND 
-				(
+			AND (
 					(SELECT COUNT(stop_id) FROM @to_stop_ids)= 0
-				OR 
-					to_stop_id IN (SELECT stop_id FROM @to_stop_ids)
+				OR to_stop_id IN (SELECT stop_id FROM @to_stop_ids)
 				)
-			AND 
-				(
+			AND (
 					(SELECT COUNT(direction_id) FROM @direction_ids)= 0
-			OR 
-					direction_id IN (SELECT direction_id FROM @direction_ids )
+				OR direction_id IN (SELECT direction_id FROM @direction_ids )
 				)
-			AND 
-				(
+			AND (
 					(SELECT COUNT(route_id) FROM @route_ids) = 0
-				OR 
-					prev_route_id IN (SELECT route_id FROM @route_ids )
+				OR prev_route_id IN (SELECT route_id FROM @route_ids )
 				)
-			AND 
-				(
+			AND (
 					(SELECT COUNT(route_id) FROM @route_ids ) = 0
-				OR 
-					route_id IN (SELECT route_id FROM @route_ids )
+				OR route_id IN (SELECT route_id FROM @route_ids )
 				)
-			AND
-				ct.parent_child = 0
-
+			AND ct.parent_child = 0
 		GROUP BY
 			route_id
 			,ct.threshold_id
@@ -3449,7 +3570,6 @@
 				FROM @route_ids
 			)
 			)
-
 		GROUP BY
 			route_id
 			,ct.threshold_id
@@ -3474,29 +3594,21 @@
 			dbo.daily_schedule_adherence_threshold_pax cap
 			,dbo.config_threshold ct
 		WHERE
-				ct.threshold_id = cap.threshold_id
-			AND
-				ct.parent_child = 0
-			AND
-				(
+			ct.threshold_id = cap.threshold_id
+			AND ct.parent_child = 0
+			AND (
 					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
-				OR
-					stop_id IN (SELECT stop_id FROM @from_stop_ids)
+				OR stop_id IN (SELECT stop_id FROM @from_stop_ids)
 				)	
-			AND
-				(
+			AND (
 					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
-				OR
-					direction_id IN (SELECT direction_id FROM @direction_ids)
+				OR direction_id IN (SELECT direction_id FROM @direction_ids)
 				)
-			AND
-				(
+			AND (
 					(SELECT COUNT(route_id) FROM @route_ids) = 0
-				OR
-					route_id IN (SELECT route_id FROM @route_ids)
+				OR route_id IN (SELECT route_id FROM @route_ids)
 				)
-			AND
-				route_type = 2
+			AND route_type = 2
 		GROUP BY
 				route_id
 				,ct.threshold_id
@@ -3564,7 +3676,6 @@
 				FROM @route_ids
 			)
 			)
-
 		GROUP BY
 			route_id
 			,ct.threshold_id
@@ -3575,23 +3686,294 @@
 
 		UNION
 		*/
-		--bus reliability metrics
-		SELECT 
-			r.route_id
-			,ct2.threshold_id
-			,ct2.threshold_name
-			,ct2.threshold_type
-			,1 - SUM(r.scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result
-			,NULL AS metric_result_trip
-			,SUM(r.scheduled_threshold_numerator_pax) AS numerator_pax
-			,COUNT(*) as denominator_pax
-			,NULL
-			,NULL
-		FROM
+
+	--bus reliability metrics
+	SELECT
+		r.route_id
+		/*,r.service_date
+		,r.trip_id
+		,r.stop_id
+		,r.direction_id*/
+		,ct2.threshold_id
+		,ct2.threshold_name
+		,ct2.threshold_type
+		,1 - SUM(r.scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result
+		,NULL AS metric_result_trip
+		,SUM(r.scheduled_threshold_numerator_pax) AS numerator_pax
+		,COUNT(*) as denominator_pax
+		,NULL
+		,NULL
+	FROM
 		(
-		
-		
-			SELECT 
+			/*SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,CASE
+					WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dtt.scheduled_headway_time_sec <= 900) AND t.trip_order <> 1 THEN dtt.threshold_id
+					ELSE cap.threshold_id
+				END as threshold_id
+				,CASE
+					WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dtt.scheduled_headway_time_sec <= 900) AND t.trip_order <> 1 THEN dtt.denominator_pax
+					ELSE cap.denominator_pax
+				END as denominator_pax
+				,CASE
+					WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dtt.scheduled_headway_time_sec <= 900) AND t.trip_order <> 1 THEN dtt.scheduled_threshold_numerator_pax
+					ELSE cap.scheduled_threshold_numerator_pax
+				END as scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_schedule_adherence_threshold_pax cap
+				FULL JOIN dbo.daily_headway_adherence_threshold_pax dtt
+					ON
+						cap.service_date = dtt.service_date
+						AND cap.route_type = dtt.route_type
+						AND cap.route_id = dtt.route_id
+						AND cap.direction_id = dtt.direction_id
+						AND cap.trip_id = dtt.trip_id
+						AND cap.stop_id = dtt.stop_id
+						AND cap.stop_order_flag = dtt.stop_order_flag
+						AND (cap.checkpoint_id = dtt.checkpoint_id OR (cap.checkpoint_id IS NULL AND dtt.checkpoint_id IS NULL))
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,trip_id
+						,trip_start_time_sec
+						--,LAG(trip_start_time_sec, 1) OVER (PARTITION BY service_date, route_id, direction_id ORDER BY trip_start_time_sec) as previous_trip_start_time_sec
+						--,trip_start_time_sec - LAG(trip_start_time_sec, 1) OVER (PARTITION BY service_date, route_id, direction_id ORDER BY trip_start_time_sec) as scheduled_trip_headway_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id ORDER BY trip_start_time_sec) as trip_order
+					FROM
+						(
+							SELECT DISTINCT
+								service_date
+								,route_id
+								,direction_id
+								,trip_id
+								,trip_start_time_sec
+							FROM dbo.daily_stop_times_sec
+						) rn
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND dtt.service_date = t.service_date
+						AND cap.trip_id = t.trip_id
+						AND dtt.trip_id = t.trip_id
+			WHERE
+				(
+					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
+					OR (cap.stop_id IN (SELECT stop_id FROM @from_stop_ids) AND dtt.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				)
+				AND (
+					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
+					OR (cap.direction_id IN (SELECT direction_id FROM @direction_ids) AND dtt.direction_id IN (SELECT direction_id FROM @direction_ids))
+				)
+				AND (
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+					OR (cap.route_id IN (SELECT route_id FROM @route_ids) AND dtt.route_id IN (SELECT route_id FROM @route_ids))
+				)
+				AND cap.route_type = 3 AND dtt.route_type = 3
+				AND (
+					(@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL AND dtt.checkpoint_id IS NOT NULL)
+					OR @use_checkpoints_only = 0
+				)
+				--AND cap.stop_order_flag <> 3 --NOT FOR ENDPOINTS
+
+			UNION ALL */
+
+			--For schedule threshold
+			SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,dtt.threshold_id
+				,dtt.denominator_pax
+				,dtt.scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_stop_times_sec cap
+				JOIN dbo.daily_stop_times_headway_same_sec dsth
+					ON
+						cap.service_date = dsth.service_date
+						AND cap.route_type = dsth.route_type
+						AND cap.route_id = dsth.route_id
+						AND cap.direction_id = dsth.direction_id
+						AND cap.trip_id = dsth.d_trip_id
+						AND cap.stop_id = dsth.stop_id
+				JOIN dbo.daily_schedule_adherence_threshold_pax dtt
+					ON
+						dtt.service_date = cap.service_date
+						AND dtt.route_type = cap.route_type
+						AND dtt.route_id = cap.route_id
+						AND dtt.direction_id = cap.direction_id
+						AND dtt.trip_id = cap.trip_id
+						AND dtt.stop_id = cap.stop_id
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,stop_id
+						,trip_id
+						,arrival_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id, stop_id ORDER BY arrival_time_sec) as trip_order
+					FROM
+						dbo.daily_stop_times_sec
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND cap.route_id = t.route_id
+						AND cap.direction_id = t.direction_id
+						AND cap.trip_id = t.trip_id
+						AND cap.stop_id = t.stop_id
+			WHERE
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
+				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR cap.route_id IN (SELECT route_id FROM @route_ids))
+				AND cap.route_type = 3
+				AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+				AND ((cap.route_id NOT IN (SELECT route_id FROM @kbr) AND dsth.scheduled_headway_time_sec > 900) OR t.trip_order = 1) --For schedule-based trips
+
+			UNION
+
+			--For headway threshold
+			SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,--CASE
+					--WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN 
+					dh.threshold_id
+					--ELSE cap.threshold_id
+				--END as threshold_id
+				,--CASE
+					--WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN 
+					dh.denominator_pax
+					--ELSE cap.denominator_pax
+				--END as denominator_pax
+				,--CASE
+					--WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN 
+					dh.scheduled_threshold_numerator_pax
+					--ELSE cap.scheduled_threshold_numerator_pax
+				--END as scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_stop_times_sec cap
+				JOIN dbo.daily_stop_times_headway_same_sec dsth
+					ON
+						cap.service_date = dsth.service_date
+						AND cap.route_type = dsth.route_type
+						AND cap.route_id = dsth.route_id
+						AND cap.direction_id = dsth.direction_id
+						AND cap.trip_id = dsth.d_trip_id
+						AND cap.stop_id = dsth.stop_id
+				JOIN dbo.daily_headway_adherence_threshold_pax dh
+					ON
+						cap.service_date = dh.service_date
+						AND cap.route_id = dh.route_id
+						AND cap.route_type = dh.route_type
+						AND cap.direction_id = dh.direction_id
+						AND cap.trip_id = dh.trip_id
+						AND cap.stop_id = dh.stop_id
+						AND cap.stop_order_flag = dh.stop_order_flag
+						AND (cap.checkpoint_id = dh.checkpoint_id OR (cap.checkpoint_id IS NULL AND dh.checkpoint_id IS NULL))
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,stop_id
+						,trip_id
+						,arrival_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id, stop_id ORDER BY arrival_time_sec) as trip_order
+					FROM
+						dbo.daily_stop_times_sec
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND cap.trip_id = t.trip_id
+			WHERE
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
+				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR cap.route_id IN (SELECT route_id FROM @route_ids))
+				AND cap.route_type = 3
+				AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+				AND cap.stop_order_flag IN (1,2)
+				AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_headway_time_sec <= 900)
+				AND t.trip_order <> 1
+
+			UNION
+
+			--For travel time threshold
+			SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,/*CASE
+					WHEN cap.stop_order_flag = 3 AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN */dtt.threshold_id
+					--ELSE cap.threshold_id
+				--END as threshold_id
+				,/*CASE
+					WHEN cap.stop_order_flag = 3 AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN */ dtt.denominator_pax
+					--ELSE cap.denominator_pax
+				--END as denominator_pax
+				,/*CASE
+					WHEN cap.stop_order_flag = 3 AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN */ dtt.scheduled_threshold_numerator_pax
+					--ELSE cap.scheduled_threshold_numerator_pax
+				--END as scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_stop_times_sec cap
+				JOIN dbo.daily_stop_times_headway_same_sec dsth
+					ON
+						cap.service_date = dsth.service_date
+						AND cap.route_type = dsth.route_type
+						AND cap.route_id = dsth.route_id
+						AND cap.direction_id = dsth.direction_id
+						AND cap.trip_id = dsth.d_trip_id
+						AND cap.stop_id = dsth.stop_id
+				JOIN dbo.daily_trip_run_time_adherence_threshold_pax dtt
+					ON
+						cap.service_date = dtt.service_date
+						AND cap.route_type = dtt.route_type
+						AND cap.route_id = dtt.route_id
+						AND cap.direction_id = dtt.direction_id
+						AND cap.trip_id = dtt.trip_id
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,stop_id
+						,trip_id
+						,arrival_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id, stop_id ORDER BY arrival_time_sec) as trip_order
+					FROM
+						dbo.daily_stop_times_sec
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND cap.trip_id = t.trip_id
+			WHERE
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
+				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR cap.route_id IN (SELECT route_id FROM @route_ids))
+				AND cap.route_type = 3
+				AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+				AND cap.stop_order_flag = 3
+				AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_headway_time_sec <= 900)
+				AND t.trip_order <> 1
+
+			/*SELECT 
 				cap.service_date
 				,cap.route_id
 				,cap.direction_id
@@ -3601,252 +3983,430 @@
 				,cap.threshold_id
 				,cap.denominator_pax
 				,cap.scheduled_threshold_numerator_pax
-			FROM	dbo.daily_schedule_adherence_threshold_pax cap
-			JOIN
-			(
-				SELECT
-					rn2.service_date
-					,rn2.route_id
-					,rn2.trip_id
-					,rn2.trip_start_time_sec
-					,MAX(rn1.trip_start_time_sec) as previous_trip_start_time_sec
-					,rn2.trip_start_time_sec - MAX(rn1.trip_start_time_sec) as scheduled_trip_headway_sec
-					,ROW_NUMBER () OVER (PARTITION BY rn2.route_id ORDER BY rn2.trip_start_time_sec) AS trip_order
-				FROM
-					(
-					SELECT DISTINCT
-						service_date
-						,route_id
-						,trip_id
-						,trip_start_time_sec
-					  FROM mbta_performance.dbo.daily_stop_times_sec
-				) rn2
-				LEFT JOIN
-				(
-					SELECT DISTINCT
-						service_date
-						,route_id
-						,trip_id
-						,trip_start_time_sec
-					  FROM mbta_performance.dbo.daily_stop_times_sec 
-				) rn1
-
-				ON
-						rn1.service_date = rn2.service_date
-					AND
-						rn1.route_id = rn2.route_id
-					AND
-						rn1.trip_start_time_sec < rn2.trip_start_time_sec
-				GROUP BY
-					rn2.service_date
-					,rn2.route_id
-					,rn2.trip_id
-					,rn2.trip_start_time_sec
-			)  t
-			ON
-					cap.service_date = t.service_date
-				AND
-					cap.trip_id = t.trip_id
-			WHERE 
-					(
-						(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
-					OR 
-						stop_id IN (SELECT stop_id FROM @from_stop_ids)
-					)
-				AND 
-					(
-						(SELECT COUNT(direction_id) FROM @direction_ids) = 0
-					OR 
-						direction_id IN (SELECT direction_id FROM @direction_ids)
-					)
-				--AND 
-				--	(
-				--		(SELECT COUNT(route_id) FROM @route_ids) = 0
-				--	OR 
-				--		route_id IN (SELECT route_id FROM @route_ids)
-				--	)
-				AND
-					route_type = 3
-				AND
-					(
-						(@use_checkpoints_only = 1 AND checkpoint_id IS NOT NULL)
-					OR
-						@use_checkpoints_only = 0 
-					)
-				AND
-					(t.scheduled_trip_headway_sec > 15*60 OR trip_order = 1)
-				AND
-					cap.route_id NOT IN ('1','15','22','23','28','32','39','57','66','71','73','77','111','116','117')
-
-		UNION ALL
-
-		SELECT 
-			cap.service_date
-			,cap.route_id
-			,cap.direction_id
-			,cap.trip_id
-			,cap.stop_id
-			,cap.checkpoint_id
-			,cap.threshold_id
-			,cap.denominator_pax
-			,cap.scheduled_threshold_numerator_pax
-		FROM	
-			(
-				SELECT DISTINCT 
-					dtt.service_date
-					,dtt.route_id
-					,st.route_type
-					,dtt.direction_id
-					,dtt.trip_id
-					,dtt.to_stop_id AS stop_id
-					,st.stop_order_flag
-					,st.checkpoint_id
-					,dtt.start_time_sec
-					,dtt.end_time_sec
-					,dtt.travel_time_sec as actual_travel_time_sec
-					,st.trip_end_time_sec - st.trip_start_time_sec as scheduled_travel_time_sec
-					,dtt.threshold_id
-					,(st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to as threshold_value
-					,1 as denominator_pax
-					,CASE
-						WHEN 
-							dtt.travel_time_sec > ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to,dtt.travel_time_sec) THEN 1 --par.passenger_arrival_rate
-						WHEN dtt.travel_time_sec <= ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to,dtt.travel_time_sec)  THEN 0 --par.passenger_arrival_rate
-					END as scheduled_threshold_numerator_pax
-		
-			  FROM dbo.daily_travel_time_threshold_pax dtt
-			  JOIN dbo.daily_stop_times_sec st
-			  ON
-						dtt.trip_id = st.trip_id
-				AND
-						dtt.from_stop_id = st.trip_first_stop_id
-				AND
-						dtt.to_stop_id = st.trip_last_stop_id
-				JOIN dbo.config_threshold_calculation thc
-				ON
-					dtt.threshold_id = thc.threshold_id
-				JOIN dbo.config_stop_order_flag_threshold sth
-				ON
-						st.stop_order_flag = sth.stop_order_flag
-					AND
-						dtt.threshold_id = sth.threshold_id
-
-			UNION ALL
-			SELECT 
-				service_date									
-				,route_id										
-				,route_type														
-				,direction_id													
-				,trip_id																							
-				,stop_id											
-				,stop_order_flag												
-				,checkpoint_id									
-				,start_time_sec													
-				,end_time_sec													
-				,actual_headway_time_sec										
-				,scheduled_headway_time_sec										
-				,threshold_id																																	
-				,threshold_value_upper								
-				,denominator_pax											
-				,scheduled_threshold_numerator_pax		
-			FROM dbo.daily_headway_adherence_threshold_pax
-			) cap
-		JOIN dbo.config_threshold ct
-		ON
-			ct.threshold_id = cap.threshold_id
-		JOIN
-		(
-			SELECT
-				rn2.service_date
-				,rn2.route_id
-				,rn2.trip_id
-				,rn2.trip_start_time_sec
-				,MAX(rn1.trip_start_time_sec) as previous_trip_start_time_sec
-				,rn2.trip_start_time_sec - MAX(rn1.trip_start_time_sec) as scheduled_trip_headway_sec
-				,ROW_NUMBER () OVER (PARTITION BY rn2.route_id ORDER BY rn2.trip_start_time_sec) AS trip_order
 			FROM
 				(
-				SELECT DISTINCT
-					service_date
-					,route_id
-					,trip_id
-					,trip_start_time_sec
-				  FROM mbta_performance.dbo.daily_stop_times_sec
-			) rn2
-			LEFT JOIN
-			(
-				SELECT DISTINCT
-					service_date
-					,route_id
-					,trip_id
-					,trip_start_time_sec
-				  FROM mbta_performance.dbo.daily_stop_times_sec 
-			) rn1
+					SELECT DISTINCT 
+						dtt.service_date
+						,dtt.route_id
+						,st.route_type
+						,dtt.direction_id
+						,dtt.trip_id
+						,dtt.to_stop_id AS stop_id
+						,st.stop_order_flag
+						,st.checkpoint_id
+						,dtt.start_time_sec
+						,dtt.end_time_sec
+						,dtt.travel_time_sec as actual_travel_time_sec
+						,st.trip_end_time_sec - st.trip_start_time_sec as scheduled_travel_time_sec
+						,dtt.threshold_id
+						,(st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to as threshold_value
+						,1 as denominator_pax
+						,CASE
+							WHEN 
+								dtt.travel_time_sec > ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to,dtt.travel_time_sec) THEN 1 --par.passenger_arrival_rate
+							WHEN dtt.travel_time_sec <= ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to,dtt.travel_time_sec)  THEN 0 --par.passenger_arrival_rate
+						END as scheduled_threshold_numerator_pax
+					FROM
+						dbo.daily_travel_time_threshold_pax dtt
+						JOIN dbo.daily_stop_times_sec st
+							ON
+								dtt.trip_id = st.trip_id
+								AND dtt.from_stop_id = st.trip_first_stop_id
+								AND dtt.to_stop_id = st.trip_last_stop_id
+						JOIN dbo.config_threshold_calculation thc
+							ON dtt.threshold_id = thc.threshold_id
+						JOIN dbo.config_stop_order_flag_threshold sth
+							ON
+								st.stop_order_flag = sth.stop_order_flag
+								AND dtt.threshold_id = sth.threshold_id 
 
-			ON
-					rn1.service_date = rn2.service_date
-				AND
-					rn1.route_id = rn2.route_id
-				AND
-					rn1.trip_start_time_sec < rn2.trip_start_time_sec
-			GROUP BY
-				rn2.service_date
-				,rn2.route_id
-				,rn2.trip_id
-				,rn2.trip_start_time_sec
-		)  t
-		ON
-				cap.service_date = t.service_date
-			AND
-				cap.trip_id = t.trip_id
-		WHERE 
-				(
-					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
-				OR 
-					stop_id IN (SELECT stop_id FROM @from_stop_ids)
-				)
-			AND 
-				(
-					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
-				OR 
-					direction_id IN (SELECT direction_id FROM @direction_ids)
-				)
-			--AND 
-			--	(
-			--		(SELECT COUNT(route_id) FROM @route_ids) = 0
-			--	OR 
-			--		route_id IN (SELECT route_id FROM @route_ids)
-			--	)
-			--AND
-			--	route_type = 3
-			AND
-				(
-					(@use_checkpoints_only = 1 AND checkpoint_id IS NOT NULL)
-				OR
-					@use_checkpoints_only = 0 
-				)
-			AND
-				(
-				t.scheduled_trip_headway_sec <= 15*60
-			OR
-				cap.route_id IN ('1','15','22','23','28','32','39','57','66','71','73','77','111','116','117')
-				)
+					UNION ALL*/
 		) r
 		JOIN config_threshold ct1
-		ON
-			r.threshold_id = ct1.threshold_id
-		JOIN
-			config_threshold ct2
-		ON
-			ct1.parent_threshold_id = ct2.threshold_id
-		GROUP BY
-			r.route_id
-			,ct2.threshold_id
-			,ct2.threshold_type
-			,ct2.threshold_name
-			
-		ORDER BY
-			route_id,threshold_id
+			ON r.threshold_id = ct1.threshold_id
+		JOIN config_threshold ct2
+			ON ct1.parent_threshold_id = ct2.threshold_id
+	GROUP BY
+		r.route_id
+		/*,r.service_date
+		,r.trip_id
+		,r.stop_id
+		,r.direction_id*/
+		,ct2.threshold_id
+		,ct2.threshold_type
+		,ct2.threshold_name
+	ORDER BY
+		route_id, threshold_id
+
+	/*SELECT *, denominator_pax-numerator_pax as good, denominator_pax as total, metric_result as ratio FROM dbo.daily_metrics
+	ORDER BY CAST(route_id AS int)
+	SELECT SUM(denominator_pax) FROM dbo.daily_metrics */
+
+	/*SELECT route_id, threshold_id, threshold_name, threshold_type, metric_result, numerator_pax, denominator_pax FROM dbo.daily_metrics
+
+	SELECT
+		r.route_id
+		,r.service_date
+		,r.trip_id
+		,r.stop_id
+		,r.direction_id
+		,ct2.threshold_id
+		,ct2.threshold_name
+		,ct2.threshold_type
+		,1 - SUM(r.scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result
+		,SUM(r.scheduled_threshold_numerator_pax) AS numerator_pax
+		,COUNT(*) as denominator_pax
+	FROM
+		(
+			/*SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,CASE
+					WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dtt.scheduled_headway_time_sec <= 900) AND t.trip_order <> 1 THEN dtt.threshold_id
+					ELSE cap.threshold_id
+				END as threshold_id
+				,CASE
+					WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dtt.scheduled_headway_time_sec <= 900) AND t.trip_order <> 1 THEN dtt.denominator_pax
+					ELSE cap.denominator_pax
+				END as denominator_pax
+				,CASE
+					WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dtt.scheduled_headway_time_sec <= 900) AND t.trip_order <> 1 THEN dtt.scheduled_threshold_numerator_pax
+					ELSE cap.scheduled_threshold_numerator_pax
+				END as scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_schedule_adherence_threshold_pax cap
+				FULL JOIN dbo.daily_headway_adherence_threshold_pax dtt
+					ON
+						cap.service_date = dtt.service_date
+						AND cap.route_type = dtt.route_type
+						AND cap.route_id = dtt.route_id
+						AND cap.direction_id = dtt.direction_id
+						AND cap.trip_id = dtt.trip_id
+						AND cap.stop_id = dtt.stop_id
+						AND cap.stop_order_flag = dtt.stop_order_flag
+						AND (cap.checkpoint_id = dtt.checkpoint_id OR (cap.checkpoint_id IS NULL AND dtt.checkpoint_id IS NULL))
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,trip_id
+						,trip_start_time_sec
+						--,LAG(trip_start_time_sec, 1) OVER (PARTITION BY service_date, route_id, direction_id ORDER BY trip_start_time_sec) as previous_trip_start_time_sec
+						--,trip_start_time_sec - LAG(trip_start_time_sec, 1) OVER (PARTITION BY service_date, route_id, direction_id ORDER BY trip_start_time_sec) as scheduled_trip_headway_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id ORDER BY trip_start_time_sec) as trip_order
+					FROM
+						(
+							SELECT DISTINCT
+								service_date
+								,route_id
+								,direction_id
+								,trip_id
+								,trip_start_time_sec
+							FROM dbo.daily_stop_times_sec
+						) rn
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND dtt.service_date = t.service_date
+						AND cap.trip_id = t.trip_id
+						AND dtt.trip_id = t.trip_id
+			WHERE
+				(
+					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
+					OR (cap.stop_id IN (SELECT stop_id FROM @from_stop_ids) AND dtt.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				)
+				AND (
+					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
+					OR (cap.direction_id IN (SELECT direction_id FROM @direction_ids) AND dtt.direction_id IN (SELECT direction_id FROM @direction_ids))
+				)
+				AND (
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+					OR (cap.route_id IN (SELECT route_id FROM @route_ids) AND dtt.route_id IN (SELECT route_id FROM @route_ids))
+				)
+				AND cap.route_type = 3 AND dtt.route_type = 3
+				AND (
+					(@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL AND dtt.checkpoint_id IS NOT NULL)
+					OR @use_checkpoints_only = 0
+				)
+				--AND cap.stop_order_flag <> 3 --NOT FOR ENDPOINTS
+
+			UNION ALL */
+
+			--For schedule threshold
+			SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,dtt.threshold_id
+				,dtt.denominator_pax
+				,dtt.scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_stop_times_sec cap
+				JOIN dbo.daily_stop_times_headway_same_sec dsth
+					ON
+						cap.service_date = dsth.service_date
+						AND cap.route_type = dsth.route_type
+						AND cap.route_id = dsth.route_id
+						AND cap.direction_id = dsth.direction_id
+						AND cap.trip_id = dsth.d_trip_id
+						AND cap.stop_id = dsth.stop_id
+				JOIN dbo.daily_schedule_adherence_threshold_pax dtt
+					ON
+						dtt.service_date = cap.service_date
+						AND dtt.route_type = cap.route_type
+						AND dtt.route_id = cap.route_id
+						AND dtt.direction_id = cap.direction_id
+						AND dtt.trip_id = cap.trip_id
+						AND dtt.stop_id = cap.stop_id
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,stop_id
+						,trip_id
+						,arrival_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id, stop_id ORDER BY arrival_time_sec) as trip_order
+					FROM
+						dbo.daily_stop_times_sec
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND cap.route_id = t.route_id
+						AND cap.direction_id = t.direction_id
+						AND cap.trip_id = t.trip_id
+						AND cap.stop_id = t.stop_id
+			WHERE
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
+				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR cap.route_id IN (SELECT route_id FROM @route_ids))
+				AND cap.route_type = 3
+				AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+				AND ((cap.route_id NOT IN (SELECT route_id FROM @kbr) AND dsth.scheduled_headway_time_sec > 900) OR t.trip_order = 1) --For schedule-based trips
+
+			UNION
+
+			--For headway threshold
+			SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,--CASE
+					--WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN 
+					dh.threshold_id
+					--ELSE cap.threshold_id
+				--END as threshold_id
+				,--CASE
+					--WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN 
+					dh.denominator_pax
+					--ELSE cap.denominator_pax
+				--END as denominator_pax
+				,--CASE
+					--WHEN cap.stop_order_flag IN (1,2) AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN 
+					dh.scheduled_threshold_numerator_pax
+					--ELSE cap.scheduled_threshold_numerator_pax
+				--END as scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_stop_times_sec cap
+				JOIN dbo.daily_stop_times_headway_same_sec dsth
+					ON
+						cap.service_date = dsth.service_date
+						AND cap.route_type = dsth.route_type
+						AND cap.route_id = dsth.route_id
+						AND cap.direction_id = dsth.direction_id
+						AND cap.trip_id = dsth.d_trip_id
+						AND cap.stop_id = dsth.stop_id
+				JOIN dbo.daily_headway_adherence_threshold_pax dh
+					ON
+						cap.service_date = dh.service_date
+						AND cap.route_id = dh.route_id
+						AND cap.route_type = dh.route_type
+						AND cap.direction_id = dh.direction_id
+						AND cap.trip_id = dh.trip_id
+						AND cap.stop_id = dh.stop_id
+						AND cap.stop_order_flag = dh.stop_order_flag
+						AND (cap.checkpoint_id = dh.checkpoint_id OR (cap.checkpoint_id IS NULL AND dh.checkpoint_id IS NULL))
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,stop_id
+						,trip_id
+						,arrival_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id, stop_id ORDER BY arrival_time_sec) as trip_order
+					FROM
+						dbo.daily_stop_times_sec
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND cap.trip_id = t.trip_id
+			WHERE
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
+				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR cap.route_id IN (SELECT route_id FROM @route_ids))
+				AND cap.route_type = 3
+				AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+				AND cap.stop_order_flag IN (1,2)
+				AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_headway_time_sec <= 900)
+				AND t.trip_order <> 1
+
+			UNION
+
+			--For travel time threshold
+			SELECT
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,/*CASE
+					WHEN cap.stop_order_flag = 3 AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN */dtt.threshold_id
+					--ELSE cap.threshold_id
+				--END as threshold_id
+				,/*CASE
+					WHEN cap.stop_order_flag = 3 AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN */ dtt.denominator_pax
+					--ELSE cap.denominator_pax
+				--END as denominator_pax
+				,/*CASE
+					WHEN cap.stop_order_flag = 3 AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.headway_time_sec <= 900) AND t.trip_order <> 1 THEN */ dtt.scheduled_threshold_numerator_pax
+					--ELSE cap.scheduled_threshold_numerator_pax
+				--END as scheduled_threshold_numerator_pax
+			FROM
+				dbo.daily_stop_times_sec cap
+				JOIN dbo.daily_stop_times_headway_same_sec dsth
+					ON
+						cap.service_date = dsth.service_date
+						AND cap.route_type = dsth.route_type
+						AND cap.route_id = dsth.route_id
+						AND cap.direction_id = dsth.direction_id
+						AND cap.trip_id = dsth.d_trip_id
+						AND cap.stop_id = dsth.stop_id
+				JOIN dbo.daily_trip_run_time_adherence_threshold_pax dtt
+					ON
+						cap.service_date = dtt.service_date
+						AND cap.route_type = dtt.route_type
+						AND cap.route_id = dtt.route_id
+						AND cap.direction_id = dtt.direction_id
+						AND cap.trip_id = dtt.trip_id
+				JOIN (
+					SELECT
+						service_date
+						,route_id
+						,direction_id
+						,stop_id
+						,trip_id
+						,arrival_time_sec
+						,ROW_NUMBER() OVER (PARTITION BY service_date, route_id, direction_id, stop_id ORDER BY arrival_time_sec) as trip_order
+					FROM
+						dbo.daily_stop_times_sec
+				) t
+					ON
+						cap.service_date = t.service_date
+						AND cap.trip_id = t.trip_id
+			WHERE
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
+				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR cap.route_id IN (SELECT route_id FROM @route_ids))
+				AND cap.route_type = 3
+				AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+				AND cap.stop_order_flag = 3
+				AND (cap.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_headway_time_sec <= 900)
+				AND t.trip_order <> 1
+
+			/*SELECT 
+				cap.service_date
+				,cap.route_id
+				,cap.direction_id
+				,cap.trip_id
+				,cap.stop_id
+				,cap.checkpoint_id
+				,cap.threshold_id
+				,cap.denominator_pax
+				,cap.scheduled_threshold_numerator_pax
+			FROM
+				(
+					SELECT DISTINCT 
+						dtt.service_date
+						,dtt.route_id
+						,st.route_type
+						,dtt.direction_id
+						,dtt.trip_id
+						,dtt.to_stop_id AS stop_id
+						,st.stop_order_flag
+						,st.checkpoint_id
+						,dtt.start_time_sec
+						,dtt.end_time_sec
+						,dtt.travel_time_sec as actual_travel_time_sec
+						,st.trip_end_time_sec - st.trip_start_time_sec as scheduled_travel_time_sec
+						,dtt.threshold_id
+						,(st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to as threshold_value
+						,1 as denominator_pax
+						,CASE
+							WHEN 
+								dtt.travel_time_sec > ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to,dtt.travel_time_sec) THEN 1 --par.passenger_arrival_rate
+							WHEN dtt.travel_time_sec <= ISNULL((st.trip_end_time_sec - st.trip_start_time_sec) * thc.multiply_by + thc.add_to,dtt.travel_time_sec)  THEN 0 --par.passenger_arrival_rate
+						END as scheduled_threshold_numerator_pax
+					FROM
+						dbo.daily_travel_time_threshold_pax dtt
+						JOIN dbo.daily_stop_times_sec st
+							ON
+								dtt.trip_id = st.trip_id
+								AND dtt.from_stop_id = st.trip_first_stop_id
+								AND dtt.to_stop_id = st.trip_last_stop_id
+						JOIN dbo.config_threshold_calculation thc
+							ON dtt.threshold_id = thc.threshold_id
+						JOIN dbo.config_stop_order_flag_threshold sth
+							ON
+								st.stop_order_flag = sth.stop_order_flag
+								AND dtt.threshold_id = sth.threshold_id 
+
+					UNION ALL*/
+		) r
+		JOIN config_threshold ct1
+			ON r.threshold_id = ct1.threshold_id
+		JOIN config_threshold ct2
+			ON ct1.parent_threshold_id = ct2.threshold_id
+	GROUP BY
+		r.route_id
+		,r.service_date
+		,r.trip_id
+		,r.stop_id
+		,r.direction_id
+		,ct2.threshold_id
+		,ct2.threshold_type
+		,ct2.threshold_name
+	ORDER BY
+		route_id, threshold_id*/
+	
+	/*SELECT * FROM dbo.daily_stop_times_sec WHERE trip_id = '35074268' AND stop_id = '2231'
+	--SELECT * FROM dbo.daily_de_time WHERE de_trip_id = '35074269' AND d_stop_id = '2231'
+	--SELECT * FROM dbo.daily_event WHERE trip_id = '35074269' AND stop_id = '2231'
+	SELECT * FROM dbo.daily_schedule_adherence_disaggregate WHERE trip_id = '35074268' AND stop_id = '2231'
+	--SELECT * FROM dbo.daily_stop_times_headway_same_sec WHERE d_trip_id = '35074269' AND stop_id = '2231'
+	SELECT * FROM dbo.daily_schedule_adherence_threshold_pax WHERE trip_id = '35074268' AND stop_id = '2231'
+	--SELECT * FROM dbo.daily_headway_adherence_threshold_pax WHERE trip_id = '35074269' AND stop_id = '2231'
+	--SELECT * FROM dbo.daily_trip_run_time_adherence_threshold_pax WHERE trip_id = '35074269'*/
+
+	/*SELECT * FROM dbo.daily_stop_times_sec WHERE trip_id = '35079638' AND stop_id = '109898'
+	SELECT * FROM dbo.daily_event WHERE trip_id = '35079638' AND stop_id = '109898'
+	SELECT * FROM dbo.daily_schedule_adherence_disaggregate WHERE trip_id = '35079638' AND stop_id = '109898'
+	SELECT * FROM dbo.daily_stop_times_headway_same_sec WHERE d_trip_id = '35079638' AND stop_id = '109898'
+	SELECT * FROM dbo.daily_schedule_adherence_threshold_pax WHERE trip_id = '35079638' AND stop_id = '109898'
+	SELECT * FROM dbo.daily_headway_adherence_threshold_pax WHERE trip_id = '350796378' AND stop_id = '109898'
+	SELECT * FROM dbo.daily_trip_run_time_adherence_threshold_pax WHERE trip_id = '35079638'*/
 
 	-- Save daily disaggregate travel times 
 
@@ -3868,8 +4428,7 @@
 		,benchmark_travel_time_sec	INT
 	)
 
-	INSERT INTO dbo.daily_travel_time_disaggregate
-	(
+	INSERT INTO dbo.daily_travel_time_disaggregate (
 		service_date
 		,from_stop_id
 		,to_stop_id
@@ -3881,36 +4440,30 @@
 		,travel_time_sec
 		,benchmark_travel_time_sec
 	)
-
-		SELECT
-			htt.service_date
-			,htt.d_stop_id
-			,htt.e_stop_id
-			,htt.de_route_id
-			,htt.de_route_type
-			,htt.de_direction_id
-			,htt.d_time_sec
-			,htt.e_time_sec
-			,htt.de_time_sec
-			,dtb.scheduled_average_travel_time_sec
-		FROM ##daily_de_time htt
-
+	SELECT
+		htt.service_date
+		,htt.d_stop_id
+		,htt.e_stop_id
+		,htt.de_route_id
+		,htt.de_route_type
+		,htt.de_direction_id
+		,htt.d_time_sec
+		,htt.e_time_sec
+		,htt.de_time_sec
+		,dtb.scheduled_average_travel_time_sec
+	FROM
+		##daily_de_time htt
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				htt.e_time_sec >= ts.time_slice_start_sec
 				AND htt.e_time_sec < ts.time_slice_end_sec
-				)
 		JOIN dbo.daily_travel_time_benchmark dtb
 			ON
-				(
 				htt.de_direction_id = dtb.direction_id
 				AND htt.d_stop_id = dtb.from_stop_id
 				AND htt.e_stop_id = dtb.to_stop_id
 				AND htt.de_route_id = dtb.route_id --added because of green line
-				AND
-				ts.time_slice_id = dtb.time_slice_id
-				)
+				AND ts.time_slice_id = dtb.time_slice_id
 
 	--Save daily disaggregate headway times between the same origin-destination stops 
 
@@ -3918,8 +4471,7 @@
 		DROP TABLE dbo.daily_headway_time_od_disaggregate
 		;
 
-	CREATE TABLE dbo.daily_headway_time_od_disaggregate
-	(
+	CREATE TABLE dbo.daily_headway_time_od_disaggregate (
 		service_date				VARCHAR(255)	NOT NULL
 		,stop_id					VARCHAR(255)	NOT NULL
 		,to_stop_id					VARCHAR(255)	NOT NULL
@@ -3934,8 +4486,7 @@
 	)
 	;
 
-	INSERT INTO dbo.daily_headway_time_od_disaggregate
-	(
+	INSERT INTO dbo.daily_headway_time_od_disaggregate (
 		service_date
 		,stop_id
 		,to_stop_id
@@ -3948,36 +4499,30 @@
 		,headway_time_sec
 		,benchmark_headway_time_sec
 	)
-
-		SELECT
-			htt.service_date
-			,htt.abcd_stop_id
-			,htt.e_stop_id
-			,htt.cde_route_id
-			,htt.ab_route_id
-			,htt.abcde_route_type
-			,htt.abcde_direction_id
-			,htt.b_time_sec
-			,htt.d_time_sec
-			,htt.bd_time_sec
-			,dtb.scheduled_average_headway_sec
-		FROM ##daily_abcde_time htt
-
+	SELECT
+		htt.service_date
+		,htt.abcd_stop_id
+		,htt.e_stop_id
+		,htt.cde_route_id
+		,htt.ab_route_id
+		,htt.abcde_route_type
+		,htt.abcde_direction_id
+		,htt.b_time_sec
+		,htt.d_time_sec
+		,htt.bd_time_sec
+		,dtb.scheduled_average_headway_sec
+	FROM
+		##daily_abcde_time htt
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				htt.d_time_sec >= ts.time_slice_start_sec
 				AND htt.d_time_sec < ts.time_slice_end_sec
-				)
 		JOIN dbo.daily_headway_time_od_benchmark dtb
 			ON
-				(
 				htt.abcde_direction_id = dtb.direction_id
 				AND htt.abcd_stop_id = dtb.stop_id
 				AND htt.e_stop_id = dtb.to_stop_id
 				AND ts.time_slice_id = dtb.time_slice_id
-				)
-
 
 	--Save daily disaggregate headway times at a stop for trips of all routes
 
@@ -3985,8 +4530,7 @@
 		DROP TABLE dbo.daily_headway_time_sr_all_disaggregate
 		;
 
-	CREATE TABLE dbo.daily_headway_time_sr_all_disaggregate
-	(
+	CREATE TABLE dbo.daily_headway_time_sr_all_disaggregate (
 		service_date				VARCHAR(255)	NOT NULL
 		,stop_id					VARCHAR(255)	NOT NULL
 		,route_id					VARCHAR(255)	NOT NULL
@@ -4000,8 +4544,7 @@
 	)
 	;
 
-	INSERT INTO dbo.daily_headway_time_sr_all_disaggregate
-	(
+	INSERT INTO dbo.daily_headway_time_sr_all_disaggregate (
 		service_date
 		,stop_id
 		,route_id
@@ -4013,41 +4556,35 @@
 		,headway_time_sec
 		,benchmark_headway_time_sec
 	)
-
-		SELECT
-			htt.service_date
-			,htt.bd_stop_id
-			,htt.d_route_id
-			,htt.b_route_id
-			,htt.bd_route_type
-			,htt.bd_direction_id
-			,htt.b_time_sec
-			,htt.d_time_sec
-			,htt.bd_time_sec
-			,dtb.scheduled_average_headway_sec
-		FROM ##daily_bd_sr_all_time htt
-
+	SELECT
+		htt.service_date
+		,htt.bd_stop_id
+		,htt.d_route_id
+		,htt.b_route_id
+		,htt.bd_route_type
+		,htt.bd_direction_id
+		,htt.b_time_sec
+		,htt.d_time_sec
+		,htt.bd_time_sec
+		,dtb.scheduled_average_headway_sec
+	FROM
+		##daily_bd_sr_all_time htt
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				htt.d_time_sec >= ts.time_slice_start_sec
 				AND htt.d_time_sec < ts.time_slice_end_sec
-				)
 		JOIN dbo.daily_headway_time_sr_all_benchmark dtb
 			ON
-				(
 				htt.bd_direction_id = dtb.direction_id
 				AND htt.bd_stop_id = dtb.stop_id
 				AND ts.time_slice_id = dtb.time_slice_id
-				)
 
 	--Save daily disaggregate headway times at a stop for trips of the same route
 	IF OBJECT_ID('dbo.daily_headway_time_sr_same_disaggregate','u') IS NOT NULL
 		DROP TABLE dbo.daily_headway_time_sr_same_disaggregate
 		;
 
-	CREATE TABLE dbo.daily_headway_time_sr_same_disaggregate
-	(
+	CREATE TABLE dbo.daily_headway_time_sr_same_disaggregate (
 		service_date				VARCHAR(255)	NOT NULL
 		,stop_id					VARCHAR(255)	NOT NULL
 		,route_id					VARCHAR(255)	NOT NULL
@@ -4061,8 +4598,7 @@
 	)
 	;
 
-	INSERT INTO dbo.daily_headway_time_sr_same_disaggregate
-	(
+	INSERT INTO dbo.daily_headway_time_sr_same_disaggregate (
 		service_date
 		,stop_id
 		,route_id
@@ -4074,33 +4610,29 @@
 		,headway_time_sec
 		,benchmark_headway_time_sec
 	)
-		SELECT
-			htt.service_date
-			,htt.bd_stop_id
-			,htt.bd_route_id
-			,htt.bd_route_id
-			,htt.bd_route_type
-			,htt.bd_direction_id
-			,htt.b_time_sec
-			,htt.d_time_sec
-			,htt.bd_time_sec
-			,dtb.scheduled_average_headway_sec
-		FROM ##daily_bd_sr_same_time htt
-
+	SELECT
+		htt.service_date
+		,htt.bd_stop_id
+		,htt.bd_route_id
+		,htt.bd_route_id
+		,htt.bd_route_type
+		,htt.bd_direction_id
+		,htt.b_time_sec
+		,htt.d_time_sec
+		,htt.bd_time_sec
+		,dtb.scheduled_average_headway_sec
+	FROM
+		##daily_bd_sr_same_time htt
 		JOIN dbo.config_time_slice ts
 			ON
-				(
 				htt.d_time_sec >= ts.time_slice_start_sec
 				AND htt.d_time_sec < ts.time_slice_end_sec
-				)
 		JOIN dbo.daily_headway_time_sr_same_benchmark dtb
 			ON
-				(
 				htt.bd_route_id = dtb.route_id
 				AND htt.bd_direction_id = dtb.direction_id
 				AND htt.bd_stop_id = dtb.stop_id
 				AND ts.time_slice_id = dtb.time_slice_id
-				)
 
 
 	-- Save disaggregate dwell times
@@ -4108,8 +4640,7 @@
 		DROP TABLE dbo.daily_dwell_time_disaggregate
 		;
 
-	CREATE TABLE dbo.daily_dwell_time_disaggregate
-	(
+	CREATE TABLE dbo.daily_dwell_time_disaggregate (
 		service_date	VARCHAR(255)	NOT NULL
 		,stop_id		VARCHAR(255)	NOT NULL
 		,route_id		VARCHAR(255)	NOT NULL
@@ -4120,8 +4651,7 @@
 	)
 	;
 
-	INSERT INTO dbo.daily_dwell_time_disaggregate
-	(
+	INSERT INTO dbo.daily_dwell_time_disaggregate (
 		service_date
 		,stop_id
 		,route_id
@@ -4130,15 +4660,15 @@
 		,end_time_sec
 		,dwell_time_sec
 	)
-		SELECT
-			service_date
-			,cd_stop_id
-			,cd_route_id
-			,cd_direction_id
-			,c_time_sec
-			,d_time_sec
-			,cd_time_sec
-		FROM ##daily_cd_time
+	SELECT
+		service_date
+		,cd_stop_id
+		,cd_route_id
+		,cd_direction_id
+		,c_time_sec
+		,d_time_sec
+		,cd_time_sec
+	FROM ##daily_cd_time
 
 	--WRITE TO historical tables------------------------------------------------------
 
