@@ -2121,7 +2121,7 @@ BEGIN
 				ELSE 0
 			END AS historical_threshold_numerator_pax
 			,CASE
-				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_median_wait_time_sec) * par.passenger_arrival_rate
+				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec) * par.passenger_arrival_rate
 				WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec <= 0) THEN 0
 				ELSE 0
 			END AS scheduled_threshold_numerator_pax
