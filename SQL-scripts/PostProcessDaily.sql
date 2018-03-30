@@ -27,7 +27,7 @@
 --BEGIN
 --	SET NOCOUNT ON;
 
-	DECLARE @service_date DATE = '2017-10-23'
+	DECLARE @service_date DATE = '2018-03-09'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -4672,22 +4672,16 @@
 
 	--WRITE TO historical tables------------------------------------------------------
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_event
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_event
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_event
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_event
-	(
+	INSERT INTO dbo.historical_event (
 		record_id
 		,service_date
 		,file_time
@@ -4705,42 +4699,35 @@
 		,event_processed_daily
 		,suspect_record
 	)
+	SELECT
+		record_id
+		,service_date
+		,file_time
+		,route_id
+		,route_type
+		,trip_id
+		,direction_id
+		,stop_id
+		,stop_sequence
+		,vehicle_id
+		,event_type
+		,event_time
+		,event_time_sec
+		,event_processed_rt
+		,event_processed_daily
+		,suspect_record
+	FROM dbo.daily_event
 
-		SELECT
-			record_id
-			,service_date
-			,file_time
-			,route_id
-			,route_type
-			,trip_id
-			,direction_id
-			,stop_id
-			,stop_sequence
-			,vehicle_id
-			,event_type
-			,event_time
-			,event_time_sec
-			,event_processed_rt
-			,event_processed_daily
-			,suspect_record
-		FROM dbo.daily_event
-
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_travel_time_disaggregate
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_travel_time_disaggregate
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_travel_time_disaggregate
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_travel_time_disaggregate
-	(
+	INSERT INTO dbo.historical_travel_time_disaggregate (
 		service_date
 		,from_stop_id
 		,to_stop_id
@@ -4752,35 +4739,29 @@
 		,travel_time_sec
 		,benchmark_travel_time_sec
 	)
-		SELECT
-			service_date
-			,from_stop_id
-			,to_stop_id
-			,route_id
-			,route_type
-			,direction_id
-			,start_time_sec
-			,end_time_sec
-			,travel_time_sec
-			,benchmark_travel_time_sec
-		FROM dbo.daily_travel_time_disaggregate
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_id
+		,route_type
+		,direction_id
+		,start_time_sec
+		,end_time_sec
+		,travel_time_sec
+		,benchmark_travel_time_sec
+	FROM dbo.daily_travel_time_disaggregate
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_headway_time_od_disaggregate
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_headway_time_od_disaggregate
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_headway_time_od_disaggregate
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_headway_time_od_disaggregate
-	(
+	INSERT INTO dbo.historical_headway_time_od_disaggregate (
 		service_date
 		,stop_id
 		,to_stop_id
@@ -4793,37 +4774,30 @@
 		,headway_time_sec
 		,benchmark_headway_time_sec
 	)
+	SELECT
+		service_date
+		,stop_id
+		,to_stop_id
+		,route_id
+		,prev_route_id
+		,route_type
+		,direction_id
+		,start_time_sec
+		,end_time_sec
+		,headway_time_sec
+		,benchmark_headway_time_sec
+	FROM dbo.daily_headway_time_od_disaggregate
 
-		SELECT
-			service_date
-			,stop_id
-			,to_stop_id
-			,route_id
-			,prev_route_id
-			,route_type
-			,direction_id
-			,start_time_sec
-			,end_time_sec
-			,headway_time_sec
-			,benchmark_headway_time_sec
-		FROM dbo.daily_headway_time_od_disaggregate
-
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_headway_time_sr_all_disaggregate
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_headway_time_sr_all_disaggregate
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_headway_time_sr_all_disaggregate
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_headway_time_sr_all_disaggregate
-	(
+	INSERT INTO dbo.historical_headway_time_sr_all_disaggregate (
 		service_date
 		,stop_id
 		,route_id
@@ -4835,35 +4809,29 @@
 		,headway_time_sec
 		,benchmark_headway_time_sec
 	)
-		SELECT
-			service_date
-			,stop_id
-			,route_id
-			,prev_route_id
-			,route_type
-			,direction_id
-			,start_time_sec
-			,end_time_sec
-			,headway_time_sec
-			,benchmark_headway_time_sec
-		FROM dbo.daily_headway_time_sr_all_disaggregate
+	SELECT
+		service_date
+		,stop_id
+		,route_id
+		,prev_route_id
+		,route_type
+		,direction_id
+		,start_time_sec
+		,end_time_sec
+		,headway_time_sec
+		,benchmark_headway_time_sec
+	FROM dbo.daily_headway_time_sr_all_disaggregate
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_headway_time_sr_same_disaggregate
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_headway_time_sr_same_disaggregate
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_headway_time_sr_same_disaggregate
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_headway_time_sr_same_disaggregate
-	(
+	INSERT INTO dbo.historical_headway_time_sr_same_disaggregate (
 		service_date
 		,stop_id
 		,route_id
@@ -4875,35 +4843,30 @@
 		,headway_time_sec
 		,benchmark_headway_time_sec
 	)
-		SELECT
-			service_date
-			,stop_id
-			,route_id
-			,prev_route_id
-			,route_type
-			,direction_id
-			,start_time_sec
-			,end_time_sec
-			,headway_time_sec
-			,benchmark_headway_time_sec
-		FROM dbo.daily_headway_time_sr_same_disaggregate
+	SELECT
+		service_date
+		,stop_id
+		,route_id
+		,prev_route_id
+		,route_type
+		,direction_id
+		,start_time_sec
+		,end_time_sec
+		,headway_time_sec
+		,benchmark_headway_time_sec
+	FROM dbo.daily_headway_time_sr_same_disaggregate
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_dwell_time_disaggregate
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_dwell_time_disaggregate
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_dwell_time_disaggregate
 		WHERE
 			service_date = @service_date_process
 
-	INSERT INTO dbo.historical_dwell_time_disaggregate
-	(
+	INSERT INTO dbo.historical_dwell_time_disaggregate (
 		service_date
 		,stop_id
 		,route_id
@@ -4912,32 +4875,26 @@
 		,end_time_sec
 		,dwell_time_sec
 	)
-		SELECT
-			service_date
-			,stop_id
-			,route_id
-			,direction_id
-			,start_time_sec
-			,end_time_sec
-			,dwell_time_sec
-		FROM dbo.daily_dwell_time_disaggregate
+	SELECT
+		service_date
+		,stop_id
+		,route_id
+		,direction_id
+		,start_time_sec
+		,end_time_sec
+		,dwell_time_sec
+	FROM dbo.daily_dwell_time_disaggregate
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_schedule_adherence_disaggregate
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_schedule_adherence_disaggregate
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_schedule_adherence_disaggregate
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_schedule_adherence_disaggregate
-	(
+	INSERT INTO dbo.historical_schedule_adherence_disaggregate (
 		service_date
 		,route_id
 		,route_type
@@ -4954,40 +4911,34 @@
 		,departure_delay_sec
 		,stop_order_flag
 	)
-		SELECT
-			service_date
-			,route_id
-			,route_type
-			,direction_id
-			,trip_id
-			,stop_sequence
-			,stop_id
-			,vehicle_id
-			,scheduled_arrival_time_sec
-			,actual_arrival_time_sec
-			,arrival_delay_sec
-			,scheduled_departure_time_sec
-			,actual_departure_time_sec
-			,departure_delay_sec
-			,stop_order_flag
-		FROM dbo.daily_schedule_adherence_disaggregate
+	SELECT
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,stop_sequence
+		,stop_id
+		,vehicle_id
+		,scheduled_arrival_time_sec
+		,actual_arrival_time_sec
+		,arrival_delay_sec
+		,scheduled_departure_time_sec
+		,actual_departure_time_sec
+		,departure_delay_sec
+		,stop_order_flag
+	FROM dbo.daily_schedule_adherence_disaggregate
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_schedule_adherence_threshold_pax
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_schedule_adherence_threshold_pax
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_schedule_adherence_threshold_pax
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_schedule_adherence_threshold_pax
-	(
+	INSERT INTO dbo.historical_schedule_adherence_threshold_pax (
 		service_date
 		,route_id
 		,direction_id
@@ -5009,45 +4960,39 @@
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
 	)
-		SELECT
-			service_date
-			,route_id
-			,direction_id
-			,trip_id
-			,stop_sequence
-			,stop_id
-			,vehicle_id
-			,scheduled_arrival_time_sec
-			,actual_arrival_time_sec
-			,arrival_delay_sec
-			,scheduled_departure_time_sec
-			,actual_departure_time_sec
-			,departure_delay_sec
-			,stop_order_flag
-			,threshold_id
-			,threshold_value_upper
-			,denominator_pax
-			,scheduled_threshold_numerator_pax
-			,NULL
-			,NULL
-		FROM dbo.daily_schedule_adherence_threshold_pax
+	SELECT
+		service_date
+		,route_id
+		,direction_id
+		,trip_id
+		,stop_sequence
+		,stop_id
+		,vehicle_id
+		,scheduled_arrival_time_sec
+		,actual_arrival_time_sec
+		,arrival_delay_sec
+		,scheduled_departure_time_sec
+		,actual_departure_time_sec
+		,departure_delay_sec
+		,stop_order_flag
+		,threshold_id
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
+		,NULL
+		,NULL
+	FROM dbo.daily_schedule_adherence_threshold_pax
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_travel_time_threshold_pax
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_travel_time_threshold_pax
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_travel_time_threshold_pax
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_travel_time_threshold_pax
-	(
+	INSERT INTO dbo.historical_travel_time_threshold_pax (
 		service_date
 		,from_stop_id
 		,to_stop_id
@@ -5069,45 +5014,39 @@
 		,historical_threshold_numerator_trip
 		,scheduled_threshold_numerator_trip
 	)
-		SELECT
-			service_date
-			,from_stop_id
-			,to_stop_id
-			,direction_id
-			,prev_route_id
-			,route_id
-			,start_time_sec
-			,end_time_sec
-			,travel_time_sec
-			,threshold_id
-			,threshold_historical_median_travel_time_sec
-			,threshold_scheduled_median_travel_time_sec
-			,threshold_historical_average_travel_time_sec
-			,threshold_scheduled_average_travel_time_sec
-			,denominator_pax
-			,historical_threshold_numerator_pax
-			,scheduled_threshold_numerator_pax
-			,NULL
-			,NULL
-			,NULL
-		FROM dbo.daily_travel_time_threshold_pax
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,direction_id
+		,prev_route_id
+		,route_id
+		,start_time_sec
+		,end_time_sec
+		,travel_time_sec
+		,threshold_id
+		,threshold_historical_median_travel_time_sec
+		,threshold_scheduled_median_travel_time_sec
+		,threshold_historical_average_travel_time_sec
+		,threshold_scheduled_average_travel_time_sec
+		,denominator_pax
+		,historical_threshold_numerator_pax
+		,scheduled_threshold_numerator_pax
+		,NULL
+		,NULL
+		,NULL
+	FROM dbo.daily_travel_time_threshold_pax
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_wait_time_od_threshold_pax
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_wait_time_od_threshold_pax
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_wait_time_od_threshold_pax
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_wait_time_od_threshold_pax
-	(
+	INSERT INTO dbo.historical_wait_time_od_threshold_pax (
 		service_date
 		,from_stop_id
 		,to_stop_id
@@ -5130,46 +5069,40 @@
 		,historical_threshold_numerator_trip
 		,scheduled_threshold_numerator_trip
 	)
-		SELECT
-			service_date
-			,from_stop_id
-			,to_stop_id
-			,direction_id
-			,prev_route_id
-			,route_id
-			,start_time_sec
-			,end_time_sec
-			,max_wait_time_sec
-			,dwell_time_sec
-			,threshold_id
-			,threshold_historical_median_wait_time_sec
-			,threshold_scheduled_median_wait_time_sec
-			,threshold_historical_average_wait_time_sec
-			,threshold_scheduled_average_wait_time_sec
-			,denominator_pax
-			,historical_threshold_numerator_pax
-			,scheduled_threshold_numerator_pax
-			,NULL
-			,NULL
-			,NULL
-		FROM dbo.daily_wait_time_od_threshold_pax
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,direction_id
+		,prev_route_id
+		,route_id
+		,start_time_sec
+		,end_time_sec
+		,max_wait_time_sec
+		,dwell_time_sec
+		,threshold_id
+		,threshold_historical_median_wait_time_sec
+		,threshold_scheduled_median_wait_time_sec
+		,threshold_historical_average_wait_time_sec
+		,threshold_scheduled_average_wait_time_sec
+		,denominator_pax
+		,historical_threshold_numerator_pax
+		,scheduled_threshold_numerator_pax
+		,NULL
+		,NULL
+		,NULL
+	FROM dbo.daily_wait_time_od_threshold_pax
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_headway_time_threshold_trip
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_headway_time_threshold_trip
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_headway_time_threshold_trip
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_headway_time_threshold_trip
-	(
+	INSERT INTO dbo.historical_headway_time_threshold_trip (
 		service_date
 		,stop_id
 		,direction_id
@@ -5184,38 +5117,32 @@
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
 	)
-		SELECT
-			@service_date_process
-			,stop_id
-			,direction_id
-			,prev_route_id
-			,route_id
-			,start_time_sec
-			,end_time_sec
-			,headway_time_sec
-			,threshold_id
-			,threshold_scheduled_median_headway_time_sec
-			,threshold_scheduled_average_headway_time_sec
-			,denominator_trip
-			,scheduled_threshold_numerator_trip
-		FROM dbo.daily_headway_time_threshold_trip
+	SELECT
+		@service_date_process
+		,stop_id
+		,direction_id
+		,prev_route_id
+		,route_id
+		,start_time_sec
+		,end_time_sec
+		,headway_time_sec
+		,threshold_id
+		,threshold_scheduled_median_headway_time_sec
+		,threshold_scheduled_average_headway_time_sec
+		,denominator_trip
+		,scheduled_threshold_numerator_trip
+	FROM dbo.daily_headway_time_threshold_trip
 
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_metrics
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_metrics
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_metrics
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_metrics
-	(
+	INSERT INTO dbo.historical_metrics (
 		service_date
 		,route_id
 		,threshold_id
@@ -5228,38 +5155,30 @@
 		,numerator_trip
 		,denominator_trip
 	)
+	SELECT
+		@service_date_process
+		,dm.route_id
+		,dm.threshold_id
+		,dm.threshold_name
+		,dm.threshold_type
+		,dm.metric_result
+		,dm.metric_result_trip
+		,dm.numerator_pax
+		,dm.denominator_pax
+		,dm.numerator_trip
+		,dm.denominator_trip
+	FROM dbo.daily_metrics dm
 
-		SELECT
-			@service_date_process
-			,dm.route_id
-			,dm.threshold_id
-			,dm.threshold_name
-			,dm.threshold_type
-			,dm.metric_result
-			,dm.metric_result_trip
-			,dm.numerator_pax
-			,dm.denominator_pax
-			,dm.numerator_trip
-			,dm.denominator_trip
-
-		FROM dbo.daily_metrics dm
-
-	IF
-		(
-			SELECT
-				COUNT(*)
-			FROM dbo.historical_missed_stop_times_scheduled
-			WHERE
-				service_date = @service_date_process
-		)
-		> 0
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_missed_stop_times_scheduled
+		WHERE service_date = @service_date_process
+	) > 0
 
 		DELETE FROM dbo.historical_missed_stop_times_scheduled
-		WHERE
-			service_date = @service_date_process
+		WHERE service_date = @service_date_process
 
-	INSERT INTO dbo.historical_missed_stop_times_scheduled
-	(
+	INSERT INTO dbo.historical_missed_stop_times_scheduled (
 		record_id
 		,service_date
 		,trip_id
@@ -5282,29 +5201,127 @@
 		,expected_arrival_time_sec
 		,expected_departure_time_sec
 	)
-		SELECT
-			record_id
-			,service_date
-			,trip_id
-			,stop_sequence
-			,stop_id
-			,scheduled_arrival_time_sec
-			,scheduled_departure_time_sec
-			,actual_arrival_time_sec
-			,actual_departure_time_sec
-			,max_before_stop_sequence
-			,max_before_arrival_time_sec
-			,max_before_departure_time_sec
-			,max_before_event_time_arrival_sec
-			,max_before_event_time_departure_sec
-			,min_after_stop_sequence
-			,min_after_arrival_time_sec
-			,min_after_departure_time_sec
-			,min_after_event_time_arrival_sec
-			,min_after_event_time_departure_sec
-			,expected_arrival_time_sec
-			,expected_departure_time_sec
-		FROM dbo.daily_missed_stop_times_scheduled
+	SELECT
+		record_id
+		,service_date
+		,trip_id
+		,stop_sequence
+		,stop_id
+		,scheduled_arrival_time_sec
+		,scheduled_departure_time_sec
+		,actual_arrival_time_sec
+		,actual_departure_time_sec
+		,max_before_stop_sequence
+		,max_before_arrival_time_sec
+		,max_before_departure_time_sec
+		,max_before_event_time_arrival_sec
+		,max_before_event_time_departure_sec
+		,min_after_stop_sequence
+		,min_after_arrival_time_sec
+		,min_after_departure_time_sec
+		,min_after_event_time_arrival_sec
+		,min_after_event_time_departure_sec
+		,expected_arrival_time_sec
+		,expected_departure_time_sec
+	FROM dbo.daily_missed_stop_times_scheduled
+
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_headway_adherence_threshold_pax
+		WHERE service_date = @service_date_process
+	) > 0
+
+		DELETE FROM dbo.historical_headway_adherence_threshold_pax
+		WHERE service_date = @service_date_process
+	
+	INSERT INTO dbo.historical_headway_adherence_threshold_pax (
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,stop_id
+		,stop_order_flag
+		,checkpoint_id
+		,start_time_sec
+		,end_time_sec
+		,actual_headway_time_sec
+		,scheduled_headway_time_sec
+		,threshold_id
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
+	)
+	SELECT
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,stop_id
+		,stop_order_flag
+		,checkpoint_id
+		,start_time_sec
+		,end_time_sec
+		,actual_headway_time_sec
+		,scheduled_headway_time_sec
+		,threshold_id
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
+	FROM dbo.daily_headway_adherence_threshold_pax
+
+	IF (
+		SELECT COUNT(*)
+		FROM dbo.historical_trip_run_time_adherence_threshold_pax
+		WHERE service_date = @service_date_process
+	) > 0
+
+		DELETE FROM dbo.historical_trip_run_time_adherence_threshold_pax
+		WHERE service_date = @service_date_process
+
+	INSERT INTO dbo.historical_trip_run_time_adherence_threshold_pax (
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,start_time_sec
+		,end_time_sec
+		,actual_run_time_sec
+		,scheduled_run_time_sec
+		,threshold_id
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
+	)
+	SELECT
+		service_date
+		,route_id
+		,route_type
+		,direction_id
+		,trip_id
+		,start_time_sec
+		,end_time_sec
+		,actual_run_time_sec
+		,scheduled_run_time_sec
+		,threshold_id
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_value_lower
+		,threshold_value_upper
+		,denominator_pax
+		,scheduled_threshold_numerator_pax
+	FROM dbo.daily_trip_run_time_adherence_threshold_pax
 
 	--DROP all temp tables
 
