@@ -25,7 +25,7 @@
 --BEGIN
 --	SET NOCOUNT ON;
 	
-	DECLARE @service_date DATE = '2018-03-08'
+	DECLARE @service_date DATE = '2018-04-04'
 
 	--create a table to store route types that will be processed
 	DECLARE @route_types AS TABLE
@@ -1371,6 +1371,7 @@
 				AND his.time_slice_id = sch.time_slice_id
 				)
 
+/*
 	--insert headway benchmarks(by OD) for missing time slices
 	INSERT INTO daily_headway_time_od_benchmark
 	SELECT
@@ -1460,7 +1461,7 @@
 			b.time_slice_rn < a.next_time_slice_rn
 	WHERE 
 			next_time_slice_rn - current_time_slice_rn > 1
-
+*/
 	--Create table to store wait time threshold for daily
 	--wait time od threshold uses benchmark headway for trains serving an o-d pair
 
