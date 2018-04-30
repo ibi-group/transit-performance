@@ -5,29 +5,29 @@
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
---IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
---	DROP PROCEDURE dbo.PostProcessDaily
+IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
+	DROP PROCEDURE dbo.PostProcessDaily
 
---GO
+GO
 
---SET ANSI_NULLS ON
---GO
+SET ANSI_NULLS ON
+GO
 
---SET QUOTED_IDENTIFIER ON
---GO
-
-
---CREATE PROCEDURE dbo.PostProcessDaily 
-
---	@service_date DATE
-
---AS
+SET QUOTED_IDENTIFIER ON
+GO
 
 
---BEGIN
---	SET NOCOUNT ON;
+CREATE PROCEDURE dbo.PostProcessDaily 
 
-	DECLARE @service_date DATE = '2018-03-09'
+	@service_date DATE
+
+AS
+
+
+BEGIN
+	SET NOCOUNT ON;
+
+	--DECLARE @service_date DATE = '2018-04-19'
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
@@ -5349,9 +5349,9 @@
 	IF OBJECT_ID('tempdb..#daily_departure_time_sec','U') IS NOT NULL
 		DROP TABLE #daily_departure_time_sec
 
---END
+END
 
 
 
---GO
+GO
 

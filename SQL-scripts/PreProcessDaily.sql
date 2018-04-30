@@ -4,28 +4,28 @@
 
 --This procedure sets up the daily tables. These tables store the performance information for the day being processed after the day has happened.
 
---IF OBJECT_ID('PreProcessDaily','P') IS NOT NULL
---	DROP PROCEDURE dbo.PreProcessDaily
---GO
+IF OBJECT_ID('PreProcessDaily','P') IS NOT NULL
+	DROP PROCEDURE dbo.PreProcessDaily
+GO
 
---SET ANSI_NULLS ON
---GO
+SET ANSI_NULLS ON
+GO
 
---SET QUOTED_IDENTIFIER ON
---GO
-
-
---CREATE PROCEDURE dbo.PreProcessDaily 
-
---	@service_date DATE
-
---AS
+SET QUOTED_IDENTIFIER ON
+GO
 
 
---BEGIN
---	SET NOCOUNT ON;
+CREATE PROCEDURE dbo.PreProcessDaily 
+
+	@service_date DATE
+
+AS
+
+
+BEGIN
+	SET NOCOUNT ON;
 	
-	DECLARE @service_date DATE = '2018-04-04'
+	--DECLARE @service_date DATE = '2018-04-19'
 
 	--create a table to store route types that will be processed
 	DECLARE @route_types AS TABLE
@@ -2245,6 +2245,6 @@
 	IF OBJECT_ID('tempdb..#webs_trip_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_time_temp
 
---END;
+END;
 
 GO
