@@ -47,9 +47,22 @@
             ]
         },
 		{	
-            "Name": "dbo.PreProcessToday",
+            "Name": "dbo.ProcessPredictionAccuracyDaily",
             "TaskType": "StoredProcedure",
 			"Order": 5,
+			"Enable":"True",
+			"Arguments": [
+                {
+                    "Name": "service_date ",
+                    "Value": "Yesterday",
+                    "Datatype": "date"
+                }
+            ]
+        },
+		{	
+            "Name": "dbo.PreProcessToday",
+            "TaskType": "StoredProcedure",
+			"Order": 6,
 			"Enable":"True",
 			"Arguments": [
                 {
@@ -62,7 +75,7 @@
 		{	
             "Name": "dbo.CreateTodayRTProcess",
             "TaskType": "StoredProcedure",
-			"Order": 6,
+			"Order": 7,
 			"Enable":"True",
 			"Arguments": []
         },

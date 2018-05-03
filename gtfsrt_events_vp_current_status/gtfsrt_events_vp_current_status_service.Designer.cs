@@ -31,7 +31,7 @@ namespace gtfsrt_events_vp_current_status
         private void InitializeComponent()
         {
             components = new System.ComponentModel.Container();
-            this.ServiceName = "GTFSRealtimeService";
+            this.ServiceName = "gtfsrt_events_vp_current_status";
         }
 
         #endregion

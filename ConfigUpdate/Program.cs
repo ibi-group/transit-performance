@@ -9,44 +9,53 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace ConfigUpdate
 {
     class Program
     {
-        private static ILog Log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
-        static String sqlConnectionString = ConfigurationManager.ConnectionStrings["DatabaseConnectionString"].ConnectionString;
+        private static readonly ILog Log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly string sqlConnectionString = ConfigurationManager.ConnectionStrings["DatabaseConnectionString"].ConnectionString;
 
-        static int Main(string[] args)
+        static int Main()
         {
             try
             {
-
-
                 XmlConfigurator.Configure();
-                String savedDataFile = ConfigurationManager.AppSettings["LastModifiedDateFile"];
 
-                String configFilePath = ConfigurationManager.AppSettings["ConfigStructureFile"];
+                Log.Info($"*********START**********");
+                var savedDataFile = ConfigurationManager.AppSettings["LastModifiedDateFile"];
 
-                String configFilesDirectory = ConfigurationManager.AppSettings["ConfigFilesPath"];
+                var configFilePath = ConfigurationManager.AppSettings["ConfigStructureFile"];
+
+                var configFilesDirectory = ConfigurationManager.AppSettings["ConfigFilesPath"];
+
+                Log.Info($"LastModifiedDateFile: {savedDataFile}");
+                Log.Info($"ConfigStructureFile: {configFilePath}");
+                Log.Info($"ConfigFilesPath: {configFilesDirectory}");
 
                 if (!File.Exists(savedDataFile))
                 {
                     RunFirstTime(configFilePath, configFilesDirectory);
-                    CreateLastModifiedDateFile(configFilePath, configFilesDirectory);
+                    CreateLastModifiedDateFile(configFilePath, savedDataFile, configFilesDirectory);
+                    Log.Info($"ConfigUpdate successful - run first time!");
+                    Log.Info($"########################");
                     return 0;
                 }
 
-                Dictionary<String, String> previousWriteTimes = GetPreviousWriteTime(savedDataFile);
+                Log.Info($"Get previous times...");
+                var previousWriteTimes = GetPreviousWriteTime(savedDataFile);
 
-                ConfigTableCollection tableCollection = ConvertConfigFileToJsonObject(configFilePath);
+                Log.Info($"Get table collection...");
+                var tableCollection = ConvertConfigFileToJsonObject(configFilePath);
 
-                Dictionary<String, String> currentWriteTimes = GetCurrentWriteTime(tableCollection, configFilesDirectory);
+                Log.Info($"Get current times...");
+                var currentWriteTimes = GetCurrentWriteTime(tableCollection, configFilesDirectory);
 
-                bool structureChange = CheckStructureInformation(previousWriteTimes, configFilePath);
+                var structureChange = CheckStructureInformation(previousWriteTimes, configFilePath);
+
+                Log.Info($"Structure changed: {structureChange}");
 
                 if (structureChange)
                 {
@@ -54,109 +63,132 @@ namespace ConfigUpdate
                     RecreateDatabaseTables(configFilePath);
                 }
 
-                foreach (String file in currentWriteTimes.Keys)
+                foreach (var file in currentWriteTimes.Keys)
                 {
-                    String currentFileWriteTime = currentWriteTimes[file];
+                    var currentFileWriteTime = currentWriteTimes[file];
+
                     if (previousWriteTimes.ContainsKey(file))
                     {
                         if (!previousWriteTimes[file].Equals(currentFileWriteTime))
                         {
-                            // repopulate
-                            UpdateAnyNewColumn(file);
-                            PopulateDatabase(file);
+                            Log.Info($"File for table {file} might have changed - updating columns and data...");
+                            UpdateAnyNewColumn(file, configFilesDirectory);
+                            PopulateDatabase(file, configFilesDirectory, true);
+                        }
+                        else
+                        {
+                            Log.Info($"File for table {file} unchanged");
                         }
                     }
                     else
                     {
-                        // new file is added.
-                        UpdateAnyNewColumn(file);
-                        PopulateDatabase(file);
+                        Log.Info($"File for table {file} - newly added - updating columns and data...");
+                        UpdateAnyNewColumn(file, configFilesDirectory);
+                        PopulateDatabase(file, configFilesDirectory);
                     }
                 }
 
-                UpdateLastWriteTime(savedDataFile, currentWriteTimes);
+                Log.Info($"Update last write time");
+                UpdateLastWriteTime(savedDataFile, currentWriteTimes, configFilePath, configFilesDirectory);
+
+                Log.Info($"ConfigUpdate successful!");
+                Log.Info($"########################");
                 return 0;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
+                Log.Fatal($"Error: {e.Message}");
                 return 1;
             }
         }
 
-        private static void UpdateLastWriteTime(string savedDataFile, Dictionary<string, string> currentWriteTimes)
+        private static void UpdateLastWriteTime(string lastModifiedFilePath, Dictionary<string, string> currentWriteTimes, string configFilePath, string configFilesPath)
         {
-            File.Delete(savedDataFile);
-            String configFilePath = ConfigurationManager.AppSettings["ConfigStructureFile"];
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter("lastmodified.txt"))
-            {
-                foreach (String filea in currentWriteTimes.Keys.ToList<String>())
-                {
-                    file.Write(currentWriteTimes[filea] + "@" + File.GetLastWriteTime(filea + ".csv").ToString() + "$");
-                }
-                file.Write(Path.GetFileNameWithoutExtension(configFilePath) + "@" + File.GetLastWriteTime(configFilePath).ToString());
-            }
+            File.Delete(lastModifiedFilePath);
+
+            var tableNames = currentWriteTimes.Keys.ToList();
+
+            WriteLastWriteTimeFile(configFilePath, lastModifiedFilePath, configFilesPath, tableNames);
         }
 
-        private static void CreateLastModifiedDateFile(string configFilePath, string configFilesDirectory)
+        private static void CreateLastModifiedDateFile(string configFilePath, string lastModifiedFilePath, string configFilesPath)
         {
-            ConfigTableCollection tableCollection = ConvertConfigFileToJsonObject(configFilePath);
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter(@"lastmodified.txt"))
+            var tableCollection = ConvertConfigFileToJsonObject(configFilePath);
+            var tableNames = tableCollection.Select(x => x.name);
+
+            WriteLastWriteTimeFile(configFilePath, lastModifiedFilePath, configFilesPath, tableNames);
+
+            Log.Info($"Last modified file created: {lastModifiedFilePath}");
+        }
+
+        private static void WriteLastWriteTimeFile(string configFilePath, string lastModifiedFilePath, string configFilesPath, IEnumerable<string> tableNames)
+        {
+            using (var file = new StreamWriter(lastModifiedFilePath))
             {
-                foreach (ConfigTable table in tableCollection)
+                foreach (var tableName in tableNames.OrderBy(x => x))
                 {
-                    file.Write(table.name + "@" + File.GetLastWriteTime(""+table.name + ".csv").ToString() + "$");
+                    var fileForTable = Path.Combine(configFilesPath, tableName) + ".csv";
+
+                    if (File.Exists(fileForTable))
+                        file.Write(tableName + "@" + File.GetLastWriteTime(fileForTable).ToString(CultureInfo.InvariantCulture) + "$");
                 }
-                file.Write(Path.GetFileNameWithoutExtension(configFilePath) + "@" + File.GetLastWriteTime(configFilePath).ToString());
+
+                file.Write(Path.GetFileNameWithoutExtension(configFilePath) + "@" + File.GetLastWriteTime(configFilePath).ToString(CultureInfo.InvariantCulture));
             }
-          
         }
 
         private static void RunFirstTime(string configFilePath, string configFilesDirectory)
         {
-            ConfigTableCollection tableCollection = RecreateDatabaseTables(configFilePath);
-            RecreateDatabaseTables(configFilePath);
-           
-            foreach(ConfigTable table in tableCollection)
+            var tableCollection = RecreateDatabaseTables(configFilePath);
+            //RecreateDatabaseTables(configFilePath);
+
+            foreach (var table in tableCollection)
             {
-                UpdateAnyNewColumn(table.name);
-                PopulateDatabase(table.name);
+                var filePath = Path.Combine(configFilesDirectory, table.name) + ".csv";
+                if (!File.Exists(filePath))
+                {
+                    Log.Warn($"File {filePath} does not exist - cannot check for new columns or populate the table");
+                    continue;
+                }
+                UpdateAnyNewColumn(table.name, configFilesDirectory);
+                PopulateDatabase(table.name, configFilesDirectory);
             }
-
         }
-
 
         private static ConfigTableCollection RecreateDatabaseTables(string path)
         {
-            ConfigTableCollection tableCollection = ConvertConfigFileToJsonObject(path);
-            foreach(ConfigTable table in tableCollection)
+            var tableCollection = ConvertConfigFileToJsonObject(path);
+            foreach (var table in tableCollection)
             {
-                    ExecuteDropTableQuery(table);
-                    ExecuteCreateTableQuery(table);
+                ExecuteDropTableQuery(table);
+                ExecuteCreateTableQuery(table);
             }
             return tableCollection;
         }
 
-        private static Dictionary<string, string> GetCurrentWriteTime( ConfigTableCollection tableCollection ,string configFilesPath)
+        private static Dictionary<string, string> GetCurrentWriteTime(ConfigTableCollection tableCollection, string configFilesPath)
         {
-            Dictionary<String, String> currentWriteTime = new Dictionary<string, string>();
-            String[] files = Directory.GetFiles(configFilesPath,"*.csv");
+            var currentWriteTime = new Dictionary<string, string>();
+            var files = Directory.GetFiles(configFilesPath, "*.csv");
 
-            List<String> tableList = new List<string>();
+            var tableList = new List<string>();
 
-            foreach(ConfigTable table in tableCollection)
+            foreach (var table in tableCollection)
             {
                 tableList.Add(table.name);
             }
 
-            foreach(string file  in files)
+            foreach (var file in files)
             {
-                    String s1 = File.GetLastWriteTime(file).ToString(); 
-                    String s2 = Path.GetFileNameWithoutExtension(file);
-                    if(tableList.Contains(s2))
-                    {
-                        currentWriteTime[s2] = s1;
-                    }    
+                var s1 = File.GetLastWriteTime(file).ToString(CultureInfo.InvariantCulture);
+                var s2 = Path.GetFileNameWithoutExtension(file);
+
+                if (tableList.Contains(s2))
+                {
+                    currentWriteTime[s2] = s1;
+                }
             }
+
             return currentWriteTime;
         }
 
@@ -164,34 +196,34 @@ namespace ConfigUpdate
      * If a column in present in the data file but not in the corresponfding 
      * database table, add the column to the table in the database.
      */
-        static private void UpdateAnyNewColumn(string file)
+        private static void UpdateAnyNewColumn(string tableName, string filepath)
         {
-                List<string> fileColumnList = GetColumnList("" + file + ".csv");
-                List<String> sqlColumnList = GetColumnListFromDatabase(file);
-                foreach (string column in fileColumnList)
+            var fileColumnList = GetColumnList(Path.Combine(filepath, tableName) + ".csv");
+            var sqlColumnList = GetColumnListFromDatabase(tableName);
+            foreach (var column in fileColumnList)
+            {
+                if (!sqlColumnList.Contains(column))
                 {
-                    if (!sqlColumnList.Contains(column))
-                    {
-                        AddColumnToTable(column, file);
-                    }
+                    AddColumnToTable(column, tableName);
                 }
+            }
         }
 
         /*
          *  Get a list of column for a particular table from the database
          *  
          */
-        static private List<string> GetColumnListFromDatabase(string tableName)
+        private static List<string> GetColumnListFromDatabase(string tableName)
         {
-            string sqlQuery = @"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID('" + "dbo" + "." + tableName + "')";
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var sqlQuery = @"SELECT name FROM sys.columns WHERE object_id = OBJECT_ID('" + "dbo" + "." + tableName + "')";
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
-            SqlDataReader reader = cmd.ExecuteReader();
-            List<String> sqlColumnList = new List<string>();
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+            var reader = cmd.ExecuteReader();
+            var sqlColumnList = new List<string>();
             while (reader.Read())
             {
-                string columnName = reader.GetString(0);
+                var columnName = reader.GetString(0);
                 sqlColumnList.Add(columnName);
             }
             reader.Close();
@@ -202,94 +234,89 @@ namespace ConfigUpdate
         /*
  *  Add a column to an existing table. 
  */
-        static private void AddColumnToTable(string columnName, string file)
+        private static void AddColumnToTable(string columnName, string file)
         {
-            string sqlQuery = @"ALTER TABLE dbo"   + "." + file + " ADD " + columnName + " VARCHAR(MAX) ";
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var sqlQuery = @"ALTER TABLE dbo" + "." + file + " ADD " + columnName + " VARCHAR(MAX) ";
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
-            SqlDataReader reader = cmd.ExecuteReader();
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+            cmd.ExecuteReader();
             sqlConnection.Close();
         }
 
         private static bool CheckStructureInformation(Dictionary<string, string> previousWriteTime, string path)
         {
-            DateTime currentWriteTime = File.GetLastWriteTime(path);
-            String fileName = Path.GetFileNameWithoutExtension(path);
+            var currentWriteTime = File.GetLastWriteTime(path);
+            var fileName = Path.GetFileNameWithoutExtension(path);
 
-            String previousTime = previousWriteTime[fileName];
-            if(currentWriteTime.Equals(previousWriteTime))
-            {
-                return false;
-            }
-            return true;
+            var previousTime = previousWriteTime[fileName];
+
+            return !currentWriteTime.ToString(CultureInfo.InvariantCulture).Equals(previousTime);
         }
 
         private static Dictionary<string, string> GetPreviousWriteTime(string savedDataFile)
         {
-            Dictionary<String, String> previousWriteTime = new Dictionary<string, string>();
+            var previousWriteTime = new Dictionary<string, string>();
 
-            using (StreamReader sr = new StreamReader(savedDataFile))
+            using (var sr = new StreamReader(savedDataFile))
             {
-                String line = sr.ReadToEnd();
-                string[] fileTimestamps = line.Split('$');
-                foreach(String file in fileTimestamps)
+                var line = sr.ReadToEnd();
+
+                var fileTimestamps = line.Split('$');
+
+                foreach (var file in fileTimestamps)
                 {
-                    if (!String.IsNullOrEmpty(file))
-                    {
-                        string[] fileInformation = file.Split('@');
-                        String fileName = fileInformation[0];
-                        String fileTime = fileInformation[1]; ;
-                        //for (int i = 1; i < fileInformation.Length; i++ )
-                        //{
-                        //    fileTime += fileInformation[i];
-                        //}
-                        previousWriteTime.Add(fileName, fileTime);
-                    }
+                    if (string.IsNullOrEmpty(file))
+                        continue;
+                    var fileInformation = file.Split('@');
+                    var fileName = fileInformation[0];
+                    var fileTime = fileInformation[1];
+                    previousWriteTime.Add(fileName, fileTime);
                 }
             }
+
             return previousWriteTime;
         }
 
-      
         /*
             *  This method returns the list of column from the file
             *  Column name are present in the first line of GTFS data file
             */
-       static  private List<String> GetColumnList(string file)
+        private static List<string> GetColumnList(string file)
         {
-            string line = null;
-            using (StreamReader sr = new StreamReader(file))
+            string line;
+            using (var sr = new StreamReader(file))
             {
                 line = sr.ReadLine();
             }
             return ParseLine(line);
         }
-
-
-       /*
-        *  Parse the comma seperated line, and return the list of strings 
-        */
-       static private List<String> ParseLine(string line)
-       {
-           String[] feedValues = string.IsNullOrEmpty(line) ? null : new Regex(@"(,|\n|^)(?:(?:""((?:.|(?:\r?\n))*?)""(?:(""(?:.|(?:\r?\n))*?)"")?)|([^,\r\n]*))").Matches(line).Cast<Match>().Select(match => match.Groups[4].Success ? match.Groups[4].Value : ((match.Groups[2].Success ? match.Groups[2].Value : "") + (match.Groups[3].Success ? match.Groups[3].Value : ""))).ToArray();
-           return feedValues.ToList<String>();
-       }
-
-        static private void CopyDataIntoTable(DataTable datatable, string fileName)
+        
+        /*
+         *  Parse the comma seperated line, and return the list of strings 
+         */
+        private static List<string> ParseLine(string line)
         {
-            List<String> columnList = GetColumnList(""+fileName + ".csv");
-            List<String> dateColumns = new List<string>();
-            Log.Info(datatable.TableName);
-            using (StreamReader sr = new StreamReader("" + fileName + ".csv"))
+            var feedValues = string.IsNullOrEmpty(line) ? null : new Regex(@"(,|\n|^)(?:(?:""((?:.|(?:\r?\n))*?)""(?:(""(?:.|(?:\r?\n))*?)"")?)|([^,\r\n]*))")
+                .Matches(line).Cast<Match>().Select(match => match.Groups[4].Success ? match.Groups[4].Value
+                                                        : (match.Groups[2].Success ? match.Groups[2].Value : "") +
+                                                          (match.Groups[3].Success ? match.Groups[3].Value : "")).ToArray();
+            return feedValues?.ToList() ?? new List<string>();
+        }
+
+        private static void CopyDataIntoTable(DataTable datatable, string fileName)
+        {
+            var columnList = GetColumnList(fileName + ".csv");
+
+            Log.Info($"Saving data into {datatable.TableName}...");
+            using (var sr = new StreamReader(fileName + ".csv"))
             {
                 sr.ReadLine();
                 while (sr.Peek() > -1)
                 {
-                    string line = sr.ReadLine();
-                    List<string> dataRowValues = ParseLine(line);
+                    var line = sr.ReadLine();
+                    var dataRowValues = ParseLine(line);
                     AddDataRow(columnList, datatable, dataRowValues);
-
                 }
             }
 
@@ -299,11 +326,11 @@ namespace ConfigUpdate
         /*
       * Copy the datatable to the database. 
       */
-        static private void BulkInsertIntoDatabase(DataTable datatable)
+        private static void BulkInsertIntoDatabase(DataTable datatable)
         {
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            using (SqlBulkCopy s = new SqlBulkCopy(sqlConnection))
+            using (var s = new SqlBulkCopy(sqlConnection))
             {
                 s.DestinationTableName = datatable.TableName;
                 foreach (var column in datatable.Columns)
@@ -316,16 +343,16 @@ namespace ConfigUpdate
         /*
        *  Add a new data row.
        */
-        static private void AddDataRow(List<String> columnList, DataTable datatable, List<string> dataRowValues)
+        private static void AddDataRow(List<string> columnList, DataTable datatable, List<string> dataRowValues)
         {
-            DataRow newDataRow = datatable.NewRow();
-            int i = 0;
+            var newDataRow = datatable.NewRow();
+            var i = 0;
 
-            foreach (string data in dataRowValues)
+            foreach (var data in dataRowValues)
             {
-                Boolean flag = false;
-                String columnName = columnList[i];
-                Type columnType = datatable.Columns[columnName].DataType;
+                var flag = false;
+                var columnName = columnList[i];
+                var columnType = datatable.Columns[columnName].DataType;
 
                 if (columnType == typeof(DateTime))
                 {
@@ -336,12 +363,12 @@ namespace ConfigUpdate
                         {
                             throw new Exception(data + " is not in a valid date format.");
                         }
-
                     }
                     newDataRow[columnName] = dateTime;
                     flag = true;
                 }
-                if (columnType == typeof(Boolean))
+
+                if (columnType == typeof(bool))
                 {
                     if (data.Equals("1"))
                         newDataRow[columnName] = true;
@@ -350,9 +377,10 @@ namespace ConfigUpdate
                     flag = true;
 
                 }
+
                 if (!flag)
                 {
-                    newDataRow[columnName] = String.IsNullOrEmpty(data) ? null : data;
+                    newDataRow[columnName] = string.IsNullOrEmpty(data) ? null : data;
                 }
                 i++;
             }
@@ -360,97 +388,99 @@ namespace ConfigUpdate
             datatable.Rows.Add(newDataRow);
         }
 
-        private static void PopulateDatabase(String requiredFile)
+        private static void PopulateDatabase(string tableName, string configFilepath, bool cleanTable = false)
         {
-            DataTable datatable = GetCorrespondingTable(requiredFile);
-            CopyDataIntoTable(datatable, requiredFile);  
+            if(cleanTable)
+                CleanTable(tableName);
+            var datatable = GetCorrespondingTable(tableName);
+            CopyDataIntoTable(datatable, Path.Combine(configFilepath, tableName));
         }
 
-        private static DataTable GetCorrespondingTable(String requiredFile)
+        private static DataTable GetCorrespondingTable(string requiredFile)
         {
-            DataTable datatable = new DataTable( "dbo." + requiredFile);
-            String sqlQuery = @"select * from "   + "dbo." + requiredFile;
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var datatable = new DataTable($"dbo.{requiredFile}");
+            var sqlQuery = $"select * from dbo.{requiredFile}";
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
             datatable.Load(cmd.ExecuteReader());
             sqlConnection.Close();
             return datatable;
+        }
+
+        private static void CleanTable(string tableName)
+        {
+            Log.Info($"Deleting data from dbo.{tableName}...");
+            var sqlQuery = $"delete from dbo.{tableName}";
+            var sqlConnection = new SqlConnection(sqlConnectionString);
+            sqlConnection.Open();
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+            cmd.ExecuteNonQuery();
+            sqlConnection.Close();
         }
 
         /*
          *  Check if the table already exists in the database.
          *  If it exists drop it from the database.
          */
-        static private void ExecuteDropTableQuery(ConfigTable ConfigTable)
+        private static void ExecuteDropTableQuery(ConfigTable ConfigTable)
         {
-            string tableName = ConfigTable.name;
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var tableName = ConfigTable.name;
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            String sqlQuery = @"IF OBJECT_ID ('dbo." + tableName + @"', 'U') IS NOT NULL DROP TABLE dbo." + tableName + ";";
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
+            var sqlQuery = @"IF OBJECT_ID ('dbo." + tableName + @"', 'U') IS NOT NULL DROP TABLE dbo." + tableName + ";";
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
             cmd.ExecuteNonQuery();
             sqlConnection.Close();
-            Log.Info("Dropped table dbo"  + "." + tableName + " from database.");
+            Log.Info("Dropped table dbo" + "." + tableName + " from database.");
         }
 
         /*
             *  Create the table in the database 
          */
-        static private void ExecuteCreateTableQuery(ConfigTable ConfigTable)
+        private static void ExecuteCreateTableQuery(ConfigTable ConfigTable)
         {
-            String tableName = ConfigTable.name;
-            List<String> columnsList = GetColumns(ConfigTable.columns);
-            List<String> primaryKeys = GetPrimaryKeys(ConfigTable.columns);
-            String sqlQuery = @"CREATE TABLE dbo"  + "." +
-                tableName +
-                " ( " +
-                String.Join(" , ", columnsList) +
-                (primaryKeys.Count > 0 ? @" PRIMARY KEY (" + string.Join(", ", primaryKeys) + " )" : "") + @");";
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var tableName = ConfigTable.name;
+            var columnsList = GetColumns(ConfigTable.columns);
+            var primaryKeys = GetPrimaryKeys(ConfigTable.columns);
+            var sqlQuery = @"CREATE TABLE dbo" + "." +
+                           tableName +
+                           " ( " +
+                           string.Join(" , ", columnsList) +
+                           (primaryKeys.Count > 0 ? @" PRIMARY KEY (" + string.Join(", ", primaryKeys) + " )" : "") + @");";
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
             cmd.ExecuteNonQuery();
             sqlConnection.Close();
-            Log.Info("Created table dbo"  + "." + tableName + " in database.");
+            Log.Info("Created table dbo" + "." + tableName + " in database.");
         }
 
-        static private List<string> GetPrimaryKeys(ConfigColumnSet ConfigColumnSet)
+        private static List<string> GetPrimaryKeys(ConfigColumnSet ConfigColumnSet)
         {
-            List<String> primaryKeys = new List<string>();
-            foreach (ConfigColumn column in ConfigColumnSet)
-            {
-                if (column.primaryKey)
-                {
-                    primaryKeys.Add(column.name);
-                }
-            }
-            return primaryKeys;
+            return (from column in ConfigColumnSet
+                    where column.primaryKey
+                    select column.name).ToList();
         }
 
-
-        static  private List<string> GetColumns(ConfigColumnSet ConfigColumnSet)
+        private static List<string> GetColumns(ConfigColumnSet ConfigColumnSet)
         {
-            List<String> columnList = new List<string>();
-            foreach (ConfigColumn column in ConfigColumnSet)
-            {
-                String columnString = column.name + " " + column.type + " " + (column.primaryKey | !column.allowNull ? " NOT NULL " : " NULL");
-                columnList.Add(columnString);
-            }
-            return columnList;
+            return ConfigColumnSet.Select(column => column.name + " " + column.type + " " + (column.primaryKey | !column.allowNull ? " NOT NULL " : " NULL"))
+                                  .ToList();
         }
 
-        static private ConfigTableCollection ConvertConfigFileToJsonObject(String path)
+        private static ConfigTableCollection ConvertConfigFileToJsonObject(string path)
         {
             Log.Info("Parse the Config_file_structure and identify the schema tables.");
-            string Config_file_structure = path;
-            String jsonString = null;
-            using (StreamReader sr = new StreamReader(Config_file_structure))
+            string jsonString;
+            using (var sr = new StreamReader(path))
             {
                 jsonString = sr.ReadToEnd();
             }
-            ConfigTableCollection tableCollection = SchemaContainer.GetTables(jsonString).tables;
-            Log.Info("here");
+            var tableCollection = SchemaContainer.GetTables(jsonString).tables;
+
+            Log.Info($"Tables: {tableCollection.Count}: {string.Join(Environment.NewLine, tableCollection.Select(x => x.name))}");
+
             return tableCollection;
         }
     }
