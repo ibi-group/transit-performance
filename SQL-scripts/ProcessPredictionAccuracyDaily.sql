@@ -42,7 +42,7 @@ BEGIN
 		,file_time_dt					DATETIME
 		,route_id						VARCHAR(255)	NOT NULL
 		,trip_id						VARCHAR(255)	NOT NULL
-		,direction_id					INT				NOT NULL
+		,direction_id					INT				
 		,stop_id						VARCHAR(255)	NOT NULL
 		,stop_sequence					INT				NOT NULL
 		,vehicle_id						VARCHAR(255) 
@@ -107,7 +107,7 @@ BEGIN
 		,file_time_dt				DATETIME
 		,route_id					VARCHAR(255)	NOT NULL
 		,trip_id					VARCHAR(255)	NOT NULL
-		,direction_id				INT				NOT NULL
+		,direction_id				INT				
 		,stop_id					VARCHAR(255)	NOT NULL
 		,stop_sequence				INT				NOT NULL
 		,vehicle_id					VARCHAR(255) 
@@ -192,7 +192,7 @@ BEGIN
 		,route_type					INT
 		,route_id					VARCHAR(255)	NOT NULL
 		,trip_id					VARCHAR(255)	NOT NULL
-		,direction_id				INT				NOT NULL
+		,direction_id				INT				
 		,stop_id					VARCHAR(255)	NOT NULL
 		,stop_sequence				INT				NOT NULL
 		,vehicle_id					VARCHAR(255) 
@@ -320,7 +320,7 @@ BEGIN
 		,route_type					INT
 		,route_id					VARCHAR(255)	NOT NULL
 		,trip_id					VARCHAR(255)	NOT NULL
-		,direction_id				INT				NOT NULL
+		,direction_id				INT				
 		,stop_id					VARCHAR(255)	NOT NULL
 		,stop_sequence				INT				NOT NULL
 		,stop_order_flag			INT --1 for origin, 2 for mid, 3 for destination stop
@@ -504,7 +504,7 @@ BEGIN
 
 	CREATE TABLE dbo.daily_prediction_metrics_disaggregate(
 		route_id								VARCHAR(255)	NOT NULL
-		,direction_id							INT				NOT NULL
+		,direction_id							INT				
 		,stop_id								VARCHAR(255)	NOT NULL
 		,time_slice_id							VARCHAR(255)	NOT NULL
 		,threshold_id							VARCHAR(255)	NOT NULL
