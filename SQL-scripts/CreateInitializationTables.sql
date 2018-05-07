@@ -151,7 +151,6 @@ CREATE TABLE rt_alert
 (
 	record_id					INT IDENTITY
 	,file_time					INT NOT NULL
-	,first_file_time			INT NOT NULL
 	,alert_id					VARCHAR(255) NOT NULL
 	,version_id					INT NOT NULL	
 	,cause						VARCHAR(255)
@@ -502,10 +501,7 @@ CREATE NONCLUSTERED INDEX IX_historical_wait_time_od_threshold_pax_end_time_sec
 ON historical_wait_time_od_threshold_pax (end_time_sec);
 
 CREATE NONCLUSTERED INDEX IX_historical_wait_time_od_threshold_pax_service_date
-ON dbo.historical_wait_time_od_threshold_pax (service_date)
-
-CREATE NONCLUSTERED INDEX IX_historical_wait_time_od_threshold_pax_threshold_id
-ON dbo.historical_wait_time_od_threshold_pax (threshold_id)
+ON [dbo].[historical_wait_time_od_threshold_pax] (service_date)
 
 IF OBJECT_ID('dbo.historical_metrics','U') IS NOT NULL
 	DROP TABLE dbo.historical_metrics
@@ -787,8 +783,8 @@ IF OBJECT_ID('dbo.config_day_type_dow','U') IS NOT NULL
 
 CREATE TABLE dbo.config_day_type_dow
 (
-	day_type_id			VARCHAR(255)	NOT NULL PRIMARY KEY
-	,day_of_the_week	VARCHAR(255)	NOT NULL PRIMARY KEY
+	day_type_id			VARCHAR(255)	NOT NULL
+	,day_of_the_week	VARCHAR(255)	NOT NULL
 );
 
 -- Create Config Mode Threshold Table 
