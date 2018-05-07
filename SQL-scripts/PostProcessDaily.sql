@@ -2058,6 +2058,8 @@ BEGIN
 		,start_time_sec									INT				NOT NULL
 		,end_time_sec									INT				NOT NULL
 		,travel_time_sec								INT				NOT NULL
+		,time_period_id									VARCHAR(255)	NOT NULL
+		,time_period_type								VARCHAR(255)	NOT NULL
 		,threshold_id									VARCHAR(255)	NOT NULL
 		,threshold_historical_median_travel_time_sec	INT
 		,threshold_scheduled_median_travel_time_sec		INT				NOT NULL
@@ -2092,6 +2094,8 @@ BEGIN
 		,start_time_sec
 		,end_time_sec
 		,travel_time_sec
+		,time_period_id
+		,time_period_type
 		,threshold_id
 		,threshold_historical_median_travel_time_sec
 		,threshold_scheduled_median_travel_time_sec
@@ -2113,6 +2117,8 @@ BEGIN
 			,abcde.d_time_sec AS start_time_sec
 			,abcde.e_time_sec AS end_time_sec
 			,(abcde.e_time_sec - abcde.d_time_sec) AS travel_time_sec
+			,ttt.time_period_id
+			,ttt.time_period_type
 			,ttt.threshold_id AS threshold_id
 			,ttt.threshold_historical_median_travel_time_sec AS threshold_historical_median_travel_time_sec
 			,ttt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
@@ -2185,6 +2191,8 @@ BEGIN
 			,dat.d_time_sec AS start_time_sec
 			,dat.e_time_sec AS end_time_sec
 			,dat.de_time_sec AS travel_time_sec
+			,dtt.time_period_id
+			,dtt.time_period_type
 			,dtt.threshold_id AS threshold_id
 			,dtt.threshold_historical_median_travel_time_sec AS threshold_historical_median_travel_time_sec
 			,dtt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
@@ -2264,6 +2272,8 @@ BEGIN
 		,end_time_sec								INT				NOT NULL
 		,max_wait_time_sec							INT				NOT NULL
 		,dwell_time_sec								INT				NOT NULL
+		,time_period_id								VARCHAR(255)	NOT NULL
+		,time_period_type							VARCHAR(255)	NOT NULL
 		,threshold_id								VARCHAR(255)	NOT NULL
 		,threshold_historical_median_wait_time_sec	INT				NULL
 		,threshold_scheduled_median_wait_time_sec	INT				NOT NULL
@@ -2297,6 +2307,8 @@ BEGIN
 		,end_time_sec
 		,max_wait_time_sec
 		,dwell_time_sec
+		,time_period_id
+		,time_period_type
 		,threshold_id
 		,threshold_historical_median_wait_time_sec
 		,threshold_scheduled_median_wait_time_sec
@@ -2318,6 +2330,8 @@ BEGIN
 			,abcde.d_time_sec
 			,abcde.c_time_sec - abcde.b_time_sec
 			,abcde.d_time_sec - abcde.c_time_sec
+			,wtt.time_period_id
+			,wtt.time_period_type
 			,wtt.threshold_id
 			,wtt.threshold_historical_median_wait_time_sec
 			,wtt.threshold_scheduled_median_wait_time_sec
@@ -2382,7 +2396,7 @@ BEGIN
 
 	IF OBJECT_ID('dbo.daily_headway_time_threshold_trip','U') IS NOT NULL
 		DROP TABLE dbo.daily_headway_time_threshold_trip
-	--
+	
 	CREATE TABLE dbo.daily_headway_time_threshold_trip
 	(
 		service_date									VARCHAR(255)	NOT NULL
@@ -2393,6 +2407,8 @@ BEGIN
 		,start_time_sec									INT				NOT NULL
 		,end_time_sec									INT				NOT NULL
 		,headway_time_sec								INT				NOT NULL
+		,time_period_id									VARCHAR(255)	NOT NULL
+		,time_period_type								VARCHAR(255)	NOT NULL
 		,threshold_id									VARCHAR(255)	NOT NULL
 		,threshold_scheduled_median_headway_time_sec	INT				NOT NULL
 		,threshold_scheduled_average_headway_time_sec	INT				NOT NULL
@@ -2419,6 +2435,8 @@ BEGIN
 		,start_time_sec
 		,end_time_sec
 		,headway_time_sec
+		,time_period_id
+		,time_period_type
 		,threshold_id
 		,threshold_scheduled_median_headway_time_sec
 		,threshold_scheduled_average_headway_time_sec
@@ -2435,6 +2453,8 @@ BEGIN
 			,bd.b_time_sec AS start_time_sec
 			,bd.d_time_sec AS end_time_sec
 			,bd.d_time_sec - bd.b_time_sec AS headway_time_sec
+			,wtt.time_period_id
+			,wtt.time_period_type
 			,wtt.threshold_id AS threshold_id
 			,wtt.threshold_scheduled_median_headway_time_sec AS threshold_scheduled_median_headway_time_sec
 			,wtt.threshold_scheduled_average_headway_time_sec AS threshold_scheduled_average_headway_time_sec
@@ -2705,6 +2725,7 @@ BEGIN
 		,threshold_id		VARCHAR(255)	NOT NULL
 		,threshold_name		VARCHAR(255)	NOT NULL
 		,threshold_type		VARCHAR(255)	NOT NULL
+		,time_period_type	VARCHAR(255)	NOT NULL	
 		,metric_result		FLOAT
 		,metric_result_trip	FLOAT			NULL
 		,numerator_pax		FLOAT			NULL
@@ -2748,6 +2769,7 @@ BEGIN
 		,threshold_id
 		,threshold_name
 		,threshold_type
+		,time_period_type
 		,metric_result
 		,metric_result_trip
 		,numerator_pax
@@ -2761,6 +2783,7 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
+			,dwt.time_period_type
 			,1 - SUM(scheduled_threshold_numerator_pax) / SUM(denominator_pax) AS metric_result
 			,NULL
 			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax
@@ -2808,7 +2831,7 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
+			,dwt.time_period_type
 
 		UNION
 
@@ -2817,6 +2840,7 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
+			,dtt.time_period_type
 			,1 - SUM(scheduled_threshold_numerator_pax) / SUM(denominator_pax) AS metric_result
 			,NULL
 			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax
@@ -2857,13 +2881,14 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
+			,dtt.time_period_type
 		UNION
 		SELECT
 			route_id
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
+			,NULL
 			,1 - SUM(scheduled_threshold_numerator_pax) / SUM(denominator_pax) AS metric_result
 			,NULL
 			,SUM(scheduled_threshold_numerator_pax) AS numerator_pax
@@ -2906,6 +2931,7 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
+			,dtt.time_period_type
 			,NULL
 			,1 - SUM(scheduled_threshold_numerator_trip) / SUM(denominator_trip) AS metric_result_trip
 			,NULL
@@ -2941,7 +2967,7 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
+			,dtt.time_period_type
 		--end of adding in trip metrics
 		ORDER BY
 			route_id,threshold_id
@@ -3810,6 +3836,7 @@ BEGIN
 		,denominator_pax
 		,numerator_trip
 		,denominator_trip
+		,time_period_type
 	)
 
 		SELECT
@@ -3824,6 +3851,7 @@ BEGIN
 			,dm.denominator_pax
 			,dm.numerator_trip
 			,dm.denominator_trip
+			,dm.time_period_type
 
 		FROM dbo.daily_metrics dm
 

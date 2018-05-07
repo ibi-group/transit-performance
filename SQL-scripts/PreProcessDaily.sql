@@ -849,6 +849,8 @@ BEGIN
 		,route_id										VARCHAR(255)	NOT NULL
 		,direction_id									INT				NOT NULL
 		,time_slice_id									VARCHAR(255)	NOT NULL
+		,time_period_id									VARCHAR(255)	NOT NULL
+		,time_period_type								VARCHAR(255)	NOT NULL
 		,threshold_id									VARCHAR(255)	NOT NULL
 		,threshold_historical_median_travel_time_sec	INT				NULL
 		,threshold_scheduled_median_travel_time_sec		INT				NULL
@@ -865,6 +867,8 @@ BEGIN
 		,route_id
 		,direction_id
 		,time_slice_id
+		,time_period_id
+		,time_period_type
 		,threshold_id
 		,threshold_historical_median_travel_time_sec
 		,threshold_scheduled_median_travel_time_sec
@@ -880,6 +884,8 @@ BEGIN
 			,att.route_id
 			,att.direction_id
 			,att.time_slice_id
+			,tp.time_period_id
+			,tp.time_period_type
 			,th.threshold_id
 			,CASE
 				WHEN th.min_max_equal = 'min' THEN MIN(att.historical_median_travel_time_sec * thc.multiply_by + thc.add_to)
@@ -910,13 +916,20 @@ BEGIN
 				,dbo.config_threshold th
 				,dbo.config_threshold_calculation thc
 				,dbo.config_mode_threshold mt
-
+				,dbo.config_time_slice ts
+				,dbo.config_time_period tp
+				,dbo.config_day_type dt
 		WHERE
 			th.threshold_id = thc.threshold_id
 			AND mt.threshold_id = th.threshold_id
 			AND mt.threshold_id = thc.threshold_id
 			AND th.threshold_type = 'travel_time'
 			AND att.route_type = mt.route_type
+			AND att.time_slice_id = ts.time_slice_id
+			AND ts.time_slice_start_sec >= tp.time_period_start_time_sec
+			AND ts.time_slice_end_sec <= tp.time_period_end_time_sec
+			AND tp.day_type = dt.day_type
+			AND dt.day_type_id = @day_type_id
 		GROUP BY
 			att.service_date
 			,att.route_type
@@ -925,8 +938,11 @@ BEGIN
 			,att.to_stop_id
 			,att.direction_id
 			,att.time_slice_id
+			,tp.time_period_id
+			,tp.time_period_type
 			,th.threshold_id
 			,th.min_max_equal
+		
 
 
 	--WAIT TIME
@@ -1089,6 +1105,8 @@ BEGIN
 		,route_type									INT				NOT NULL
 		,direction_id								INT				NOT NULL
 		,time_slice_id								VARCHAR(255)	NOT NULL
+		,time_period_id								VARCHAR(255)	NOT NULL
+		,time_period_type							VARCHAR(255)	NOT NULL
 		,threshold_id								VARCHAR(255)	NOT NULL
 		,threshold_historical_median_wait_time_sec	INT				NULL
 		,threshold_scheduled_median_wait_time_sec	INT				NULL
@@ -1103,13 +1121,15 @@ BEGIN
 		,route_type
 		,direction_id
 		,time_slice_id
+		,time_period_id
+		,time_period_type
 		,threshold_id
 		,threshold_historical_median_wait_time_sec
 		,threshold_scheduled_median_wait_time_sec
 		,threshold_historical_average_wait_time_sec
 		,threshold_scheduled_average_wait_time_sec
 	)
-
+	
 		SELECT
 			aht.service_date
 			,aht.stop_id
@@ -1117,6 +1137,8 @@ BEGIN
 			,aht.route_type
 			,aht.direction_id
 			,aht.time_slice_id
+			,tp.time_period_id
+			,tp.time_period_type
 			,th.threshold_id
 			,CASE
 				WHEN th.min_max_equal = 'min' THEN MIN(aht.historical_median_headway_sec * thc.multiply_by + thc.add_to)
@@ -1147,6 +1169,9 @@ BEGIN
 				,dbo.config_threshold th
 				,dbo.config_threshold_calculation thc
 				,dbo.config_mode_threshold mt
+				,dbo.config_time_slice ts
+				,dbo.config_time_period tp
+				,dbo.config_day_type dt
 
 		WHERE
 			th.threshold_id = thc.threshold_id
@@ -1154,6 +1179,11 @@ BEGIN
 			AND mt.threshold_id = thc.threshold_id
 			AND th.threshold_type = 'wait_time_headway_based'
 			AND aht.route_type = mt.route_type
+			AND aht.time_slice_id = ts.time_slice_id
+			AND ts.time_slice_start_sec >= tp.time_period_start_time_sec
+			AND ts.time_slice_end_sec <= tp.time_period_end_time_sec
+			AND tp.day_type = dt.day_type
+			AND dt.day_type_id = @day_type_id
 
 		GROUP BY
 			aht.service_date
@@ -1162,6 +1192,8 @@ BEGIN
 			,aht.route_type
 			,aht.direction_id
 			,aht.time_slice_id
+			,tp.time_period_id
+			,tp.time_period_type
 			,th.threshold_id
 			,th.min_max_equal
 
@@ -1341,6 +1373,8 @@ BEGIN
 		,route_type										INT				NOT NULL
 		,direction_id									INT				NOT NULL
 		,time_slice_id									VARCHAR(255)	NOT NULL
+		,time_period_id									VARCHAR(255)	NOT NULL
+		,time_period_type								VARCHAR(255)	NOT NULL
 		,threshold_id									VARCHAR(255)	NOT NULL
 		,threshold_scheduled_median_headway_time_sec	INT				NULL
 		,threshold_scheduled_average_headway_time_sec	INT				NULL
@@ -1353,17 +1387,21 @@ BEGIN
 		,route_type
 		,direction_id
 		,time_slice_id
+		,time_period_id
+		,time_period_type
 		,threshold_id
 		,threshold_scheduled_median_headway_time_sec
 		,threshold_scheduled_average_headway_time_sec
 	)
-
+	
 		SELECT
 			aht.service_date
 			,aht.stop_id
 			,aht.route_type
 			,aht.direction_id
 			,aht.time_slice_id
+			,tp.time_period_id
+			,tp.time_period_type
 			,th.threshold_id
 			,CASE
 				WHEN th.min_max_equal = 'min' THEN MIN(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
@@ -1382,6 +1420,9 @@ BEGIN
 				,dbo.config_threshold th
 				,dbo.config_threshold_calculation thc
 				,dbo.config_mode_threshold mt
+				,dbo.config_time_slice ts
+				,dbo.config_time_period tp
+				,dbo.config_day_type dt
 
 		WHERE
 			th.threshold_id = thc.threshold_id
@@ -1389,6 +1430,11 @@ BEGIN
 			AND mt.threshold_id = thc.threshold_id
 			AND th.threshold_type = 'trip_headway_based'
 			AND aht.route_type = mt.route_type
+			AND aht.time_slice_id = ts.time_slice_id
+			AND ts.time_slice_start_sec >= tp.time_period_start_time_sec
+			AND ts.time_slice_end_sec <= tp.time_period_end_time_sec
+			AND tp.day_type = dt.day_type
+			AND dt.day_type_id = @day_type_id
 
 		GROUP BY
 			aht.service_date
@@ -1396,6 +1442,8 @@ BEGIN
 			,aht.route_type
 			,aht.direction_id
 			,aht.time_slice_id
+			,tp.time_period_id
+			,tp.time_period_type
 			,th.threshold_id
 			,th.min_max_equal
 

@@ -513,6 +513,7 @@ CREATE TABLE dbo.historical_metrics
 	,threshold_id		VARCHAR(255)	NOT NULL
 	,threshold_name		VARCHAR(255)	NOT NULL
 	,threshold_type		VARCHAR(255)	NOT NULL
+	,time_period_type	VARCHAR(255)	NOT NULL
 	,metric_result		FLOAT
 	,metric_result_trip	FLOAT
 	,numerator_pax		FLOAT
