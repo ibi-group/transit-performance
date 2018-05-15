@@ -97,7 +97,6 @@ BEGIN
 			AND 
 				dbo.event_rt_trip_archive.service_date = @service_date_process
 
-
 	--Create Trip Updates Table which stores predicted arrival and departure events and times for the day being processed
 
 	IF OBJECT_ID('dbo.daily_trip_updates', 'U') IS NOT NULL
@@ -162,18 +161,20 @@ BEGIN
 	WHERE 
 			ert.service_date = @service_date_process
 		AND 
-			r.route_id = ert.route_id							
-
+			r.route_id = ert.route_id
+										
+	--MARK SUSPECT RECORDS FOR TRIP UPDATES
+	--mark records with stop_sequence 0 as suspect
 	UPDATE dbo.daily_trip_updates
 		SET suspect_record = 1
 		WHERE stop_sequence = 0
-				   
-
+	
+	--mark records with event time 0 as suspect			   
 	UPDATE dbo.daily_trip_updates
 		SET suspect_record = 1
 		WHERE event_time = 0
-				
-
+		
+	--mark records for trips with multiple vehicle ids as suspect		
 	UPDATE dbo.daily_trip_updates
 		SET suspect_record = 1
 		FROM
@@ -187,8 +188,7 @@ BEGIN
 					,stop_id
 					,event_type
 					,COUNT(vehicle_id) as num_duplicates
-				FROM dbo.daily_trip_updates 
-									   
+				FROM dbo.daily_trip_updates 									   
 				GROUP BY
 					service_date
 					,trip_id
@@ -206,6 +206,7 @@ BEGIN
 					AND 
 						dtu.stop_id = t.stop_id			 
 
+	--mark records for trips with only one file time as suspect
 	UPDATE dbo.daily_trip_updates
 		SET suspect_record = 1
 		FROM
@@ -216,8 +217,7 @@ BEGIN
 					service_date
 					,trip_id
 					,COUNT(DISTINCT file_time) as num_file_time
-				FROM dbo.daily_trip_updates
-				WHERE route_type IN (0,1,3)					   
+				FROM dbo.daily_trip_updates			   
 				GROUP BY
 					service_date
 					,trip_id
@@ -228,6 +228,7 @@ BEGIN
 					AND 
 						dtu.trip_id = t.trip_id	
 	
+	--mark stale records as suspect
 	UPDATE dbo.daily_trip_updates
 		SET suspect_record = 1
 		WHERE event_time - file_time > 300
@@ -332,10 +333,8 @@ BEGIN
 			AND 
 				event_time_sec IS NOT NULL
 		ORDER BY record_id
-
 	
 	------update "incorrect" berths for Green Line
-
 	UPDATE daily_event
 		SET
 			stop_id = '70196'
@@ -356,8 +355,8 @@ BEGIN
 
 	UPDATE daily_event
 		SET
-			stop_id = '70197',
-			stop_sequence = 60
+			stop_id = '70197'
+			,stop_sequence = 60
 		FROM daily_event de
 		JOIN
 			(
@@ -374,8 +373,8 @@ BEGIN
 
 	UPDATE daily_event
 		SET
-			stop_id = '70198',
-			stop_sequence = 70
+			stop_id = '70198'
+			,stop_sequence = 70
 		FROM daily_event de
 		JOIN
 			(
@@ -392,8 +391,8 @@ BEGIN
 
 	UPDATE daily_event
 		SET
-			stop_id = '70199',
-			stop_sequence = 80
+			stop_id = '70199'
+			,stop_sequence = 80
 		FROM daily_event de
 		JOIN
 			(
@@ -430,34 +429,25 @@ BEGIN
 				SELECT
 					service_date
 					,route_id
+					,route_type
 					,vehicle_id
 					,trip_id
-					,count_event
-				FROM
-				(
-					SELECT
-						service_date
-						,route_id
-						,route_type
-						,vehicle_id
-						,trip_id
-						,COUNT(*) AS count_event
-					FROM dbo.daily_event ed
-					GROUP BY
-						service_date
-						,route_id
-						,route_type
-						,vehicle_id
-						,trip_id
-				) t
-				WHERE
-					t.count_event <= 2
-					AND t.route_type IN (0,1,2,3) --MBTA specific
+					,COUNT(*) AS count_event
+				FROM dbo.daily_event ed
+				GROUP BY
+					service_date
+					,route_id
+					,route_type
+					,vehicle_id
+					,trip_id
+				HAVING COUNT(*) <=2
 			) s
 				ON
-					ed.service_date = s.service_date
-					AND ed.vehicle_id = s.vehicle_id
-					AND ed.trip_id = s.trip_id
+						ed.service_date = s.service_date
+					AND 
+						ed.vehicle_id = s.vehicle_id
+					AND 
+						ed.trip_id = s.trip_id
 
 	--Records where there are duplicate events for trip-stop that are not already suspect
 	UPDATE dbo.daily_event
@@ -867,7 +857,12 @@ BEGIN
 		AND 
 			me.service_date = de.service_date
 		AND
-			me.event_type = de.event_type
+			de.event_type = 
+				CASE 
+					WHEN me.event_type IN ('ARR','DEP') THEN me.event_type
+					WHEN me.event_type = 'PRA' THEN 'ARR'
+					WHEN me.event_type = 'PRD' THEN 'DEP'
+				END
 
 	--add events from trip_updates into daily event---------------------
 	IF OBJECT_ID('tempdb..##valid_trip_update_events','U') IS NOT NULL
@@ -923,6 +918,7 @@ BEGIN
 			,dtu.event_time_sec
 			,dtu.event_processed_rt
 			,dtu.event_processed_daily
+			--,me.*
 
 		FROM dbo.daily_trip_updates dtu
 		JOIN ##missed_events me
@@ -937,11 +933,13 @@ BEGIN
 			AND 
 				dtu.event_type = 
 					CASE
+						WHEN me.event_type IN ('PRA','PRD') THEN me.event_type
 						WHEN me.event_type = 'ARR' THEN 'PRA'
 						WHEN me.event_type = 'DEP' THEN 'PRD'
 					END  
 			AND
-				dtu.suspect_record = 0
+				dtu.suspect_record = 0	
+
 		----find the departure/arrival times at the "previous" stop x and the "next" stop z for the "current" stop y with a missed event 
 	IF OBJECT_ID('dbo.daily_missed_events') IS NOT NULL
 	DROP TABLE dbo.daily_missed_events
@@ -1182,6 +1180,7 @@ BEGIN
 									)
 							)
 
+
 --not needed?
 	--MARK SUSPECT RECORDS
 	--mark trip update events with 0 epoch time as suspect
@@ -1230,7 +1229,7 @@ BEGIN
 				WHERE
 						t.count_event <= 2
 					AND 
-						t.route_type IN (1,2) --MBTA specific
+						t.route_type IN (0,1,2) --MBTA specific
 			) s
 				ON
 					(
@@ -1406,7 +1405,6 @@ BEGIN
 		,e_time_sec
 		,de_time_sec
 	)
-
 
 		SELECT
 			edd.service_date
@@ -1681,7 +1679,7 @@ BEGIN
 						y.cde_trip_id <> x.cde_trip_id
 					AND 	
 						y.c_time_sec > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
-					--, but not by more than 30 minutes, as determined by the next statement
+					--, but not by more than 45 minutes, as determined by the next statement
 					AND
 					y.c_time_sec - x.d_time_sec <= 2700
 					)
@@ -1934,7 +1932,6 @@ BEGIN
 		) temp
 		WHERE
 			rn = 1
-
 
 	--------------------------------------------------------------------schedule adherence inputs part starts------------------------------------------------
 
