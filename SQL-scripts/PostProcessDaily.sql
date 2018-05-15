@@ -2845,14 +2845,20 @@ BEGIN
 			,ttt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
 			,ttt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
 			,(abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate AS denominator_pax
-			,CASE
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
+			,CASE 
+				WHEN((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) AND ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0 )
+						THEN  (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
+				WHEN((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) AND ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0 )
+						THEN  ((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_historical_median_travel_time_sec) * par.passenger_arrival_rate
+				WHEN((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
 				ELSE 0
 			END AS historical_threshold_numerator_pax
-			,CASE
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
-				WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
+			,CASE 
+				WHEN((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) AND ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0)
+					THEN  (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
+				WHEN((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) AND ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0)
+					THEN  ((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_scheduled_average_travel_time_sec) * par.passenger_arrival_rate
+				WHEN((abcde.e_time_sec - abcde.c_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
 				ELSE 0
 			END AS scheduled_threshold_numerator_pax
 		FROM ##daily_abcde_time abcde
