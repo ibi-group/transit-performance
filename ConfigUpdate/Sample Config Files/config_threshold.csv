@@ -12,3 +12,5 @@ threshold_id_10,delayed < 5 min.,travel_time,1,equal
 threshold_id_11,delayed < 10 min.,travel_time,2,equal
 threshold_id_12,delayed < 20 min.,travel_time,3,equal
 threshold_id_13,90 seconds,trip_headway_based,4,equal
+threshold_id_24,delayed < 0 min.,travel_time,4,equal
+threshold_id_25,delayed < 2 min.,travel_time,5,equal
