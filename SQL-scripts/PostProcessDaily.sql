@@ -30,6 +30,31 @@ BEGIN
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
 
+	--MBTA-specific correct route-direction-stop id combinations 
+	DECLARE @correct_stop_ids AS TABLE
+	(
+		route_id				VARCHAR(255)
+		,direction_id			INT
+		,correct_stop_id		VARCHAR(255)
+		,correct_stop_sequence	INT
+		,incorrect_stop_id		VARCHAR(255)
+	)
+
+	INSERT INTO @correct_stop_ids
+	VALUES
+		('Green-B',0,'70196',50,'70197')
+		,('Green-B',0,'70196',50,'70198')
+		,('Green-B',0,'70196',50,'70199')
+		,('Green-C',0,'70197',60,'70196')
+		,('Green-C',0,'70197',60,'70198')
+		,('Green-C',0,'70197',60,'70199')
+		,('Green-D',0,'70198',70,'70196')
+		,('Green-D',0,'70198',70,'70197')
+		,('Green-D',0,'70198',70,'70199')
+		,('Green-E',0,'70199',80,'70196')
+		,('Green-E',0,'70199',80,'70197')
+		,('Green-E',0,'70199',80,'70198')
+
 	--ensure events from vehicle positions have direction_id and event_time_sec----------------------
 	UPDATE dbo.rt_event
 		SET direction_id = t.direction_id
@@ -162,6 +187,20 @@ BEGIN
 			ert.service_date = @service_date_process
 		AND 
 			r.route_id = ert.route_id
+
+	------update "incorrect" berths for Green Line in trip updates
+	UPDATE daily_trip_updates
+	SET
+		stop_id = cs.correct_stop_id
+		,stop_sequence = cs.correct_stop_sequence
+	FROM daily_trip_updates dtu
+	JOIN @correct_stop_ids cs
+	ON
+			dtu.route_id = cs.route_id
+		AND
+			dtu.direction_id = cs.direction_id
+		AND
+			dtu.stop_id = cs.incorrect_stop_id
 										
 	--MARK SUSPECT RECORDS FOR TRIP UPDATES
 	--mark records with stop_sequence 0 as suspect
@@ -334,78 +373,19 @@ BEGIN
 				event_time_sec IS NOT NULL
 		ORDER BY record_id
 	
-	------update "incorrect" berths for Green Line
+	------update "incorrect" berths for Green Line in daily_event
 	UPDATE daily_event
-		SET
-			stop_id = '70196'
-			,stop_sequence = 50
-		FROM daily_event de
-		JOIN
-			(
-				SELECT * FROM daily_event WHERE stop_id  IN ('70196','70197','70198','70199')
-			) t
-		ON
-				de.record_id = t.record_id
-		WHERE
-				t.route_id = 'Green-B' 
-			AND 
-				t.stop_id <> '70196'
-			AND
-				t.direction_id = 0
-
-	UPDATE daily_event
-		SET
-			stop_id = '70197'
-			,stop_sequence = 60
-		FROM daily_event de
-		JOIN
-			(
-				SELECT * FROM daily_event WHERE stop_id  IN ('70196','70197','70198','70199')
-			) t
-		ON
-			de.record_id = t.record_id
-		WHERE
-				t.route_id = 'Green-C' 
-			AND 
-				t.stop_id <> '70197'
-			AND
-				t.direction_id = 0
-
-	UPDATE daily_event
-		SET
-			stop_id = '70198'
-			,stop_sequence = 70
-		FROM daily_event de
-		JOIN
-			(
-				SELECT * FROM daily_event WHERE stop_id  IN ('70196','70197','70198','70199')
-			) t
-		ON
-			de.record_id = t.record_id
-		WHERE
-				t.route_id = 'Green-D' 
-			AND 
-				t.stop_id <> '70198'
-			AND
-				t.direction_id = 0
-
-	UPDATE daily_event
-		SET
-			stop_id = '70199'
-			,stop_sequence = 80
-		FROM daily_event de
-		JOIN
-			(
-				SELECT * FROM daily_event WHERE stop_id  IN ('70196','70197','70198','70199')
-			) t
-		ON
-			de.record_id = t.record_id
-		WHERE
-				t.route_id = 'Green-E' 
-			AND 
-				t.stop_id <> '70199'
-			AND
-				t.direction_id = 0
+	SET
+		stop_id = cs.correct_stop_id
+		,stop_sequence = cs.correct_stop_sequence
+	FROM daily_event de
+	JOIN @correct_stop_ids cs
+	ON
+			de.route_id = cs.route_id
+		AND
+			de.direction_id = cs.direction_id
+		AND
+			de.stop_id = cs.incorrect_stop_id
 
 	--MARK SUSPECT RECORDS
 	-----mark suspect record where event happens after 3:30 am the next day
@@ -1441,8 +1421,12 @@ BEGIN
 					ede.direction_id = edd.direction_id
 				AND 
 					ede.stop_sequence > edd.stop_sequence
-				AND 	
-					ede.event_time_sec > edd.event_time_sec
+				AND 
+					CASE
+						WHEN ede.event_time_sec > edd.event_time_sec THEN 1
+						WHEN ede.event_time_sec = edd.event_time_sec THEN 1
+						ELSE 0
+					END = 1
 				)
 		WHERE
 				ede.suspect_record = 0
