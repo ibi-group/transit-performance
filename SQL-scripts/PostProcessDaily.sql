@@ -2116,16 +2116,40 @@ BEGIN
 		SELECT
 			st.service_date
 			,st.trip_id
+			,st.route_type
 			,st.stop_sequence
 			,st.stop_id
 			,st.arrival_time_sec
 			,st.departure_time_sec
 		FROM dbo.daily_stop_times_sec st
-
+		JOIN
+			(
+				SELECT
+					dst.service_date
+					,dst.trip_id
+					,COUNT(DISTINCT dst.stop_sequence) as count_scheduled_ss
+					,COUNT(DISTINCT de.stop_sequence) as count_actual_ss
+					,COUNT(DISTINCT de.stop_sequence)*1.0/COUNT(DISTINCT dst.stop_sequence) as ratio_actual_sched_ss
+				FROM daily_stop_times_sec dst
+				LEFT JOIN daily_event de
+				ON
+						dst.service_date = de.service_date
+					AND
+						dst.trip_id = de.trip_id
+					AND
+						dst.stop_id = de.stop_id
+					AND
+						dst.stop_sequence = de.stop_sequence
+				GROUP BY
+					dst.service_date
+					,dst.trip_id
+				HAVING COUNT(DISTINCT de.stop_sequence)*1.0/COUNT(DISTINCT dst.stop_sequence) >=0.5 
+			) count_ss
+		ON
+				st.service_date = count_ss.service_date
+			AND
+				st.trip_id = count_ss.trip_id
 		WHERE
-				st.trip_id IN
-					(SELECT DISTINCT trip_id FROM dbo.daily_event)
-			AND 
 				st.route_type IN (1)
 
 	--delete all stop times for scheduled trips where we got an event. we should be left with all stop times for scheduled trips where we did not get an event		
