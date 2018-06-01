@@ -2116,7 +2116,6 @@ BEGIN
 		SELECT
 			st.service_date
 			,st.trip_id
-			,st.route_type
 			,st.stop_sequence
 			,st.stop_id
 			,st.arrival_time_sec
