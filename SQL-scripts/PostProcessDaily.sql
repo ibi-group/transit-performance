@@ -4410,6 +4410,8 @@ BEGIN
 		,denominator_trip
 		,historical_threshold_numerator_trip
 		,scheduled_threshold_numerator_trip
+		,time_period_id
+		,time_period_type
 	)
 		SELECT
 			service_date
@@ -4432,6 +4434,8 @@ BEGIN
 			,NULL
 			,NULL
 			,NULL
+			,time_period_id
+			,time_period_type
 		FROM dbo.daily_travel_time_threshold_pax
 
 	IF
@@ -4471,6 +4475,8 @@ BEGIN
 		,denominator_trip
 		,historical_threshold_numerator_trip
 		,scheduled_threshold_numerator_trip
+		,time_period_id
+		,time_period_type
 	)
 		SELECT
 			service_date
@@ -4494,6 +4500,8 @@ BEGIN
 			,NULL
 			,NULL
 			,NULL
+			,time_period_id
+			,time_period_type
 		FROM dbo.daily_wait_time_od_threshold_pax
 
 	IF
@@ -4525,6 +4533,8 @@ BEGIN
 		,threshold_scheduled_average_headway_time_sec
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
+		,time_period_id
+		,time_period_type
 	)
 		SELECT
 			@service_date_process
@@ -4540,6 +4550,8 @@ BEGIN
 			,threshold_scheduled_average_headway_time_sec
 			,denominator_trip
 			,scheduled_threshold_numerator_trip
+			,time_period_id
+			,time_period_type
 		FROM dbo.daily_headway_time_threshold_trip
 
 	IF
