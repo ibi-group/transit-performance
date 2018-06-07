@@ -221,40 +221,6 @@ CREATE TABLE dbo.gtfsrt_tripupdate_denormalized(
 
 CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_start_date ON gtfsrt_tripupdate_denormalized(trip_start_date);
 
---create gtfsrt_vehicleposition_denormalized to store all vehicle positions data
-IF OBJECT_ID ('dbo.gtfsrt_vehicleposition_denormalized', 'U') IS NOT NULL
-	DROP TABLE dbo.gtfsrt_vehicleposition_denormalized
-;
-
-CREATE TABLE dbo.gtfsrt_vehicleposition_denormalized(
-	gtfs_realtime_version		VARCHAR(255) NOT NULL
-	,incrementality				VARCHAR(255) NULL
-	,header_timestamp			INT NOT NULL
-	,feed_entity_id				VARCHAR(255) NULL
-	,trip_id					VARCHAR(255) NULL
-	,route_id					VARCHAR(255) NULL
-	,direction_id				INT NULL
-	,trip_start_date			CHAR(8) NULL
-	,trip_start_time			VARCHAR(8) NULL
-	,trip_schedule_relationship	VARCHAR(255) NULL
-	,vehicle_id					VARCHAR(255) NULL
-	,vehicle_label				VARCHAR(255) NULL
-	,vehicle_license_plate		VARCHAR(255) NULL
-	,vehicle_timestamp			INT NULL
-	,current_stop_sequence		INT NULL
-	,current_status				VARCHAR(255) NULL
-	,stop_id					VARCHAR(255) NULL
-	,congestion_level			VARCHAR(255) NULL
-	,occupancy_status			VARCHAR(255) NULL
-	,latitude					FLOAT NULL
-	,longitude					FLOAT NULL
-	,bearing					FLOAT NULL
-	,odometer					FLOAT NULL
-	,speed						FLOAT NULL
-)
-
-CREATE NONCLUSTERED INDEX IX_gtfsrt_vehicleposition_denormalized_start_date ON gtfsrt_vehicleposition_denormalized(trip_start_date);
-
 -- Create all historical tables 
 IF OBJECT_ID('dbo.historical_event','U') IS NOT NULL
 	DROP TABLE dbo.historical_event;
