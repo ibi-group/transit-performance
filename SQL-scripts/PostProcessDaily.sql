@@ -724,14 +724,6 @@ BEGIN
 		)
 		AND event_time = 0
 
---not needed
-/*
-	--Records where stop_sequence = 0
-	UPDATE dbo.daily_event
-		SET suspect_record = 1
-		WHERE
-			stop_sequence = 0
-*/
 	--records where a trip-vehicle only had 2 or fewer records
 	UPDATE dbo.daily_event
 	SET suspect_record = 1
@@ -762,48 +754,13 @@ BEGIN
 				) t
 			WHERE
 				t.count_event <= 2
-				AND t.route_type IN (1,2,3) --MBTA specific
+				AND t.route_type IN (3) --MBTA specific
 		) s
 			ON
 				ed.service_date = s.service_date
 				--AND ed.vehicle_id = s.vehicle_id
 				AND ed.trip_id = s.trip_id
 
---not needed
-/*
-	--Records where there are duplicate events for trip-stop that are not already suspect
-	UPDATE dbo.daily_event
-		SET suspect_record = 1
-		SELECT *
-		FROM dbo.daily_event ed
-			JOIN
-			(
-				SELECT
-					service_date
-					,trip_id
-					,stop_sequence
-					,stop_id
-					,event_type
-					,COUNT(*) AS num_duplicates
-				FROM dbo.daily_event
-				WHERE
-					suspect_record = 0
-				GROUP BY
-					service_date
-					,trip_id
-					,stop_sequence
-					,stop_id
-					,event_type
-				HAVING COUNT(*) > 1
-			) t
-				ON
-					ed.service_date = t.service_date
-					AND ed.trip_id = t.trip_id
-					AND ed.stop_sequence = t.stop_sequence
-					AND ed.stop_id = t.stop_id
-					AND ed.event_type = t.event_type
-			WHERE suspect_record = 0
-*/
 	-----------------------------processing starts-------------------------------------------------------------------------------------------------
 
 	--Create temp table daily_cd_time. This table stores the dwell times for the day being processed.
@@ -1157,7 +1114,7 @@ BEGIN
 						AND y.c_time_sec > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
 						--, but not by more than 30 minutes, as determined by the next statement
 						AND CASE
-							WHEN y.cde_route_type <>3 THEN 1800
+							WHEN y.cde_route_type <>3 THEN 2700
 							ELSE 3600
 							END >= y.c_time_sec - x.d_time_sec
 		) temp
@@ -1260,7 +1217,7 @@ BEGIN
 						--AND y.route_id =x.route_id
 						AND y.event_time_sec >= x.event_time_sec --Green Line at park can have two with exactly the same time
 						AND CASE
-							WHEN y.route_type <>3 THEN 1800
+							WHEN y.route_type <>3 THEN 2700
 							ELSE 3600
 							END >= y.event_time_sec - x.event_time_sec
 			WHERE
@@ -1369,8 +1326,9 @@ BEGIN
 						AND x.event_type IN ('DEP','PRD')
 						AND y.service_date = x.service_date
 						AND CASE
-							WHEN @use_checkpoints_only = 0 AND y.stop_id = x.stop_id THEN 1
-							WHEN @use_checkpoints_only = 1 AND y.checkpoint_id = x.checkpoint_id THEN 1
+							WHEN y.route_type = 3 AND @use_checkpoints_only = 0 AND y.stop_id = x.stop_id THEN 1
+							WHEN y.route_type = 3 AND @use_checkpoints_only = 1 AND y.checkpoint_id = x.checkpoint_id THEN 1
+							WHEN y.route_type <> 3 THEN 1
 							ELSE 0
 							END = 1
 						AND y.direction_id = x.direction_id
@@ -1380,10 +1338,11 @@ BEGIN
 							ELSE '0'
 							END <> x.vehicle_id
 						AND y.trip_id <> x.trip_id
+						AND y.route_type = x.route_type
 						AND y.route_id = x.route_id --for routes that are the same
 						AND y.event_time_sec >= x.event_time_sec --Green Line at park can have two with exactly the same time
 						AND CASE
-							WHEN y.route_type <>3 THEN 1800
+							WHEN y.route_type <>3 THEN 2700
 							ELSE 3600
 							END >= y.event_time_sec - x.event_time_sec
 			WHERE y.suspect_record = 0 AND x.suspect_record = 0
@@ -1530,31 +1489,31 @@ BEGIN
 			d.service_date
 			,d.stop_id AS ac_stop_id
 			,CASE
-				WHEN @use_checkpoints_only = 0 THEN LAG(d.stop_sequence, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
-				WHEN @use_checkpoints_only = 1 THEN LAG(d.stop_sequence, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 0 OR d.route_type <> 3 THEN LAG(d.stop_sequence, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 1 AND d.route_type = 3 THEN LAG(d.stop_sequence, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
 			END AS a_stop_sequence
 			,d.stop_sequence AS c_stop_sequence
 			,d.route_id AS ac_route_id
 			,d.route_type AS ac_route_type
 			,d.direction_id AS ac_direction_id
 			,CASE
-				WHEN @use_checkpoints_only = 0 THEN LAG(d.trip_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
-				WHEN @use_checkpoints_only = 1 THEN LAG(d.trip_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 0 OR d.route_type <> 3 THEN LAG(d.trip_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 1 AND d.route_type = 3 THEN LAG(d.trip_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
 			END AS a_trip_id
 			,d.trip_id AS c_trip_id
 			,CASE
-				WHEN @use_checkpoints_only = 0 THEN LAG(d.vehicle_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
-				WHEN @use_checkpoints_only = 1 THEN LAG(d.vehicle_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 0 OR d.route_type <> 3 THEN LAG(d.vehicle_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 1 AND d.route_type = 3 THEN LAG(d.vehicle_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
 			END AS a_vehicle_id
 			,d.vehicle_id AS c_vehicle_id
 			,CASE
-				WHEN @use_checkpoints_only = 0 THEN LAG(d.record_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
-				WHEN @use_checkpoints_only = 1 THEN LAG(d.record_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 0 OR d.route_type <> 3 THEN LAG(d.record_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 1 AND d.route_type = 3 THEN LAG(d.record_id, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
 			END AS a_record_id
 			,d.record_id AS c_record_id
 			,CASE
-				WHEN @use_checkpoints_only = 0 THEN LAG(d.event_time_sec, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
-				WHEN @use_checkpoints_only = 1 THEN LAG(d.event_time_sec, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 0 OR d.route_type <> 3 THEN LAG(d.event_time_sec, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, d.stop_id ORDER BY d.event_time_sec)
+				WHEN @use_checkpoints_only = 1 AND d.route_type = 3 THEN LAG(d.event_time_sec, 1) OVER (PARTITION BY d.service_date, d.route_id, d.direction_id, h.checkpoint_id ORDER BY d.event_time_sec)
 			END AS a_time_sec
 			,d.event_time_sec AS c_time_sec
 			,h.checkpoint_id
@@ -1570,7 +1529,7 @@ BEGIN
 	) t
 	WHERE
 		CASE
-			WHEN route_type <> 3 THEN 1800
+			WHEN route_type <> 3 THEN 2700
 			ELSE 3600
 		END >= c_time_sec - a_time_sec
 		AND CASE WHEN @use_checkpoints_only = 1 THEN checkpoint_id ELSE '0' END IS NOT NULL
@@ -1758,7 +1717,7 @@ BEGIN
 					trip_id
 				FROM dbo.daily_event
 			)
-			AND st.route_type IN (0,1)
+			AND st.route_type IN (1)  ---CHANGED FROM PROD
 
 	--delete all stop times for scheduled trips where we got an event. we should be left with all stop times for scheduled trips where we did not get an event		
 	DELETE FROM daily_missed_stop_times_scheduled
@@ -2397,7 +2356,19 @@ BEGIN
 		,ttt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
 		,ttt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
 		,ttt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
-		,(abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec)) AS denominator_pax
+		--CHANGED TO PROD
+		,(abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate AS denominator_pax
+		,CASE 
+			WHEN((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN  (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
+			WHEN((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
+			ELSE 0
+			END AS historical_threshold_numerator_pax
+		,CASE 
+			WHEN((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN  (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
+			WHEN((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
+			ELSE 0
+			END AS scheduled_threshold_numerator_pax --changed to average
+		/*,(abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec)) AS denominator_pax
 		,CASE
 			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec))
 			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
@@ -2407,7 +2378,7 @@ BEGIN
 			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1/(abcde.d_time_sec - abcde.b_time_sec))
 			WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
 			ELSE 0
-		END AS scheduled_threshold_numerator_pax
+		END AS scheduled_threshold_numerator_pax*/
 	FROM
 		##daily_abcde_time abcde
 		JOIN dbo.config_time_slice ts
@@ -2429,7 +2400,7 @@ BEGIN
 				AND abcde.abcd_stop_id = ttt.from_stop_id
 				AND abcde.e_stop_id = ttt.to_stop_id
 				AND ts.time_slice_id = ttt.time_slice_id
-				AND ttt.route_type IN (0,1,3) --(ttt.route_type = 1 OR ttt.route_type = 0) --subway and green line passenger weighted numbers
+				AND ttt.route_type IN (0,1) --(ttt.route_type = 1 OR ttt.route_type = 0) --subway and green line passenger weighted numbers
 				AND abcde.cde_route_id = ttt.route_id --added for multiple routes visiting the same stops, green line
 
 	---------------CR travel times pax start--------------------------------------------------------------------------------------------
@@ -2559,8 +2530,9 @@ BEGIN
 			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec <= 0) THEN 0
 			ELSE 0
 		END AS historical_threshold_numerator_pax
+		--CHANGE TO PROD "median" --> "average"
 		,CASE
-			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_median_wait_time_sec) * par.passenger_arrival_rate
+			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec) * par.passenger_arrival_rate
 			WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec <= 0) THEN 0
 			ELSE 0
 		END AS scheduled_threshold_numerator_pax
@@ -2586,7 +2558,7 @@ BEGIN
 				AND abcde.abcd_stop_id = wtt.stop_id
 				AND abcde.e_stop_id = wtt.to_stop_id
 				AND ts.time_slice_id = wtt.time_slice_id
-				AND wtt.route_type IN (0,1,3) --(wtt.route_type = 1 OR wtt.route_type = 0) --subway and green line passenger weighted numbers only
+				AND wtt.route_type IN (0,1) --(wtt.route_type = 1 OR wtt.route_type = 0) --subway and green line passenger weighted numbers only
 	--save headway trip metrics
 
 	IF OBJECT_ID('dbo.daily_headway_time_threshold_trip','U') IS NOT NULL
@@ -3388,11 +3360,11 @@ BEGIN
 	FROM
 		dbo.daily_wait_time_od_threshold_pax dwt
 		,dbo.config_threshold ct
-		,dbo.config_mode_threshold cmt
+		--,dbo.config_mode_threshold cmt
 	WHERE
 		ct.threshold_id = dwt.threshold_id
-		AND ct.threshold_id = cmt.threshold_id
-		AND cmt.route_type <> 3
+		/*AND ct.threshold_id = cmt.threshold_id
+		AND cmt.route_type <> 3*/
 		AND (
 			(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
 			OR from_stop_id IN (SELECT stop_id FROM @from_stop_ids)
@@ -3437,12 +3409,12 @@ BEGIN
 	FROM
 		dbo.daily_travel_time_threshold_pax dtt
 		,dbo.config_threshold ct
-		,dbo.config_mode_threshold cmt
+		--,dbo.config_mode_threshold cmt
 	WHERE
 		ct.threshold_id = dtt.threshold_id
 		AND	ct.parent_child = 0
-		AND ct.threshold_id = cmt.threshold_id
-		AND cmt.route_type <> 3
+		/*AND ct.threshold_id = cmt.threshold_id
+		AND cmt.route_type <> 3*/
 		AND (
 			(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
 			OR from_stop_id IN (SELECT stop_id FROM @from_stop_ids)
@@ -3519,12 +3491,12 @@ BEGIN
 	FROM
 		dbo.daily_headway_time_threshold_trip dtt
 		,dbo.config_threshold ct
-		,dbo.config_mode_threshold cmt
+		--,dbo.config_mode_threshold cmt
 	WHERE
 		ct.threshold_id = dtt.threshold_id
 		AND ct.parent_child = 0
-		AND ct.threshold_id = cmt.threshold_id
-		AND cmt.route_type <> 3
+		/*AND ct.threshold_id = cmt.threshold_id
+		AND cmt.route_type <> 3*/
 		AND (
 			(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
 			OR stop_id IN (SELECT stop_id FROM @from_stop_ids)
@@ -4702,7 +4674,4 @@ BEGIN
 
 END
 
-
-
 GO
-
