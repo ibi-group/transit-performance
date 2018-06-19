@@ -199,9 +199,6 @@
 				},
 				"time_slice_end_date_time": {
 					"type": "TIME(7)"
-				},
-				"time_slice_rn":{
-					"type": "INT"
 				}
 			}
 		},
