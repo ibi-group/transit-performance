@@ -1481,7 +1481,7 @@ BEGIN
 				) y --y is the most recent "previous" trip
 				JOIN
 				(
-					SELECT d.*, h.checkpoint_id
+					SELECT d.*, st.checkpoint_id
 					FROM dbo.daily_event d
 					JOIN dbo.daily_stop_times_sec st
 						ON 
@@ -4016,6 +4016,7 @@ BEGIN
 		,ct.threshold_id
 		,ct.threshold_name
 		,ct.threshold_type
+		,dtt.time_period_type
 
 	UNION
 	

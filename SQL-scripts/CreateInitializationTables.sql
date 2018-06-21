@@ -615,6 +615,57 @@ CREATE TABLE dbo.historical_missed_stop_times_scheduled
 CREATE NONCLUSTERED INDEX IX_historical_missed_stop_times_scheduled_service_date
 ON historical_missed_stop_times_scheduled (service_date);
 
+IF OBJECT_ID('dbo.historical_headway_adherence_threshold_pax','U') IS NOT NULL
+	DROP TABLE dbo.historical_headway_adherence_threshold_pax;
+
+CREATE TABLE dbo.historical_headway_adherence_threshold_pax
+(
+	record_id							INT IDENTITY(1,1) NOT NULL,
+	service_date						VARCHAR(255) NOT NULL,
+	route_id							VARCHAR(255) NOT NULL,
+	route_type							INT NOT NULL,
+	direction_id						INT NOT NULL,
+	trip_id								VARCHAR(255) NOT NULL,
+	stop_id								VARCHAR(255) NOT NULL,
+	stop_order_flag						INT NOT NULL,
+	checkpoint_id						VARCHAR(255) NULL,
+	start_time_sec						INT NOT NULL,
+	end_time_sec						INT NOT NULL,
+	actual_headway_time_sec				INT NULL,
+	scheduled_headway_time_sec			INT NULL,
+	threshold_id						VARCHAR(255) NOT NULL,
+	threshold_id_lower					VARCHAR(255) NULL,
+	threshold_id_upper					VARCHAR(255) NULL,
+	threshold_value_lower				VARCHAR(255) NULL,
+	threshold_value_upper				VARCHAR(255) NULL,
+	denominator_pax						FLOAT NULL,
+	scheduled_threshold_numerator_pax	FLOAT NULL
+) 
+
+IF OBJECT_ID('dbo.historical_trip_run_time_adherence_threshold_pax','U') IS NOT NULL
+	DROP TABLE dbo.historical_trip_run_time_adherence_threshold_pax;
+
+CREATE TABLE dbo.historical_trip_run_time_adherence_threshold_pax
+(
+	record_id							INT IDENTITY(1,1) NOT NULL,
+	service_date						VARCHAR(255) NOT NULL,
+	route_id							VARCHAR(255) NOT NULL,
+	route_type							INT NOT NULL,
+	direction_id						INT NOT NULL,
+	trip_id								VARCHAR(255) NOT NULL,
+	start_time_sec						INT NOT NULL,
+	end_time_sec						INT NOT NULL,
+	actual_run_time_sec					INT NOT NULL,
+	scheduled_run_time_sec				INT NOT NULL,
+	threshold_id						VARCHAR(255) NOT NULL,
+	threshold_id_lower					VARCHAR(255) NULL,
+	threshold_id_upper					VARCHAR(255) NULL,
+	threshold_value_lower				VARCHAR(255) NULL,
+	threshold_value_upper				VARCHAR(255) NULL,
+	denominator_pax						FLOAT NULL,
+	scheduled_threshold_numerator_pax	FLOAT NULL
+) 
+
 IF OBJECT_ID('dbo.deleted_from_abcde_time','U') IS NOT NULL
 	DROP TABLE dbo.deleted_from_abcde_time
 
