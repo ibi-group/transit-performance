@@ -1509,7 +1509,7 @@ BEGIN
 							CASE
 								WHEN y.route_type = 3 AND @use_checkpoints_only = 0 AND y.stop_id = x.stop_id THEN 1
 								WHEN y.route_type = 3 AND @use_checkpoints_only = 1 AND y.checkpoint_id = x.checkpoint_id THEN 1
-								WHEN y.route_type <> 3 THEN 1
+								WHEN y.route_type <> 3 AND y.stop_id = x.stop_id THEN 1
 								ELSE 0
 							END = 1
 						AND 
