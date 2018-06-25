@@ -1,13 +1,8 @@
 ﻿using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ConfigUpdate
 {
-    class SchemaContainer
+    internal class SchemaContainer
     {
         internal static SchemaContainer GetTables(string jsonString)
         {
@@ -15,10 +10,6 @@ namespace ConfigUpdate
         }
 
         [JsonProperty("tables")]
-        public ConfigTableCollection tables
-        {
-            get;
-            set;
-        }
+        public ConfigTableCollection tables { get; set; }
     }
 }

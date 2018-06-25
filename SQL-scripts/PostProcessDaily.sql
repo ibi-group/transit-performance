@@ -808,7 +808,6 @@ BEGIN
 					)
 
 	--MARK SUSPECT RECORDS
-
 	--mark trip update events with 0 epoch time as suspect
 	UPDATE dbo.daily_event
 	SET suspect_record = 1
@@ -1369,7 +1368,6 @@ BEGIN
 								WHEN y.route_type <>3 THEN 2700
 								ELSE 3600
 							END >= y.event_time_sec - x.event_time_sec
-
 			WHERE
 					y.suspect_record = 0
 				AND 
@@ -1896,7 +1894,8 @@ BEGIN
 			tst.stop_id = temp.stop_id
 
 	UPDATE daily_missed_stop_times_scheduled
-		SET actual_arrival_time_sec = ed.event_time_sec
+		SET 
+			actual_arrival_time_sec = ed.event_time_sec
 		FROM daily_missed_stop_times_scheduled mst
 			JOIN daily_event ed
 				ON
@@ -1911,7 +1910,8 @@ BEGIN
 						ed.suspect_record = 0
 
 	UPDATE daily_missed_stop_times_scheduled
-		SET actual_departure_time_sec = ed.event_time_sec
+		SET 
+			actual_departure_time_sec = ed.event_time_sec
 		FROM daily_missed_stop_times_scheduled mst
 			JOIN daily_event ed
 				ON
@@ -1926,7 +1926,7 @@ BEGIN
 						ed.suspect_record = 0
 
 	---first update for arrivals----------	
-	--fill in the expected times for the missed events based on the actual times of the previous event and next event
+	--fills in the expected times for the missed events based on the actual times of the previous event and next event
 
 	UPDATE daily_missed_stop_times_scheduled
 		SET	
@@ -1954,7 +1954,8 @@ BEGIN
 			mst.record_id = mb.record_id
 
 	UPDATE daily_missed_stop_times_scheduled
-		SET min_after_arrival_time_sec = st.arrival_time_sec
+		SET 
+			min_after_arrival_time_sec = st.arrival_time_sec
 		FROM daily_missed_stop_times_scheduled mst,
 			gtfs.stop_times st
 		WHERE
@@ -2050,7 +2051,8 @@ BEGIN
 			mst.record_id = mb.record_id
 
 	UPDATE daily_missed_stop_times_scheduled
-		SET min_after_departure_time_sec = st.departure_time_sec
+		SET 
+			min_after_departure_time_sec = st.departure_time_sec
 		FROM daily_missed_stop_times_scheduled mst,
 			gtfs.stop_times st
 		WHERE
@@ -2206,6 +2208,7 @@ BEGIN
 			abcde.abcd_stop_id NOT IN ('70061','70105','70093','70094','70060','70038','70036','70001') ---these are terminal stops on Red, Orange, Blue lines
 		AND 
 			mst.actual_departure_time_sec IS NULL
+
 
 	-- DELETE where the headway is missed at the from stop------------------
 	DELETE FROM ##daily_abcde_time
@@ -5021,7 +5024,7 @@ BEGIN
 		DELETE FROM dbo.historical_headway_time_threshold_trip
 		WHERE 
 			service_date = @service_date_process
-
+			
 	INSERT INTO dbo.historical_headway_time_threshold_trip
 	(
 		service_date

@@ -1121,6 +1121,7 @@ BEGIN
 			,tp.time_period_type					 					   
 			,th.threshold_id
 			,th.min_max_equal
+		
 
 
 			
@@ -1309,7 +1310,7 @@ BEGIN
 		,threshold_historical_average_wait_time_sec
 		,threshold_scheduled_average_wait_time_sec
 	)
-
+	
 		SELECT
 			aht.service_date
 			,aht.stop_id
@@ -1573,7 +1574,7 @@ BEGIN
 		,threshold_scheduled_median_headway_time_sec
 		,threshold_scheduled_average_headway_time_sec
 	)
-
+	
 		SELECT
 			aht.service_date
 			,aht.stop_id

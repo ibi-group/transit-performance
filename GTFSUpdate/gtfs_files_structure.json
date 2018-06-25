@@ -356,65 +356,6 @@
             },
             "required": false
         },
-        "route_names_map_url": {
-            "columns": {
-                "route_name": {
-                    "primaryKey": true,
-                    "type": "VARCHAR(255)"
-                },
-                "url_string": {
-                    "null": false,
-                    "type": "VARCHAR(255)"
-                }
-            },
-            "required": false
-        },
-        "elevators": {
-            "columns": {
-                "line": {
-                    "type": "VARCHAR(255)"
-                },
-                "station_renamed": {
-                    "null": false,
-                    "type": "VARCHAR(255)"
-                },
-                "elev_id": {
-                    "primaryKey": true,
-                    "type": "VARCHAR(255)"
-                },
-                "alt_svc_text": {
-                    "type": "VARCHAR(MAX)"
-                },
-                "alt_svc_text_140": {
-                    "type": "VARCHAR(255)"
-                },
-                "alt_elev_ids": {
-                    "type": "VARCHAR(255)"
-                },
-                "parent_stop_id": {
-                    "null": false,
-                    "type": "VARCHAR(255)"
-                },
-                "elev_type": {
-                    "null": false,
-                    "type": "VARCHAR(255)"
-                }
-            },
-            "required": false
-        },
-        "elev_stop_match": {
-            "columns": {
-                "elev_id": {
-                    "null": false,
-                    "type": "VARCHAR(255)"
-                },
-                "stop_id": {
-                    "null": false,
-                    "type": "VARCHAR(255)"
-                }
-            },
-            "required": false
-        },
         "calendar_dates": {
             "columns": {
                 "service_id": {

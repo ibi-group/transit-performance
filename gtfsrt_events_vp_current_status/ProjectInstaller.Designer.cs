@@ -43,9 +43,9 @@ namespace gtfsrt_events_vp_current_status
             // 
             // serviceInstaller1
             // 
-            this.serviceInstaller1.Description = "GTFS-realtime-service";
-            this.serviceInstaller1.DisplayName = "GTFS-realtime-service";
-            this.serviceInstaller1.ServiceName = "GTFSRealtimeService";
+            this.serviceInstaller1.Description = "gtfsrt_events_vp_current_status";
+            this.serviceInstaller1.DisplayName = "gtfsrt_events_vp_current_status";
+            this.serviceInstaller1.ServiceName = "gtfsrt_events_vp_current_status";
             this.serviceInstaller1.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
             this.serviceInstaller1.AfterInstall += new System.Configuration.Install.InstallEventHandler(this.serviceInstaller1_AfterInstall);
             // 
