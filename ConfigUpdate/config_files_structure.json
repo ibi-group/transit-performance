@@ -44,6 +44,16 @@
 				"min_max_equal": {
 					"null": false,
 					"type": "VARCHAR(255)"
+				},
+				"upper_lower":{
+					"type": "VARCHAR(255)"
+				},
+				"parent_threshold_id":{
+					"type": "VARCHAR(255)"
+				},
+				"parent_child":{
+					"null": false,
+					"type": "INT"
 				}
 			}
 		},
@@ -204,6 +214,16 @@
 
 			}
 		},
+		"config_stop_order_flag_threshold":{
+			"columns":{
+				"stop_order_flag":{
+					"type": "INT"
+				},
+				"threshold_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				}
+},
 		"config_prediction_threshold":{
 			"columns":{
 				"threshold_id":{
@@ -236,4 +256,5 @@
 			}
 		}
 	}
+}
 }
