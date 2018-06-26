@@ -1,12 +1,9 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace GTFS
 {
-    class ColumnSetConverter : JsonConverter
+    internal class ColumnSetConverter : JsonConverter
     {
         public override bool CanConvert(Type objectType)
         {
@@ -15,7 +12,7 @@ namespace GTFS
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            GTFSColumnSet columnSet = new GTFSColumnSet();
+            var columnSet = new GTFSColumnSet();
             while (reader.Read())
             {
                 switch (reader.TokenType)
@@ -23,9 +20,9 @@ namespace GTFS
                     case JsonToken.EndObject:
                         return columnSet;
                     case JsonToken.PropertyName:
-                        string columnName = (string)reader.Value;
+                        var columnName = (string)reader.Value;
                         reader.Read();
-                        GTFSColumn column = serializer.Deserialize<GTFSColumn>(reader);
+                        var column = serializer.Deserialize<GTFSColumn>(reader);
                         column.name = columnName;
                         columnSet.Add(column);
                         break;
@@ -39,7 +36,7 @@ namespace GTFS
             var columnSet = value as GTFSColumnSet;
             writer.WriteStartObject();
 
-            foreach (GTFSColumn column in columnSet)
+            foreach (var column in columnSet)
             {
                 writer.WritePropertyName(column.name);
                 writer.WriteStartObject();

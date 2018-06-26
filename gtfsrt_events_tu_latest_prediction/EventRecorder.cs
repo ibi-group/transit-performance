@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -192,7 +193,7 @@ namespace gtfsrt_events_tu_latest_prediction
 
             foreach (var feedEntity in feedEntities)
             {
-                if (!AcceptList.Contains(feedEntity.trip_update.trip.route_id))
+                if (AcceptList.Any(x => !string.IsNullOrEmpty(x)) && !AcceptList.Contains(feedEntity.trip_update.trip.route_id))
                     continue;
 
                 var tripId = feedEntity.trip_update.trip.trip_id;

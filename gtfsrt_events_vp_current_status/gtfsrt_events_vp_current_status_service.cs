@@ -22,7 +22,7 @@ namespace gtfsrt_events_vp_current_status
             StartGTFSRealtimeService();
         }
 
-        private void StartGTFSRealtimeService()
+        internal void StartGTFSRealtimeService()
         {
             try
             {

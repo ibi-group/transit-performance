@@ -9,11 +9,16 @@ namespace gtfsrt_events_vp_current_status
         /// </summary>
         private static void Main()
         {
+#if (!DEBUG)
             var ServicesToRun = new ServiceBase[]
                                 {
                                     new gtfsrt_events_vp_current_status_service()
                                 };
             ServiceBase.Run(ServicesToRun);
+#else
+            var service = new gtfsrt_events_vp_current_status_service();
+            service.StartGTFSRealtimeService();
+#endif
         }
     }
 }
