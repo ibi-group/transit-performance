@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Text;
 using System.Threading;
 
@@ -78,6 +79,7 @@ namespace gtfsrt_events_tu_latest_prediction
             EventTable.Clear();
             AddRows(insertEventList);
             Log.Debug("Trying to insert " + insertEventList.Count + " rows in database.");
+
             using (var connection = new SqlConnection(SqlConnectionString))
             {
                 using (var sbc = new SqlBulkCopy(connection))
@@ -111,13 +113,17 @@ namespace gtfsrt_events_tu_latest_prediction
                 eventRow["file_time"] = _event.FileTimestamp;
                 eventRow["event_identifier"] = _event.GetEventIdentifier();
                 eventRow["stop_sequence"] = _event.StopSequence;
+                eventRow["vehicle_label"] = _event.VehicleLabel;
+
                 EventTable.Rows.Add(eventRow);
             }
+                var withLabels = EventTable.Rows.Cast<DataRow>().Count(x => !x.IsNull("vehicle_label"));
         }
 
         private void CreateEventTable()
         {
             EventTable = new DataTable {TableName = "dbo.event_rt_trip"};
+
             var route_id = new DataColumn("route_id", typeof (string));
             var trip_id = new DataColumn("trip_id", typeof (string));
             var direction_id = new DataColumn("direction_id", typeof (int));
@@ -129,6 +135,7 @@ namespace gtfsrt_events_tu_latest_prediction
             var service_date = new DataColumn("service_date", typeof (DateTime));
             var vehicle_id = new DataColumn("vehicle_id", typeof (string));
             var stop_sequence = new DataColumn("stop_sequence", typeof (int));
+            var vehicle_label = new DataColumn("vehicle_label", typeof (string));
 
             EventTable.Columns.Add(route_id);
             EventTable.Columns.Add(trip_id);
@@ -141,6 +148,7 @@ namespace gtfsrt_events_tu_latest_prediction
             EventTable.Columns.Add(service_date);
             EventTable.Columns.Add(vehicle_id);
             EventTable.Columns.Add(stop_sequence);
+            EventTable.Columns.Add(vehicle_label);
         }
 
         private void DeleteRows(List<Event> updateEventList)
