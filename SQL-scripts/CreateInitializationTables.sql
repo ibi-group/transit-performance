@@ -108,7 +108,8 @@ CREATE TABLE dbo.event_rt_trip
 	,vehicle_id			VARCHAR(255)	
 	,event_type			CHAR(3)			
 	,event_time			INT				
-	,event_identifier	VARCHAR(255)	
+	,event_identifier	VARCHAR(255)
+	,vehicle_label		VARCHAR(255)	
 );
 
 IF OBJECT_ID('dbo.event_rt_trip_archive','U') IS NOT NULL
@@ -126,7 +127,8 @@ CREATE TABLE dbo.event_rt_trip_archive
 	,vehicle_id			VARCHAR(255)	
 	,event_type			CHAR(3)			
 	,event_time			INT				
-	,event_identifier	VARCHAR(255)	
+	,event_identifier	VARCHAR(255)
+	,vehicle_label		VARCHAR(255)	
 );
 
 CREATE NONCLUSTERED INDEX IX_event_rt_trip_archive_index_1
@@ -243,6 +245,7 @@ CREATE TABLE dbo.historical_event
 	,event_processed_rt		BIT				NOT NULL
 	,event_processed_daily	BIT				NOT NULL
 	,suspect_record			BIT				NOT NULL
+	,vehicle_label			VARCHAR(255)	
 );
 
 CREATE NONCLUSTERED INDEX IX_historical_event_service_date

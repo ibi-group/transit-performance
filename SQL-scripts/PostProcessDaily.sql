@@ -119,6 +119,7 @@ BEGIN
 		,stop_id				VARCHAR(255) NOT NULL
 		,stop_sequence			INT NOT NULL
 		,vehicle_id				VARCHAR(255) NOT NULL
+		,vehicle_label			VARCHAR(255) NOT NULL
 		,event_type				CHAR(3) NOT NULL
 		,event_time				INT NOT NULL
 		,event_time_sec			INT NOT NULL
@@ -139,6 +140,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -156,6 +158,7 @@ BEGIN
 		,ert.stop_id
 		,ert.stop_sequence
 		,ert.vehicle_id
+		,ert.vehicle_label
 		,ert.event_type
 		,ert.event_time
 		,DATEDIFF(s,ert.service_date,dbo.fnConvertEpochToDateTime(ert.event_time)) AS event_time_sec-- + 3600 AS event_time_sec  --FOR DAYLIGHT SAVINGS CHANGE
@@ -240,7 +243,7 @@ BEGIN
 
 	CREATE TABLE dbo.daily_event 
 	(
-		record_id					INT				PRIMARY KEY NOT NULL IDENTITY
+		record_id				INT				PRIMARY KEY NOT NULL IDENTITY
 		,service_date			DATE			NOT NULL
 		,file_time				INT				NOT NULL
 		,route_id				VARCHAR(255)	NOT NULL
@@ -250,6 +253,7 @@ BEGIN
 		,stop_id				VARCHAR(255)	NOT NULL
 		,stop_sequence			INT				NOT NULL
 		,vehicle_id				VARCHAR(255)	NOT NULL
+		,vehicle_label			VARCHAR(255)	NOT NULL
 		,event_type				CHAR(3)			NOT NULL
 		,event_time				INT				NOT NULL
 		,event_time_sec			INT				NOT NULL
@@ -301,6 +305,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -319,6 +324,7 @@ BEGIN
 			,stop_id
 			,stop_sequence
 			,vehicle_id
+			,vehicle_label
 			,event_type
 			,event_time
 			,event_time_sec
@@ -537,6 +543,7 @@ BEGIN
 		,stop_id				VARCHAR(255)	NOT NULL
 		,stop_sequence			INT				NOT NULL
 		,vehicle_id				VARCHAR(255)	NOT NULL
+		,vehicle_label			VARCHAR(255)
 		,event_type				CHAR(3)			NOT NULL
 		,event_time				INT				NOT NULL
 		,event_time_sec			INT				NOT NULL
@@ -555,6 +562,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -571,6 +579,7 @@ BEGIN
 		,dtu.stop_id
 		,dtu.stop_sequence
 		,dtu.vehicle_id
+		,dtu.vehicle_label
 		,dtu.event_type
 		,dtu.event_time
 		,dtu.event_time_sec
@@ -739,6 +748,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -755,6 +765,7 @@ BEGIN
 		,tue.stop_id
 		,tue.stop_sequence
 		,tue.vehicle_id
+		,tue.vehicle_label
 		,tue.event_type
 		,tue.event_time
 		,tue.event_time_sec
@@ -4553,6 +4564,7 @@ BEGIN
 		,event_processed_rt
 		,event_processed_daily
 		,suspect_record
+		,vehicle_label
 	)
 
 	SELECT
@@ -4572,6 +4584,7 @@ BEGIN
 		,event_processed_rt
 		,event_processed_daily
 		,suspect_record
+		,vehicle_label
 	FROM dbo.daily_event
 
 	IF

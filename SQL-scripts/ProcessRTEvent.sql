@@ -52,8 +52,6 @@ BEGIN
 			dbo.rt_event.direction_id IS NULL
 			AND dbo.rt_event.service_date = @current_service_date
 
-
-
 	UPDATE dbo.rt_event
 		SET event_time_sec = DATEDIFF(s,service_date,dbo.fnConvertEpochToDateTime(event_time))
 		WHERE
@@ -73,6 +71,7 @@ BEGIN
 		,stop_id		VARCHAR(255)
 		,stop_sequence	INT
 		,vehicle_id		VARCHAR(255)
+		,vehicle_label	VARCHAR(255)
 		,event_type		CHAR(3)
 		,event_time		INT
 		,event_time_sec	INT
@@ -88,6 +87,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -103,6 +103,7 @@ BEGIN
 			,stop_id
 			,stop_sequence
 			,vehicle_id
+			,vehicle_label
 			,event_type
 			,event_time
 			,event_time_sec
@@ -134,6 +135,7 @@ BEGIN
 			,stop_id		VARCHAR(255)
 			,stop_sequence	INT
 			,vehicle_id		VARCHAR(255)
+			,vehicle_label	VARCHAR(255)
 			,event_type		CHAR(3)
 			,event_time		INT
 			,event_time_sec	INT
@@ -184,6 +186,7 @@ BEGIN
 				,stop_id
 				,stop_sequence
 				,vehicle_id
+				,vehicle_label
 				,event_type
 				,event_time
 				,event_time_sec
@@ -199,6 +202,7 @@ BEGIN
 					,stop_id
 					,stop_sequence
 					,vehicle_id
+					,vehicle_label
 					,event_type
 					,event_time
 					,event_time_sec
@@ -630,6 +634,7 @@ BEGIN
 				,stop_id
 				,stop_sequence
 				,vehicle_id
+				,vehicle_label
 				,event_type
 				,event_time
 				,event_time_sec
@@ -644,6 +649,7 @@ BEGIN
 					,stop_id
 					,stop_sequence
 					,vehicle_id
+					,vehicle_label
 					,event_type
 					,event_time
 					,event_time_sec
@@ -1229,6 +1235,7 @@ BEGIN
 				,stop_id
 				,stop_sequence
 				,vehicle_id
+				,vehicle_label
 				,event_type
 				,event_time
 				,event_time_sec
@@ -1244,6 +1251,7 @@ BEGIN
 					,stop_id
 					,stop_sequence
 					,vehicle_id
+					,vehicle_label
 					,event_type
 					,event_time
 					,event_time_sec
