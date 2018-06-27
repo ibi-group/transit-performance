@@ -166,6 +166,12 @@ BEGIN
 			r.route_type = 0
 			OR r.route_type = 1
 			OR r.route_type = 2 --added cr
+			OR
+					(
+						r.route_type = 3
+					AND
+						r.route_id IN ('712','713')
+					)
 			)
 			AND (
 			(@day_of_the_week = 'Monday'
@@ -211,6 +217,8 @@ BEGIN
 			r.route_type = 1 --subway
 			OR
 			r.route_type = 2 --cr
+			OR
+			r.route_type = 3 --bus
 			)
 
 
