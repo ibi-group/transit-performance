@@ -119,7 +119,7 @@ BEGIN
 		,stop_id				VARCHAR(255) NOT NULL
 		,stop_sequence			INT NOT NULL
 		,vehicle_id				VARCHAR(255) NOT NULL
-		,vehicle_label			VARCHAR(255) NOT NULL
+		,vehicle_label			VARCHAR(255) 
 		,event_type				CHAR(3) NOT NULL
 		,event_time				INT NOT NULL
 		,event_time_sec			INT NOT NULL
@@ -253,7 +253,7 @@ BEGIN
 		,stop_id				VARCHAR(255)	NOT NULL
 		,stop_sequence			INT				NOT NULL
 		,vehicle_id				VARCHAR(255)	NOT NULL
-		,vehicle_label			VARCHAR(255)	NOT NULL
+		,vehicle_label			VARCHAR(255)	
 		,event_type				CHAR(3)			NOT NULL
 		,event_time				INT				NOT NULL
 		,event_time_sec			INT				NOT NULL
