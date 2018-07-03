@@ -54,6 +54,9 @@
 				"parent_child":{
 					"null": false,
 					"type": "INT"
+				},
+				"dashboard_name":{
+					"type": "VARCHAR(255)"
 				}
 			}
 		},
