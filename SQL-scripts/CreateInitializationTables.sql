@@ -960,7 +960,7 @@ CREATE TABLE dbo.config_stop_order_flag_threshold
 );
 
 --Create Prediction Thresholds Table
-IF OBJECT_Id('dbo.config_prediction_threshold','U') IS NOT NULL
+IF OBJECT_ID('dbo.config_prediction_threshold','U') IS NOT NULL
 	DROP TABLE dbo.config_prediction_threshold
 
 CREATE TABLE dbo.config_prediction_threshold
@@ -973,4 +973,15 @@ CREATE TABLE dbo.config_prediction_threshold
 	,bin_upper					INT
 	,pred_error_threshold_lower	INT
 	,pred_error_threshold_upper	INT
+)
+
+--Create Dashboard Thresholds Table
+IF OBJECT_ID('dbo.config_dashboard_threshold','U') IS NOT NULL
+	DROP TABLE dbo.config_dashboard_threshold
+
+CREATE TABLE dbo.config_dashboard_threshold
+(
+	dashboard_id	VARCHAR(255) PRIMARY KEY
+	,dashboard_name	VARCHAR(255)
+	,threshold_id	VARCHAR(255)
 )
