@@ -12,16 +12,16 @@ namespace gtfsrt_events_tu_latest_prediction
     internal class Entity
     {
         internal DateTime ServiceDate { get; set; }
-        internal string RouteId;
-        internal string TripId;
-        internal string StopId;
-        internal uint StopSequence;
-        internal string VehicleId;
-        internal EventType _EventType;
-        internal long EventTime;
-        internal ulong FileTimestamp;
+        internal readonly string RouteId;
+        internal readonly string TripId;
+        internal readonly string StopId;
+        internal readonly uint StopSequence;
+        internal readonly string VehicleId;
+        internal string VehicleLabel;
+        internal readonly EventType _EventType;
+        internal readonly long EventTime;
+        internal readonly ulong FileTimestamp;
         internal uint? DirectionId;
-
 
         internal Entity()
         {
@@ -32,19 +32,17 @@ namespace gtfsrt_events_tu_latest_prediction
          * Parameterized constructor
          * */
 
-        internal Entity
-            (
-            DateTime serviceDate,
-            string routeId,
-            string tripId,
-            string stopId,
-            uint stopSequence,
-            string vehicleId,
-            EventType eventType,
-            long eventTime,
-            ulong fileTimestamp,
-            uint? directionId
-            )
+        internal Entity(DateTime serviceDate,
+                        string routeId,
+                        string tripId,
+                        string stopId,
+                        uint stopSequence,
+                        string vehicleId,
+                        EventType eventType,
+                        long eventTime,
+                        ulong fileTimestamp,
+                        uint? directionId,
+                        string vehicleLabel)
         {
             ServiceDate = serviceDate;
             RouteId = routeId;
@@ -56,7 +54,7 @@ namespace gtfsrt_events_tu_latest_prediction
             EventTime = eventTime;
             FileTimestamp = fileTimestamp;
             DirectionId = directionId;
-
+            VehicleLabel = vehicleLabel;
         }
 
         /*

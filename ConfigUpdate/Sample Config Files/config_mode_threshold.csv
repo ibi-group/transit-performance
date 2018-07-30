@@ -1,4 +1,4 @@
-﻿route_type,threshold_id
+route_type,threshold_id
 0,threshold_id_01
 0,threshold_id_02
 0,threshold_id_03
@@ -24,3 +24,8 @@
 2,threshold_id_10
 2,threshold_id_11
 2,threshold_id_12
+3,threshold_id_14
+3,threshold_id_17
+3,threshold_id_20
+3,threshold_id_21
+3,threshold_id_22

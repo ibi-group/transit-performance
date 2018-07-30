@@ -14,7 +14,7 @@ namespace gtfsrt_events_tu_latest_prediction
             {
                 connection.Open();
 
-                var query1 = @"INSERT INTO dbo.event_rt_trip_archive SELECT * FROM dbo.event_rt_trip";
+                const string query1 = @"INSERT INTO dbo.event_rt_trip_archive SELECT * FROM dbo.event_rt_trip";
                 var cmd = new SqlCommand
                           {
                               Connection = connection,
@@ -25,18 +25,18 @@ namespace gtfsrt_events_tu_latest_prediction
 
                 if (rowsInserted > 0)
                 {
-                    var query2 = "DELETE FROM dbo.event_rt_trip";
+                    const string query2 = "DELETE FROM dbo.event_rt_trip";
                     cmd.CommandText = query2;
                     cmd.CommandTimeout = 30;
                     rowsDeleted = cmd.ExecuteNonQuery();
                 }
 
-                if (rowsInserted == rowsDeleted)
-                {
-                    Log.Debug("Moved " + rowsInserted + " events into archive table.");
-                    Log.Debug("Archiving successful");
-                    return true;
-                }
+                if (rowsInserted != rowsDeleted)
+                    return false;
+
+                Log.Debug("Moved " + rowsInserted + " events into archive table.");
+                Log.Debug("Archiving successful");
+                return true;
             }
             return false;
         }

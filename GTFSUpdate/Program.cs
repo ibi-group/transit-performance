@@ -1,19 +1,15 @@
 ﻿using log4net;
 using log4net.Config;
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace GTFS
 {
-    class Program
+    internal class Program
     {
-        private static ILog Log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
+        private static readonly ILog Log = LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
 
-        private static int Main(string[] args)
+        private static int Main()
         {
             try
             {
@@ -21,53 +17,45 @@ namespace GTFS
 
                 Log.Info("\n\nGTFS schedule update program start.");
 
-                GTFSUpdate gtfsUpdate = new GTFSUpdate();
+                var gtfsUpdate = new GTFSUpdate();
 
-                Log.Info("Initialising GTFS update");
-                bool initialisationSuccessful = gtfsUpdate.InitialiseGTFSUpdate(Log);
+                Log.Info("Initializing GTFS update");
+                var initialisationSuccessful = gtfsUpdate.InitialiseGTFSUpdate(Log);
 
                 if (initialisationSuccessful)
                 {
                     Log.Info("Initialisation of GTFS update successful.");
                     Log.Info("Running GTFS update");
-                    int runningSuccessful = gtfsUpdate.RunGTFSUpdate();
-                    if (runningSuccessful == 0)
-                    {
+                    var runningSuccessful = gtfsUpdate.RunGTFSUpdate();
 
-                        Log.Info("Begin Migrating process.");
-                        GTFSMigrateProcess gtfsMigrateProcess = new GTFSMigrateProcess();
-                        bool migrationSuccessful = gtfsMigrateProcess.BeginMigration(Log);
-                        if (migrationSuccessful)
-                        {
-                            Log.Info("GTFS migration successful");
-                            Log.Info("GTFS Schedule update successful.");
-                            Log.Info("GTFS schedule update program end.\n\n");
-                            return 0;
-                        }
-                        else
-                        {
+                    switch (runningSuccessful)
+                    {
+                        case 0:
+                            Log.Info("Begin Migrating process.");
+                            var gtfsMigrateProcess = new GTFSMigrateProcess();
+                            var migrationSuccessful = gtfsMigrateProcess.BeginMigration(Log);
+                            if (migrationSuccessful)
+                            {
+                                Log.Info("GTFS migration successful");
+                                Log.Info("GTFS Schedule update successful.");
+                                Log.Info("GTFS schedule update program end.\n\n");
+                                return 0;
+                            }
                             Log.Info("GTFS migration failed");
                             Log.Info("GTFS Schedule update failed.");
                             Log.Info("GTFS schedule update program end.\n\n");
                             return 1;
-                        }
-                    }
-                    else
-                    {
-                        if (runningSuccessful == 1)
-                        {
+
+                        case 1:
                             Log.Info("GTFS Schedule update failed.");
                             Log.Info("GTFS schedule update program end.\n\n");
-                        }
-                        return 1;
+                            break;
                     }
-                }
-                else
-                {
-                    Log.Info("Initialisation of GTFS update failed.");
-                    Log.Info("GTFS schedule update program end.\n\n");
                     return 1;
                 }
+                Log.Info("Initialization of GTFS update failed.");
+                Log.Info("GTFS schedule update program end.\n\n");
+                return 1;
 
                 //Log.Info("GTFS schedule update program end.\n\n");
             }
