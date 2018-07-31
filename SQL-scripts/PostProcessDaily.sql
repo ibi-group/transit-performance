@@ -59,6 +59,40 @@ BEGIN
 		,('Green-E',0,'70199',80,'70197')
 		,('Green-E',0,'70199',80,'70198')
 
+	--Terminals and Park Street for eliminating double headways
+	DECLARE @multiple_berths as TABLE
+	(
+		route_id			VARCHAR(255)
+		,direction_id		INT
+		,stop_id			VARCHAR(255)
+	)
+
+	INSERT INTO @multiple_berths
+	VALUES
+		('Blue',0,'70059')
+		,('Blue',1,'70038')
+		,('Orange',0,'70036')
+		,('Orange',1,'70001')
+		,('Red',0,'70061')
+		,('Red',1,'70105')
+		,('Red',1,'70094')
+		,('Green-B',0,'70196')
+		,('Green-C',0,'70197')
+		,('Green-D',0,'70198')
+		,('Green-E',0,'70199')
+		,('Green-B',1,'70200')
+		,('Green-C',1,'70200')
+		,('Green-D',1,'70200')
+		,('Green-E',1,'70200')
+		,('Green-B',0,'70210')
+		,('Green-C',0,'70210')
+		,('Green-D',0,'70210')
+		,('Green-E',0,'70210')
+		,('Green-B',1,'70106')
+		,('Green-C',1,'70238')
+		,('Green-D',1,'70160')
+		,('Green-E',1,'70260')
+
 	--ensure events from vehicle positions have direction_id and event_time_sec----------------------
 	UPDATE dbo.rt_event
 		SET direction_id = t.direction_id
@@ -1668,7 +1702,14 @@ BEGIN
 						AND 
 							y.cde_trip_id <> x.cde_trip_id
 						AND 
-							y.c_time_sec > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
+							CASE
+								WHEN
+									y.cd_stop_id IN (SELECT stop_id FROM @multiple_berths)
+									AND y.cde_direction_id = (SELECT DISTINCT direction_id FROM @multiple_berths WHERE stop_id = y.cd_stop_id)
+								THEN y.d_time_sec
+								ELSE y.c_time_sec
+							END > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
+							--BUT compare departure times only for subway/Green Line terminals and Park Street (in both directions)
 						--, but not by more than 30 minutes, as determined by the next statement
 						AND 
 							CASE
