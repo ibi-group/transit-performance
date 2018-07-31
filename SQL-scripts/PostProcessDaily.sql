@@ -240,7 +240,7 @@ BEGIN
 
 	CREATE TABLE dbo.daily_event 
 	(
-		record_id					INT				PRIMARY KEY NOT NULL IDENTITY
+		record_id				INT				PRIMARY KEY NOT NULL IDENTITY
 		,service_date			DATE			NOT NULL
 		,file_time				INT				NOT NULL
 		,route_id				VARCHAR(255)	NOT NULL
@@ -1461,7 +1461,7 @@ BEGIN
 				(
 					SELECT d.*, st.checkpoint_id
 					FROM dbo.daily_event d
-					JOIN dbo.daily_stop_times_sec st
+					LEFT JOIN dbo.daily_stop_times_sec st
 						ON 
 								d.service_date = st.service_date
 							AND 
@@ -1481,7 +1481,7 @@ BEGIN
 				(
 					SELECT d.*, st.checkpoint_id
 					FROM dbo.daily_event d
-					JOIN dbo.daily_stop_times_sec st
+					LEFT JOIN dbo.daily_stop_times_sec st
 						ON 
 								d.service_date = st.service_date
 							AND 
@@ -1636,7 +1636,7 @@ BEGIN
 			,d.route_type
 		FROM
 			dbo.daily_event d
-				JOIN dbo.daily_stop_times_sec st
+				LEFT JOIN dbo.daily_stop_times_sec st
 					ON
 							d.service_date = st.service_date 
 						AND 
@@ -1663,7 +1663,7 @@ BEGIN
 			END >= c_time_sec - a_time_sec
 		AND 
 			CASE 
-				WHEN @use_checkpoints_only = 1 THEN checkpoint_id 
+				WHEN @use_checkpoints_only = 1 AND route_type = 3 THEN checkpoint_id 
 				ELSE '0'
 			END IS NOT NULL
 
