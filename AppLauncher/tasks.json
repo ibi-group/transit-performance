@@ -79,6 +79,19 @@
 			"Enable":"True",
 			"Arguments": []
         },
+		{	
+            "Name": "dbo.ClearData",
+            "TaskType": "StoredProcedure",
+			"Order": 8,
+			"Enable":"True",
+			"Arguments": [
+                {
+                    "Name": "number_of_days",
+                    "Value": number_of_days,
+                    "Datatype": "integer"
+                }
+            ]
+        }
 		
     ]
 }
