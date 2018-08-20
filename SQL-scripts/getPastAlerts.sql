@@ -41,13 +41,6 @@ BEGIN
 		,header_text			VARCHAR(255)
 		,description_text		VARCHAR(1000)
 		,url					VARCHAR(255)
-		,agency_id				VARCHAR(255)
-		,route_id				VARCHAR(255)
-		,route_type				INT
-		,trip_id				VARCHAR(255)
-		,stop_id				VARCHAR(255)
-		,active_period_start	INT
-		,active_period_end		INT
 	)
 
 	IF (DATEDIFF(D,@from_time,@to_time) <= 31)
@@ -68,13 +61,6 @@ BEGIN
 				,header_text			
 				,description_text		
 				,url					
-				,agency_id				
-				,route_id				
-				,route_type				
-				,trip_id				
-				,stop_id				
-				,active_period_start	
-				,active_period_end		
 			)
 
 			SELECT DISTINCT 
@@ -87,13 +73,6 @@ BEGIN
 				,a.header_text
 				,a.description_text
 				,a.url
-				,e.agency_id
-				,e.route_id
-				,e.route_type
-				,e.trip_id
-				,e.stop_id
-				,p.active_period_start
-				,p.active_period_end
 
 			FROM
 				dbo.rt_alert a
@@ -142,14 +121,7 @@ BEGIN
 				,effect					
 				,header_text			
 				,description_text		
-				,url					
-				,agency_id				
-				,route_id				
-				,route_type				
-				,trip_id				
-				,stop_id				
-				,active_period_start	
-				,active_period_end		
+				,url						
 			)
 
 			SELECT DISTINCT 
@@ -162,13 +134,6 @@ BEGIN
 				,a.header_text
 				,a.description_text
 				,a.url
-				,e.agency_id
-				,e.route_id
-				,e.route_type
-				,e.trip_id
-				,e.stop_id
-				,p.active_period_start
-				,p.active_period_end
 
 			FROM
 				dbo.rt_alert a
@@ -210,15 +175,8 @@ BEGIN
 		,header_text			
 		,description_text		
 		,url					
-		,agency_id				
-		,route_id				
-		,route_type				
-		,trip_id				
-		,stop_id				
-		,active_period_start	
-		,active_period_end	
 	FROM @alertstemp
-	ORDER BY alert_id, version_id, active_period_start, active_period_end
+	ORDER BY alert_id, version_id
 
 	END
 
