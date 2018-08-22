@@ -34,13 +34,6 @@ BEGIN
 	(
 		alert_id				VARCHAR(255)
 		,version_id				INT
-		,valid_from				DATETIME2
-		,valid_to				DATETIME2
-		,cause					VARCHAR(255)
-		,effect					VARCHAR(255)
-		,header_text			VARCHAR(255)
-		,description_text		VARCHAR(1000)
-		,url					VARCHAR(255)
 	)
 
 	IF (DATEDIFF(D,@from_time,@to_time) <= 31)
@@ -52,27 +45,13 @@ BEGIN
 		
 			INSERT INTO @alertstemp
 			(
-				alert_id				
-				,version_id				
-				,valid_from				
-				,valid_to				
-				,cause					
-				,effect					
-				,header_text			
-				,description_text		
-				,url					
+				alert_id
+				,version_id								
 			)
 
 			SELECT DISTINCT 
 				a.alert_id
 				,a.version_id
-				,dbo.fnConvertEpochToDateTime (a.first_file_time) as valid_from
-				,dbo.fnConvertEpochToDateTime (a.last_file_time) as valid_to
-				,a.cause
-				,a.effect
-				,a.header_text
-				,a.description_text
-				,a.url
 
 			FROM
 				dbo.rt_alert a
@@ -113,27 +92,13 @@ BEGIN
 
 			INSERT INTO @alertstemp
 			(
-				alert_id				
-				,version_id				
-				,valid_from				
-				,valid_to				
-				,cause					
-				,effect					
-				,header_text			
-				,description_text		
-				,url						
+				alert_id
+				,version_id									
 			)
 
 			SELECT DISTINCT 
 				a.alert_id
 				,a.version_id
-				,dbo.fnConvertEpochToDateTime (a.first_file_time) as valid_from
-				,dbo.fnConvertEpochToDateTime (a.last_file_time) as valid_to
-				,a.cause
-				,a.effect
-				,a.header_text
-				,a.description_text
-				,a.url
 
 			FROM
 				dbo.rt_alert a
@@ -167,14 +132,7 @@ BEGIN
 
 	SELECT
 		alert_id				
-		,version_id				
-		,valid_from				
-		,valid_to				
-		,cause					
-		,effect					
-		,header_text			
-		,description_text		
-		,url					
+		,version_id								
 	FROM @alertstemp
 	ORDER BY alert_id, version_id
 
