@@ -32,8 +32,27 @@ BEGIN
 	IF (DATEDIFF(D,@from_time,@to_time) <= 31)
 	BEGIN --if a timespan is less than 31 days, then do the processing, if not return empty set
 
+		DECLARE @alertstemp AS TABLE
+		(
+			alert_id				VARCHAR(255)
+			,min_first_file_time	DATETIME
+			,max_last_file_time		DATETIME
+			,closed					INT
+		)
+
+		INSERT INTO @alertstemp
+		(
+			alert_id
+			,min_first_file_time
+			,max_last_file_time
+			,closed
+		)
+
 		SELECT DISTINCT 
 			a.alert_id
+			,dbo.fnConvertEpochToDateTime (MIN(a.first_file_time)) as min_first_file_time
+			,dbo.fnConvertEpochToDateTime (MAX(a.last_file_time)) as max_last_file_time
+			,a.closed
 
 		FROM
 			dbo.rt_alert a
@@ -60,9 +79,21 @@ BEGIN
 					p.active_period_start <= dbo.fnConvertDateTimeToEpoch(@to_time)
 				AND
 					p.active_period_end >= dbo.fnConvertDateTimeToEpoch(@from_time)
+		GROUP BY
+			a.alert_id
+			,a.closed
 
 		ORDER BY a.alert_id
+
 	END
+
+	SELECT DISTINCT 
+		alert_id
+	FROM @alertstemp 
+	WHERE
+			min_first_file_time <= @to_time
+		AND
+			max_last_file_time >= @from_time
 
 END
 

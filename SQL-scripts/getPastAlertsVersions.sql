@@ -18,10 +18,10 @@ GO
 
 CREATE PROCEDURE dbo.getPastAlertsVersions
 	
-	@alert_id		VARCHAR(255)
+	@alert_id				VARCHAR(255)
 	,@from_time				DATETIME 
 	,@to_time				DATETIME 
-	,@include_all_versions	BIT  = 0 --default is FALSE, do not include all version
+	,@include_all_versions	BIT = 0 --default is FALSE, do not include all version
 	
 AS
 
@@ -41,10 +41,47 @@ BEGIN
 		,url					VARCHAR(255)
 	)
 		
-	IF @include_all_versions = 0
+	IF @include_all_versions = 1
 
 	BEGIN
-		
+
+		INSERT INTO @alertsversionstemp
+		(
+			alert_id
+			,version_id	
+			,valid_from
+			,valid_to
+			,cause
+			,effect
+			,header_text
+			,description_text
+			,url									
+		)
+
+		SELECT DISTINCT 
+			a.alert_id
+			,a.version_id
+			,dbo.fnConvertEpochToDateTime (a.first_file_time) as valid_from
+			,dbo.fnConvertEpochToDateTime (a.last_file_time) as valid_to
+			,a.cause
+			,a.effect
+			,a.header_text
+			,a.description_text
+			,a.url
+
+		FROM
+			dbo.rt_alert a
+
+		WHERE
+					a.alert_id = @alert_id
+				AND
+					a.closed = 0
+
+	END
+
+	ELSE
+	BEGIN
+
 		INSERT INTO @alertsversionstemp
 		(
 			alert_id
@@ -78,43 +115,6 @@ BEGIN
 					a.first_file_time <= dbo.fnConvertDateTimeToEpoch(@to_time)
 				AND
 					a.last_file_time >= dbo.fnConvertDateTimeToEpoch(@from_time)
-				AND
-					a.closed = 0
-
-	END
-
-	ELSE
-	BEGIN
-
-		INSERT INTO @alertsversionstemp
-		(
-			alert_id
-			,version_id	
-			,valid_from
-			,valid_to
-			,cause
-			,effect
-			,header_text
-			,description_text
-			,url									
-		)
-
-		SELECT DISTINCT 
-			a.alert_id
-			,a.version_id
-			,dbo.fnConvertEpochToDateTime (a.first_file_time) as valid_from
-			,dbo.fnConvertEpochToDateTime (a.last_file_time) as valid_to
-			,a.cause
-			,a.effect
-			,a.header_text
-			,a.description_text
-			,a.url
-
-		FROM
-			dbo.rt_alert a
-
-		WHERE
-					a.alert_id = @alert_id
 				AND
 					a.closed = 0
 		
