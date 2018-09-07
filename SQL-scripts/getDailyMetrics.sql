@@ -5,8 +5,8 @@
 
 --This stored procedure is called by the dailymetrics API call.  It selects daily metrics for a particular route (or all routes) and time period.
 
-IF OBJECT_ID('getDailyMetrics') IS NOT NULL
-	DROP PROCEDURE dbo.getDailyMetrics
+IF OBJECT_ID('getDailyMetrics_V3') IS NOT NULL
+	DROP PROCEDURE dbo.getDailyMetrics_V3
 GO
 
 
@@ -16,7 +16,7 @@ GO
 SET QUOTED_IDENTIFIER ON
 GO
 
-CREATE PROCEDURE dbo.getDailyMetrics
+CREATE PROCEDURE dbo.getDailyMetrics_V3
 
 	@route_ids str_val_type READONLY
 	,@from_date VARCHAR(255)
@@ -34,23 +34,18 @@ BEGIN
 		,threshold_id		VARCHAR(255)
 		,threshold_name		VARCHAR(255)
 		,threshold_type		VARCHAR(255)
+		,time_period_type	VARCHAR(255)
 		,metric_result		FLOAT
 		,metric_result_trip	FLOAT
 	)
 
 	IF
 		(
-		(DATEDIFF(D,@from_date,@to_date) <= 31)
-		AND (
-		(
-			SELECT
-				COUNT(str_val)
-			FROM @route_ids
-			WHERE
-				str_val NOT IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E')
+			(DATEDIFF(D,@from_date,@to_date) <= 31)
+		AND 
+			((SELECT COUNT(str_val) FROM @route_ids WHERE str_val NOT IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E'))= 0)
 		)
-		= 0)
-		)
+
 	BEGIN --if a timespan is less than 6 hours and routes are only subway/light rail, then do the processing, if not return empty set
 
 		INSERT INTO @metricstemp
@@ -60,6 +55,7 @@ BEGIN
 				,threshold_id
 				,threshold_name
 				,threshold_type
+				,time_period_type
 				,metric_result
 				,metric_result_trip --added
 
@@ -67,23 +63,17 @@ BEGIN
 
 			WHERE
 
-				(
-				(
-					SELECT
-						COUNT(str_val)
-					FROM @route_ids
-				)
-				= 0
-				OR route_id IN
-				(
-					SELECT
-						str_val
-					FROM @route_ids
-				)
-				)
-				AND service_date >= @from_date
-				AND service_date <= @to_date
-				AND route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E')
+					(
+						(SELECT COUNT(str_val) FROM @route_ids) = 0
+					OR 
+						route_id IN (SELECT str_val FROM @route_ids)
+					)
+				AND 
+					service_date >= @from_date
+				AND 
+					service_date <= @to_date
+				AND 
+					route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E')
 
 
 	END --if a timespan is less than 31 days and routes are only subway/light rail, then do the processing, if not return empty set
