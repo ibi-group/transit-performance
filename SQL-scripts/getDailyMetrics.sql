@@ -84,11 +84,12 @@ BEGIN
 		,threshold_id
 		,threshold_name
 		,threshold_type
+		,time_period_type
 		,metric_result
 		,metric_result_trip
 	FROM @metricstemp
 	ORDER BY
-		service_date,route_id,threshold_id
+		service_date,route_id,threshold_id,time_period_type
 
 
 END
