@@ -1704,10 +1704,12 @@ BEGIN
 						AND 
 							CASE
 								WHEN
-									y.cde_route_id IN ('Green-B','Green-C','Green-D','Green-E')
-									OR (
-										y.cd_stop_id IN (SELECT stop_id FROM @multiple_berths)
-										AND y.cde_direction_id = (SELECT DISTINCT direction_id FROM @multiple_berths WHERE stop_id = y.cd_stop_id)
+										y.cde_route_id IN ('Green-B','Green-C','Green-D','Green-E')
+									OR 
+									(
+											y.cd_stop_id IN (SELECT stop_id FROM @multiple_berths)
+										AND 
+											y.cde_direction_id = (SELECT DISTINCT direction_id FROM @multiple_berths WHERE stop_id = y.cd_stop_id)
 									)
 								THEN y.d_time_sec
 								ELSE y.c_time_sec
