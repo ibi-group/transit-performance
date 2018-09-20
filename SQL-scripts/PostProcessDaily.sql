@@ -178,6 +178,7 @@ BEGIN
 		,stop_id				VARCHAR(255) NOT NULL
 		,stop_sequence			INT NOT NULL
 		,vehicle_id				VARCHAR(255) NOT NULL
+		,vehicle_label			VARCHAR(255) 
 		,event_type				CHAR(3) NOT NULL
 		,event_time				INT NOT NULL
 		,event_time_sec			INT NOT NULL
@@ -198,6 +199,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -215,6 +217,7 @@ BEGIN
 		,ert.stop_id
 		,ert.stop_sequence
 		,ert.vehicle_id
+		,ert.vehicle_label
 		,ert.event_type
 		,ert.event_time
 		,DATEDIFF(s,ert.service_date,dbo.fnConvertEpochToDateTime(ert.event_time)) AS event_time_sec
@@ -320,7 +323,7 @@ BEGIN
 
 	CREATE TABLE dbo.daily_event 
 	(
-		record_id					INT				PRIMARY KEY NOT NULL IDENTITY
+		record_id				INT				PRIMARY KEY NOT NULL IDENTITY
 		,service_date			DATE			NOT NULL
 		,file_time				INT				NOT NULL
 		,route_id				VARCHAR(255)	NOT NULL
@@ -330,6 +333,7 @@ BEGIN
 		,stop_id				VARCHAR(255)	NOT NULL
 		,stop_sequence			INT				NOT NULL
 		,vehicle_id				VARCHAR(255)	NOT NULL
+		,vehicle_label			VARCHAR(255)	
 		,event_type				CHAR(3)			NOT NULL
 		,event_time				INT				NOT NULL
 		,event_time_sec			INT				NOT NULL
@@ -381,6 +385,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -399,6 +404,7 @@ BEGIN
 			,stop_id
 			,stop_sequence
 			,vehicle_id
+			,vehicle_label
 			,event_type
 			,event_time
 			,event_time_sec
@@ -912,6 +918,7 @@ BEGIN
 		,stop_id				VARCHAR(255)	NOT NULL
 		,stop_sequence			INT				NOT NULL
 		,vehicle_id				VARCHAR(255)	NOT NULL
+		,vehicle_label			VARCHAR(255)
 		,event_type				CHAR(3)			NOT NULL
 		,event_time				INT				NOT NULL
 		,event_time_sec			INT				NOT NULL
@@ -930,31 +937,32 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
 		,event_processed_rt
 		,event_processed_daily
 	)
-
-		SELECT DISTINCT
-			dtu.service_date
-			,dtu.file_time
-			,dtu.route_id
-			,dtu.route_type
-			,dtu.trip_id
-			,dtu.direction_id
-			,dtu.stop_id
-			,dtu.stop_sequence
-			,dtu.vehicle_id
-			,dtu.event_type
-			,dtu.event_time
-			,dtu.event_time_sec
-			,dtu.event_processed_rt
-			,dtu.event_processed_daily
-			--,me.*
-
-		FROM dbo.daily_trip_updates dtu
+                                                              
+	SELECT DISTINCT
+		dtu.service_date
+		,dtu.file_time
+		,dtu.route_id
+		,dtu.route_type
+		,dtu.trip_id
+		,dtu.direction_id
+		,dtu.stop_id
+		,dtu.stop_sequence
+		,dtu.vehicle_id
+		,dtu.vehicle_label
+		,dtu.event_type
+		,dtu.event_time
+		,dtu.event_time_sec
+		,dtu.event_processed_rt
+		,dtu.event_processed_daily
+	FROM
+		dbo.daily_trip_updates dtu
 		JOIN ##missed_events me
 		ON
 				dtu.trip_id = me.trip_id
@@ -1144,6 +1152,7 @@ BEGIN
 		,stop_id
 		,stop_sequence
 		,vehicle_id
+		,vehicle_label
 		,event_type
 		,event_time
 		,event_time_sec
@@ -1151,67 +1160,67 @@ BEGIN
 		,event_processed_daily
 	)
 
-		SELECT
-				tue.service_date
-				,tue.file_time
-				,tue.route_id
-				,tue.route_type
-				,tue.trip_id
-				,tue.direction_id
-				,tue.stop_id
-				,tue.stop_sequence
-				,tue.vehicle_id
-				,tue.event_type
-				,tue.event_time
-				,tue.event_time_sec
-				,tue.event_processed_rt
-				,tue.event_processed_daily
-			FROM
-				##valid_trip_update_events tue
-				JOIN daily_missed_events dme
-					ON
-							tue.service_date = dme.service_date
-						AND 
-							tue.trip_id = dme.trip_id
-						AND 
-							tue.stop_id = dme.stop_id
-						AND 
-							tue.stop_sequence = dme.stop_sequence
-						AND 
-							tue.event_type = dme.event_type
-						AND 
-							dme.predicted_event_time BETWEEN ISNULL(max_before_event_time, dme.predicted_event_time) AND ISNULL(min_after_event_time, dme.predicted_event_time)
-						AND 
-							dme.record_id NOT IN --check for stops that have one event
-							(
-								SELECT dme.record_id
-								FROM
-									daily_missed_events dme
-									JOIN daily_event de
-										ON
-												dme.service_date = de.service_date
-											AND 
-												dme.trip_id = de.trip_id
-											AND 
-												dme.stop_id = de.stop_id
-											AND 
-												dme.stop_sequence = de.stop_sequence
-								WHERE
-									(	
-											dme.event_type = 'PRD' 
-										AND 
-											de.event_type = 'ARR'
-										AND 
-											dme.predicted_event_time < de.event_time 
-									)
-									OR 
-									(
-											dme.event_type = 'PRA'
-										AND 
-											de.event_type = 'DEP'
-										AND 
-											dme.predicted_event_time > de.event_time
-									)
+	SELECT
+		tue.service_date
+		,tue.file_time
+		,tue.route_id
+		,tue.route_type
+		,tue.trip_id
+		,tue.direction_id
+		,tue.stop_id
+		,tue.stop_sequence
+		,tue.vehicle_id
+		,tue.vehicle_label
+		,tue.event_type
+		,tue.event_time
+		,tue.event_time_sec
+		,tue.event_processed_rt
+		,tue.event_processed_daily
+	FROM
+		##valid_trip_update_events tue
+		JOIN daily_missed_events dme
+			ON
+					tue.service_date = dme.service_date
+				AND 
+					tue.trip_id = dme.trip_id
+				AND 
+					tue.stop_id = dme.stop_id
+				AND 
+					tue.stop_sequence = dme.stop_sequence
+				AND 
+					tue.event_type = dme.event_type
+				AND 
+					dme.predicted_event_time BETWEEN ISNULL(max_before_event_time, dme.predicted_event_time) AND ISNULL(min_after_event_time, dme.predicted_event_time)
+				AND 
+					dme.record_id NOT IN --check for stops that have one event
+					(
+						SELECT dme.record_id
+						FROM
+							daily_missed_events dme
+							JOIN daily_event de
+								ON
+										dme.service_date = de.service_date
+									AND 
+										dme.trip_id = de.trip_id
+									AND 
+										dme.stop_id = de.stop_id
+									AND 
+										dme.stop_sequence = de.stop_sequence
+						WHERE
+							(	
+									dme.event_type = 'PRD' 
+								AND 
+									de.event_type = 'ARR'
+								AND 
+									dme.predicted_event_time < de.event_time 
+							)
+							OR (
+									dme.event_type = 'PRA'
+								AND 
+									de.event_type = 'DEP'
+								AND 
+									dme.predicted_event_time > de.event_time
+                )
 							)
 
 --not needed?
@@ -5046,6 +5055,7 @@ BEGIN
 		,event_processed_rt
 		,event_processed_daily
 		,suspect_record
+		,vehicle_label
 	)
 
 	SELECT
@@ -5065,6 +5075,7 @@ BEGIN
 		,event_processed_rt
 		,event_processed_daily
 		,suspect_record
+		,vehicle_label
 	FROM dbo.daily_event
 
 	IF
