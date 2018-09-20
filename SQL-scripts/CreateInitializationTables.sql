@@ -175,6 +175,13 @@ CREATE TABLE rt_alert_active_period
 	,active_period_end		INT NULL
 )
 
+CREATE NONCLUSTERED INDEX IX_rt_alert_active_period_1
+ON dbo.rt_alert_active_period (active_period_start,active_period_end)
+INCLUDE (alert_id,version_id)
+
+CREATE NONCLUSTERED INDEX IX_rt_alert_active_period_2
+ON dbo.rt_alert_active_period (alert_id,version_id)
+
 IF OBJECT_ID('rt_alert_informed_entity','U') IS NOT NULL
 DROP TABLE rt_alert_informed_entity
 
@@ -188,6 +195,10 @@ CREATE TABLE rt_alert_informed_entity
 	,trip_id				VARCHAR(255) NULL
 	,stop_id				VARCHAR(255) NULL
 )
+
+CREATE NONCLUSTERED INDEX IX_rt_alert_informed_entity_1
+ON dbo.rt_alert_informed_entity (alert_id,version_id)
+INCLUDE (route_id,trip_id,stop_id)
 
 -- create gtfsrt_tripupdate_denormalized to store all trip update data
 IF OBJECT_ID('dbo.gtfsrt_tripupdate_denormalized', 'U') IS NOT NULL
@@ -963,7 +974,7 @@ CREATE TABLE dbo.config_stop_order_flag_threshold
 );
 
 --Create Prediction Thresholds Table
-IF OBJECT_Id('dbo.config_prediction_threshold','U') IS NOT NULL
+IF OBJECT_ID('dbo.config_prediction_threshold','U') IS NOT NULL
 	DROP TABLE dbo.config_prediction_threshold
 
 CREATE TABLE dbo.config_prediction_threshold
@@ -976,4 +987,15 @@ CREATE TABLE dbo.config_prediction_threshold
 	,bin_upper					INT
 	,pred_error_threshold_lower	INT
 	,pred_error_threshold_upper	INT
+)
+
+--Create Dashboard Thresholds Table
+IF OBJECT_ID('dbo.config_dashboard_threshold','U') IS NOT NULL
+	DROP TABLE dbo.config_dashboard_threshold
+
+CREATE TABLE dbo.config_dashboard_threshold
+(
+	dashboard_id	VARCHAR(255) PRIMARY KEY
+	,dashboard_name	VARCHAR(255)
+	,threshold_id	VARCHAR(255)
 )

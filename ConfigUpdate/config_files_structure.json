@@ -211,7 +211,6 @@
 					"null": false,
 					"type": "VARCHAR(255)"
 				}
-
 			}
 		},
 		"config_stop_order_flag_threshold":{
@@ -223,7 +222,8 @@
 					"null": false,
 					"type": "VARCHAR(255)"
 				}
-},
+			}
+		},
 		"config_prediction_threshold":{
 			"columns":{
 				"threshold_id":{
@@ -254,7 +254,21 @@
 					"type": "INT"
 				}
 			}
+		},
+		"config_dashboard_threshold":{
+			"columns":{
+				"dashboard_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"dashboard_name": {
+					"type": "VARCHAR(255)",
+					"null": false
+				},
+				"threshold_id":{
+					"type": "VARCHAR(255)"
+				}
+			}
 		}
 	}
-}
 }

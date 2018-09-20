@@ -5,102 +5,104 @@ using System.Configuration;
 using System.IO;
 using System.Data;
 using System.Data.SqlClient;
-using System.Linq;
 using System.Net;
 using System.Text;
 
 namespace GTFS
 {
-    class GTFSMigrateProcess
+    internal class GTFSMigrateProcess
     {
-        string sqlConnectionString = ConfigurationManager.ConnectionStrings["DatabaseConnectionString"].ConnectionString;
-        string primarySchema = ConfigurationManager.AppSettings["PrimarySchemaName"];
-        string secondarySchema = ConfigurationManager.AppSettings["SecondarySchemaName"];
-        ILog Log;
+        private readonly string sqlConnectionString = ConfigurationManager.ConnectionStrings["DatabaseConnectionString"].ConnectionString;
+        private readonly string primarySchema = ConfigurationManager.AppSettings["PrimarySchemaName"];
+        private readonly string secondarySchema = ConfigurationManager.AppSettings["SecondarySchemaName"];
+        private ILog Log;
+
         internal bool BeginMigration(ILog _Log)
         {
             Log = _Log;
 
             RunStoredProc();
-            bool migrationSuccessful = false;
             CreateScehma();
-            List<String> tableNames = GetTableNames(primarySchema);
-            if (ExecuteDropTableQuery(tableNames))
-            {
-                migrationSuccessful = MigrateTables();
+            var tableNames = GetTableNames(primarySchema);
 
-                /*
+            if (!ExecuteDropTableQuery(tableNames))
+                return false;
+
+            var migrationSuccessful = MigrateTables();
+
+            /*
                  * Once the database has been updated, then only change the local feed info file.
                  * */
-                string downloadAndCompareFeedInfo = ConfigurationManager.AppSettings["DownloadAndCompareFeedInfo"].ToUpper();
-                string compareExtractedFeedInfo = ConfigurationManager.AppSettings["CompareExtractedFeedInfo"].ToUpper();
+            var downloadAndCompareFeedInfo = ConfigurationManager.AppSettings["DownloadAndCompareFeedInfo"].ToUpper();
+            var compareExtractedFeedInfo = ConfigurationManager.AppSettings["CompareExtractedFeedInfo"].ToUpper();
 
-                if (migrationSuccessful && ("TRUE".Equals(downloadAndCompareFeedInfo) || "TRUE".Equals(compareExtractedFeedInfo)) )
-                {
-                    File.Copy("feed_info_temp.txt", "feed_info.txt", true);
-                    Log.Info("Updated feed info file with latest version");
-                }
-            }
+            if (!migrationSuccessful || (!"TRUE".Equals(downloadAndCompareFeedInfo) && !"TRUE".Equals(compareExtractedFeedInfo)))
+                return migrationSuccessful;
 
-            return migrationSuccessful;
+            File.Copy("feed_info_temp.txt", "feed_info.txt", true);
+            Log.Info("Updated feed info file with latest version");
+
+            return true;
         }
 
         private void RunStoredProc()
         {
-            
-                String connectionString1 = ConfigurationManager.ConnectionStrings["DatabaseConnectionString"].ToString();
-                //using (var conn = new SqlConnection(connectionString1))
-                //using (var command = new SqlCommand("dbo.UpdateGTFSNextStep1", conn)
-                //{
-                //    CommandType = CommandType.Text
-                //})
-                //{
-                //    conn.Open();
-                   
-                //    command.CommandTimeout = 3600;
-                //    command.ExecuteNonQuery();
-                //    conn.Close();
-                //}
-                //Log.Info("UpdateGTFSNextStep1 procedure completed");
 
-                using (var conn = new SqlConnection(connectionString1))
+            var connectionString1 = ConfigurationManager.ConnectionStrings["DatabaseConnectionString"].ToString();
+            //using (var conn = new SqlConnection(connectionString1))
+            //using (var command = new SqlCommand("dbo.UpdateGTFSNextStep1", conn)
+            //{
+            //    CommandType = CommandType.Text
+            //})
+            //{
+            //    conn.Open();
+
+            //    command.CommandTimeout = 3600;
+            //    command.ExecuteNonQuery();
+            //    conn.Close();
+            //}
+            //Log.Info("UpdateGTFSNextStep1 procedure completed");
+
+            using (var conn = new SqlConnection(connectionString1))
                 using (var command = new SqlCommand("dbo.UpdateGTFSNext", conn)
-                {
-                    CommandType = CommandType.Text
-                })
+                                     {
+                                         CommandType = CommandType.Text
+                                     })
                 {
                     conn.Open();
                     command.CommandTimeout = 3600;
                     command.ExecuteNonQuery();
                     conn.Close();
                 }
-                Log.Info("UpdateGTFSNext procedure completed");
-            
-           
+            Log.Info("UpdateGTFSNext procedure completed");
+
+
         }
 
-        private void DownloadFile(string outputFileName, string Url)
+        protected void DownloadFile(string outputFileName, string Url)
         {
-            using (WebClient Client = new WebClient())
+            using (var Client = new WebClient())
             {
                 Client.DownloadFile(Url, outputFileName);
             }
             Log.Info("Download of file " + outputFileName + " successful.");
         }
 
-        private Boolean ExecuteDropTableQuery(List<string> tableNames)
+        private bool ExecuteDropTableQuery(List<string> tableNames)
         {
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlTransaction trans = sqlConnection.BeginTransaction();
+            var trans = sqlConnection.BeginTransaction();
+
             try
             {
-                foreach (string table in tableNames)
+                foreach (var table in tableNames)
                 {
-                    string tableName = table;
-                    string schemaName = primarySchema;
-                    String sqlQuery = @"IF OBJECT_ID ('" + primarySchema + "." + tableName + @"', 'U') IS NOT NULL DROP TABLE " + schemaName + "." + tableName + ";";
-                    SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection, trans);
+                    var tableName = table;
+                    var schemaName = primarySchema;
+                    var sqlQuery = @"IF OBJECT_ID ('" + primarySchema + "." + tableName + @"', 'U') IS NOT NULL DROP TABLE " + schemaName + "." + tableName +
+                                   ";";
+                    var cmd = new SqlCommand(sqlQuery, sqlConnection, trans);
                     cmd.ExecuteNonQuery();
                     Log.Info("Dropped table " + schemaName + "." + tableName + " from database.");
                 }
@@ -113,19 +115,20 @@ namespace GTFS
                 return false;
             }
             sqlConnection.Close();
+
             return true;
         }
 
         private bool MigrateTables()
         {
-            List<String> queryList = new List<string>();
-            List<String> tableNames = GetTableNames(secondarySchema);
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var queryList = new List<string>();
+            var tableNames = GetTableNames(secondarySchema);
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
 
-            foreach (string table in tableNames)
+            foreach (var table in tableNames)
             {
-                StringBuilder sbr = new StringBuilder();
+                var sbr = new StringBuilder();
                 sbr.Append("ALTER SCHEMA ");
                 sbr.Append(primarySchema);
                 sbr.Append(" TRANSFER ");
@@ -135,12 +138,12 @@ namespace GTFS
                 queryList.Add(sbr.ToString());
             }
 
-            SqlTransaction trans = sqlConnection.BeginTransaction();
+            var trans = sqlConnection.BeginTransaction();
             try
             {
-                foreach (string sqlquery in queryList)
+                foreach (var sqlquery in queryList)
                 {
-                    SqlCommand cmd1 = new SqlCommand(sqlquery, sqlConnection, trans);
+                    var cmd1 = new SqlCommand(sqlquery, sqlConnection, trans);
                     cmd1.ExecuteNonQuery();
                 }
                 trans.Commit();
@@ -156,16 +159,18 @@ namespace GTFS
             Log.Info("Migration Successful");
             return true;
         }
+
         private List<string> GetTableNames(string schemaName)
         {
-            string sqlQuery = @"SELECT TABLE_NAME 
+            var sqlQuery = @"SELECT TABLE_NAME 
                                 FROM INFORMATION_SCHEMA.TABLES
                                 WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = '" + schemaName + "'";
-            List<String> tableNames = new List<string>();
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var tableNames = new List<string>();
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
-            SqlDataReader reader = cmd.ExecuteReader();
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
+            var reader = cmd.ExecuteReader();
+
             if (reader.HasRows)
             {
                 while (reader.Read())
@@ -184,15 +189,13 @@ namespace GTFS
          */
         private void CreateScehma()
         {
-            String databaseName = ConfigurationManager.AppSettings["DatabaseName"];
-            string sqlQuery = @"IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '" + primarySchema + "') EXEC( 'CREATE SCHEMA " + primarySchema + "' )";
-            SqlConnection sqlConnection = new SqlConnection(sqlConnectionString);
+            var sqlQuery = @"IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '" + primarySchema + "') EXEC( 'CREATE SCHEMA " + primarySchema + "' )";
+            var sqlConnection = new SqlConnection(sqlConnectionString);
             sqlConnection.Open();
-            SqlCommand cmd = new SqlCommand(sqlQuery, sqlConnection);
+            var cmd = new SqlCommand(sqlQuery, sqlConnection);
             cmd.ExecuteNonQuery();
 
             sqlConnection.Close();
         }
-
     }
 }

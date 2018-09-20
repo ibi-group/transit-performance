@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Configuration;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Threading;
 
@@ -77,6 +78,7 @@ namespace gtfsrt_events_tu_latest_prediction
                 // Pause this thread for cycleTime
                 Thread.Sleep(cycleTime);
             }
+            // ReSharper disable once FunctionNeverReturns
         }
 
         private void CreateAcceptList()
@@ -192,11 +194,12 @@ namespace gtfsrt_events_tu_latest_prediction
 
             foreach (var feedEntity in feedEntities)
             {
-                if (!AcceptList.Contains(feedEntity.trip_update.trip.route_id))
+                if (AcceptList.Any(x => !string.IsNullOrEmpty(x)) && !AcceptList.Contains(feedEntity.trip_update.trip.route_id))
                     continue;
 
                 var tripId = feedEntity.trip_update.trip.trip_id;
                 var vehicleId = feedEntity.trip_update.vehicle?.id;
+                var vehicleLabel = feedEntity.trip_update.vehicle?.label;
                 var routeId = feedEntity.trip_update.trip.route_id;
                 var _serviceDate = feedEntity.trip_update.trip.start_date;
                 var serviceDate = DateTime.ParseExact(_serviceDate, "yyyyMMdd", CultureInfo.InvariantCulture);
@@ -212,7 +215,7 @@ namespace gtfsrt_events_tu_latest_prediction
                     if (stop.arrival != null)
                     {
                         var eventTimeArrival = stop.arrival.time;
-                        var eventType = EventType.PRA;
+                        const EventType eventType = EventType.PRA;
                         var entity = new Entity(serviceDate,
                                                 routeId,
                                                 tripId,
@@ -222,7 +225,8 @@ namespace gtfsrt_events_tu_latest_prediction
                                                 eventType,
                                                 eventTimeArrival,
                                                 fileTimestamp,
-                                                directionId);
+                                                directionId,
+                                                vehicleLabel);
                         var eId = new EntityIdentifier(tripId, stopSequence, serviceDate, eventType);
 
                         try
@@ -243,10 +247,11 @@ namespace gtfsrt_events_tu_latest_prediction
                     }
 
                     //add departure entity
-                    if (stop.departure != null)
+                    if (stop.departure == null)
+                        continue;
                     {
                         var eventTimeDeparture = stop.departure.time;
-                        var eventType = EventType.PRD;
+                        const EventType eventType = EventType.PRD;
                         var entity = new Entity(serviceDate,
                                                 routeId,
                                                 tripId,
@@ -256,7 +261,8 @@ namespace gtfsrt_events_tu_latest_prediction
                                                 eventType,
                                                 eventTimeDeparture,
                                                 fileTimestamp,
-                                                directionId);
+                                                directionId,
+                                                vehicleLabel);
                         var eId = new EntityIdentifier(tripId, stopSequence, serviceDate, eventType);
                         try
                         {
@@ -303,19 +309,19 @@ namespace gtfsrt_events_tu_latest_prediction
             InsertQueue.Enqueue(_event);
         }
 
-        private Event CreateEvent(Entity entity)
+        private static Event CreateEvent(Entity entity)
         {
-            var serviceDate = entity.ServiceDate;
-            var routeId = entity.RouteId;
-            var tripId = entity.TripId;
-            var stopId = entity.StopId;
-            var stopSequence = entity.StopSequence;
-            var vehicleId = entity.VehicleId;
-            var eventType = entity._EventType;
-            var eventTime = entity.EventTime;
-            var fileTimestamp = entity.FileTimestamp;
-            var directionId = entity.DirectionId;
-            var _event = new Event(serviceDate, routeId, tripId, stopId, stopSequence, vehicleId, eventType, eventTime, fileTimestamp, directionId);
+            var _event = new Event(entity.ServiceDate,
+                                   entity.RouteId,
+                                   entity.TripId,
+                                   entity.StopId,
+                                   entity.StopSequence,
+                                   entity.VehicleId,
+                                   entity._EventType,
+                                   entity.EventTime,
+                                   entity.FileTimestamp,
+                                   entity.DirectionId,
+                                   entity.VehicleLabel);
             return _event;
         }
 
@@ -324,7 +330,7 @@ namespace gtfsrt_events_tu_latest_prediction
          * and writes it to file named TRIPUPDATES.JSON.
          * */
 
-        private void WriteFeedMessageToFile(FeedMessage feedMessage)
+        private static void WriteFeedMessageToFile(FeedMessage feedMessage)
         {
             var jsonFileName = ConfigurationManager.AppSettings["JSONPATH"];
             var text = JsonConvert.SerializeObject(feedMessage, Formatting.Indented);
@@ -336,7 +342,7 @@ namespace gtfsrt_events_tu_latest_prediction
          * This method deserialise content of .pb file into FeedMessage 
          */
 
-        private FeedMessage GetFeedMesssages(string outputFileName)
+        private static FeedMessage GetFeedMesssages(string outputFileName)
         {
             FeedMessage feedMessage;
             using (var file = File.OpenRead(outputFileName))
@@ -351,7 +357,7 @@ namespace gtfsrt_events_tu_latest_prediction
          * set it to 30 seconds.
          * */
 
-        private int GetCycleTime()
+        private static int GetCycleTime()
         {
             var temp = ConfigurationManager.AppSettings["FREQUENCY"];
             if (string.IsNullOrEmpty(temp))
@@ -373,22 +379,23 @@ namespace gtfsrt_events_tu_latest_prediction
             Log.Debug("Doing reset.");
             var arm = new ArchiveManager();
             var archiveSuccesful = arm.ArchiveData(Log);
-            if (archiveSuccesful)
-            {
-                Thread.Sleep(2000);
-                Environment.Exit(1); // Not the best approach.
-            }
+
+            if (!archiveSuccesful)
+                return;
+
+            Thread.Sleep(2000);
+            Environment.Exit(1); // Not the best approach.
         }
 
-        private bool IsResetTime()
+        private static bool IsResetTime()
         {
             var nowTime = DateTime.Now.ToShortTimeString();
             var resetTime = ConfigurationManager.AppSettings["RESETTIME"];
-            resetTime = (String.IsNullOrEmpty(resetTime)) == true ? "3:00 AM" : resetTime;
+            resetTime = string.IsNullOrEmpty(resetTime) ? "3:00 AM" : resetTime;
             return nowTime.Equals(resetTime);
         }
 
-        private string GetUrl()
+        private static string GetUrl()
         {
             var url = ConfigurationManager.AppSettings["URL"];
             return url;
@@ -400,7 +407,7 @@ namespace gtfsrt_events_tu_latest_prediction
          * by returning full path.
          * */
 
-        private string GetOutputFileName()
+        private static string GetOutputFileName()
         {
             var outputFileName = ConfigurationManager.AppSettings["FILEPATH"];
             return outputFileName;

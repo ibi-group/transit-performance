@@ -1,8 +1,5 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 
 namespace GTFS
 {
@@ -15,7 +12,7 @@ namespace GTFS
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
         {
-            GTFSTableCollection tableCollection = new GTFSTableCollection();
+            var tableCollection = new GTFSTableCollection();
             while (reader.Read())
             {
                 switch (reader.TokenType)
@@ -23,9 +20,9 @@ namespace GTFS
                     case JsonToken.EndObject:
                         return tableCollection;
                     case JsonToken.PropertyName:
-                        string tableName = (string)reader.Value;
+                        var tableName = (string)reader.Value;
                         reader.Read();
-                        GTFSTable table = serializer.Deserialize<GTFSTable>(reader);
+                        var table = serializer.Deserialize<GTFSTable>(reader);
                         table.name = tableName;
                         tableCollection.Add(table);
                         break;
@@ -40,7 +37,7 @@ namespace GTFS
             var tableCollection = value as GTFSTableCollection;
             writer.WriteStartObject();
 
-            foreach (GTFSTable table in tableCollection)
+            foreach (var table in tableCollection)
             {
                 writer.WritePropertyName(table.name);
                 writer.WriteStartObject();

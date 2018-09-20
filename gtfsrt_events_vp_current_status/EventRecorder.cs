@@ -50,7 +50,7 @@ namespace gtfsrt_events_vp_current_status
                 }
                 catch (Exception e)
                 {
-                    Log.Error(e.Message);
+                    Log.Error($"{e.Message} {e.InnerException?.Message}");
                     Log.Error(e.StackTrace);
                 }
                 Log.Info("End RecordEvents iteration");

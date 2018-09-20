@@ -19,6 +19,11 @@ namespace gtfsrt_events_tu_latest_prediction
 
         protected override void OnStart(string[] args)
         {
+            Start();
+        }
+
+        internal static void Start()
+        {
             try
             {
                 XmlConfigurator.Configure();
