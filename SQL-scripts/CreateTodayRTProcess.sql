@@ -48,27 +48,27 @@ BEGIN
 		,event_time_sec	INT				NOT NULL
 	)
 	;
-	CREATE NONCLUSTERED INDEX IX_today_rt_event_index_1
+	CREATE NONCLUSTERED INDEX IX_today_rt_event_1
 	ON dbo.today_rt_event (service_date,trip_id,direction_id,stop_id,stop_sequence,vehicle_id,event_type,event_time_sec)
 	INCLUDE (record_id,route_id)
 
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_event_index_2
+	CREATE NONCLUSTERED INDEX IX_today_rt_event_2
 	ON dbo.today_rt_event (service_date,route_id,direction_id,stop_id,event_type,event_time_sec)
 	INCLUDE (record_id,trip_id,stop_sequence,vehicle_id)
 
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_event_index_3
+	CREATE NONCLUSTERED INDEX IX_today_rt_event_3
 	ON dbo.today_rt_event (event_type)
 	INCLUDE (service_date,route_id,trip_id,stop_id,vehicle_id,event_time_sec)
 
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_event_index_4
+	CREATE NONCLUSTERED INDEX IX_today_rt_event_4
 	ON dbo.today_rt_event (service_date,trip_id,direction_id,vehicle_id,event_type,stop_sequence,event_time_sec)
 	INCLUDE (record_id,route_id,stop_id)
 
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_event_index_5
+	CREATE NONCLUSTERED INDEX IX_today_rt_event_5
 	ON dbo.today_rt_event (service_date,direction_id,stop_id,event_type,event_time_sec)
 	INCLUDE (record_id,route_id,trip_id,stop_sequence,vehicle_id)
 
@@ -93,7 +93,7 @@ BEGIN
 		,cd_time_sec		INT				NOT NULL
 	)
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_cd_time_index_1
+	CREATE NONCLUSTERED INDEX IX_today_rt_cd_time_1
 	ON dbo.today_rt_cd_time (service_date,d_record_id)
 	INCLUDE (cd_stop_id,cd_stop_sequence,cd_direction_id,cd_route_id,cd_trip_id,cd_vehicle_id,c_record_id,c_time_sec,d_time_sec,cd_time_sec)
 
@@ -281,7 +281,7 @@ BEGIN
 		,benchmark_headway_time_sec	INT 
 	)
 	;
-	CREATE NONCLUSTERED INDEX IX_today_rt_headway_time_od_disaggregate_index_1
+	CREATE NONCLUSTERED INDEX IX_today_rt_headway_time_od_disaggregate_1
 	ON dbo.today_rt_headway_time_od_disaggregate (stop_id,to_stop_id)
 	INCLUDE (service_date,route_id,prev_route_id,direction_id,start_time_sec,end_time_sec,headway_time_sec,benchmark_headway_time_sec)
 
@@ -304,7 +304,7 @@ BEGIN
 	)
 	;
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_headway_time_sr_all_disaggregate_index_1
+	CREATE NONCLUSTERED INDEX IX_today_rt_headway_time_sr_all_disaggregate_1
 	ON dbo.today_rt_headway_time_sr_all_disaggregate (stop_id)
 	INCLUDE (service_date,route_id,prev_route_id,direction_id,start_time_sec,end_time_sec,headway_time_sec,benchmark_headway_time_sec)
 
@@ -328,7 +328,7 @@ BEGIN
 	)
 	;
 
-	CREATE NONCLUSTERED INDEX IX_today_rt_headway_time_sr_same_disaggregate_index_1
+	CREATE NONCLUSTERED INDEX IX_today_rt_headway_time_sr_same_disaggregate_1
 	ON dbo.today_rt_headway_time_sr_same_disaggregate (stop_id,route_id)
 	INCLUDE (service_date,prev_route_id,direction_id,start_time_sec,end_time_sec,headway_time_sec,benchmark_headway_time_sec)
 

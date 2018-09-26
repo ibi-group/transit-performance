@@ -262,6 +262,10 @@ CREATE TABLE dbo.historical_event
 CREATE NONCLUSTERED INDEX IX_historical_event_service_date
 ON dbo.historical_event (service_date)
 
+CREATE NONCLUSTERED INDEX IX_historical_event_1
+ON dbo.historical_event (service_date,suspect_record,event_time)
+INCLUDE (route_id,trip_id,direction_id,stop_id,stop_sequence,vehicle_id,event_type,event_time_sec,vehicle_label)
+
 IF OBJECT_ID('dbo.historical_travel_time_disaggregate','U') IS NOT NULL
 	DROP TABLE dbo.historical_travel_time_disaggregate;
 
