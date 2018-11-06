@@ -4531,7 +4531,7 @@ BEGIN
 		,ct2.threshold_id
 		,ct2.threshold_name
 		,ct2.threshold_type
-		,NULL
+		,r.time_period_type			 
 		,1 - SUM(r.scheduled_threshold_numerator_pax) / COUNT(*) AS metric_result
 		,NULL AS metric_result_trip
 		,SUM(r.scheduled_threshold_numerator_pax) AS numerator_pax
@@ -4548,6 +4548,7 @@ BEGIN
 				,cap.trip_id
 				,cap.stop_id
 				,cap.checkpoint_id
+				,ctp.time_period_type		 
 				,dtt.threshold_id
 				,dtt.denominator_pax
 				,dtt.scheduled_threshold_numerator_pax
@@ -4590,6 +4591,19 @@ BEGIN
 						AND cap.direction_id = t.direction_id
 						AND cap.trip_id = t.trip_id
 						AND cap.stop_id = t.stop_id
+				JOIN dbo.service_date s
+				ON
+					s.service_date = cap.service_date
+				JOIN dbo.config_day_type cdt
+				ON
+					s.day_type_id = cdt.day_type_id
+				JOIN dbo.config_time_period ctp
+				ON
+						cap.departure_time_sec >= ctp.time_period_start_time_sec
+					AND
+						cap.departure_time_sec < ctp.time_period_end_time_sec
+					AND
+						ctp.day_type = cdt.day_type						   
 			WHERE
 				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
@@ -4608,6 +4622,7 @@ BEGIN
 				,cap.trip_id
 				,cap.stop_id
 				,cap.checkpoint_id
+				,ctp.time_period_type		 
 				,dh.threshold_id
 				,dh.denominator_pax
 				,dh.scheduled_threshold_numerator_pax
@@ -4649,6 +4664,19 @@ BEGIN
 					ON
 						cap.service_date = t.service_date
 						AND cap.trip_id = t.trip_id
+				JOIN dbo.service_date s
+				ON
+					s.service_date = cap.service_date
+				JOIN dbo.config_day_type cdt
+				ON
+					s.day_type_id = cdt.day_type_id
+				JOIN dbo.config_time_period ctp
+				ON
+						cap.departure_time_sec >= ctp.time_period_start_time_sec
+					AND
+						cap.departure_time_sec < ctp.time_period_end_time_sec
+					AND
+						ctp.day_type = cdt.day_type						   
 			WHERE
 				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
@@ -4669,6 +4697,7 @@ BEGIN
 				,cap.trip_id
 				,cap.stop_id
 				,cap.checkpoint_id
+				,ctp.time_period_type		 
 				,dtt.threshold_id
 				,dtt.denominator_pax
 				,dtt.scheduled_threshold_numerator_pax
@@ -4707,6 +4736,19 @@ BEGIN
 					ON
 						cap.service_date = t.service_date
 						AND cap.trip_id = t.trip_id
+				JOIN dbo.service_date s
+				ON
+					s.service_date = cap.service_date
+				JOIN dbo.config_day_type cdt
+				ON
+					s.day_type_id = cdt.day_type_id
+				JOIN dbo.config_time_period ctp
+				ON
+						cap.arrival_time_sec >= ctp.time_period_start_time_sec
+					AND
+						cap.arrival_time_sec < ctp.time_period_end_time_sec
+					AND
+						ctp.day_type = cdt.day_type						   
 			WHERE
 				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR cap.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR cap.direction_id IN (SELECT direction_id FROM @direction_ids))
@@ -4726,6 +4768,7 @@ BEGIN
 		,ct2.threshold_id
 		,ct2.threshold_type
 		,ct2.threshold_name
+		,r.time_period_type
 	ORDER BY
 		route_id, threshold_id
 
