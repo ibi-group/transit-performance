@@ -104,35 +104,19 @@ BEGIN
 		FROM	dbo.today_rt_wait_time_od_threshold_pax tw2
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = tw2.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR tw2.prev_route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR tw2.route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
+					ct.threshold_id = tw2.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					tw2.prev_route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					tw2.route_id IN (SELECT route_id FROM @route_ids)
+				)
 		GROUP BY
 			tw2.route_id
 			,ct.threshold_id
@@ -153,21 +137,13 @@ BEGIN
 		FROM	dbo.today_rt_travel_time_threshold_pax tt2
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = tt2.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR tt2.route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
+				ct.threshold_id = tt2.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					tt2.route_id IN (SELECT route_id FROM @route_ids)
+				)
 		GROUP BY
 			tt2.route_id
 			,ct.threshold_id
@@ -188,21 +164,13 @@ BEGIN
 		FROM	dbo.today_rt_schedule_adherence_threshold_pax sa2
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = sa2.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR sa2.route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
+				ct.threshold_id = sa2.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					sa2.route_id IN (SELECT route_id FROM @route_ids)
+				)
 		GROUP BY
 			sa2.route_id
 			,ct.threshold_id
@@ -221,21 +189,13 @@ BEGIN
 		FROM	dbo.today_rt_headway_time_threshold_trip dtt
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = dtt.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
+				ct.threshold_id = dtt.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					route_id IN (SELECT route_id FROM @route_ids)
+				)
 		GROUP BY
 			dtt.route_id
 			,ct.threshold_id
@@ -267,37 +227,23 @@ BEGIN
 		FROM	dbo.today_rt_wait_time_od_threshold_pax tw1
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = tw1.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR tw1.prev_route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR tw1.route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-			AND DATEADD(s,tw1.end_time_sec,tw1.service_date) >= @current_time_last_hour
-			AND DATEADD(s,tw1.end_time_sec,tw1.service_date) <= @current_time
+				ct.threshold_id = tw1.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					tw1.prev_route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					tw1.route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				DATEADD(s,tw1.end_time_sec,tw1.service_date) >= @current_time_last_hour
+			AND
+				DATEADD(s,tw1.end_time_sec,tw1.service_date) <= @current_time
 		GROUP BY
 			tw1.route_id
 			,ct.threshold_id
@@ -317,23 +263,17 @@ BEGIN
 		FROM	dbo.today_rt_travel_time_threshold_pax tt1
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = tt1.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR tt1.route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-			AND DATEADD(s,tt1.end_time_sec,tt1.service_date) >= @current_time_last_hour
-			AND DATEADD(s,tt1.end_time_sec,tt1.service_date) <= @current_time
+				ct.threshold_id = tt1.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					tt1.route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				DATEADD(s,tt1.end_time_sec,tt1.service_date) >= @current_time_last_hour
+			AND
+				DATEADD(s,tt1.end_time_sec,tt1.service_date) <= @current_time
 		GROUP BY
 			tt1.route_id
 			,ct.threshold_id
@@ -368,21 +308,13 @@ BEGIN
 			FROM	dbo.today_rt_schedule_adherence_threshold_pax sa1
 					,dbo.config_threshold ct
 			WHERE
-				ct.threshold_id = sa1.threshold_id
-				AND (
-				(
-					SELECT
-						COUNT(route_id)
-					FROM @route_ids
-				)
-				= 0
-				OR sa1.route_id IN
-				(
-					SELECT
-						route_id
-					FROM @route_ids
-				)
-				)
+					ct.threshold_id = sa1.threshold_id
+				AND
+					(
+						(SELECT COUNT(route_id) FROM @route_ids) = 0
+					OR
+						sa1.route_id IN (SELECT route_id FROM @route_ids)
+					)
 		) t
 		WHERE
 			t.end_date_time >= @current_time_last_hour
@@ -404,23 +336,17 @@ BEGIN
 		FROM	dbo.today_rt_headway_time_threshold_trip dtt
 				,dbo.config_threshold ct
 		WHERE
-			ct.threshold_id = dtt.threshold_id
-			AND (
-			(
-				SELECT
-					COUNT(route_id)
-				FROM @route_ids
-			)
-			= 0
-			OR route_id IN
-			(
-				SELECT
-					route_id
-				FROM @route_ids
-			)
-			)
-			AND DATEADD(s,dtt.end_time_sec,dtt.service_date) >= @current_time_last_hour
-			AND DATEADD(s,dtt.end_time_sec,dtt.service_date) <= @current_time
+				ct.threshold_id = dtt.threshold_id
+			AND
+				(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR
+					route_id IN (SELECT route_id FROM @route_ids)
+				)
+			AND
+				DATEADD(s,dtt.end_time_sec,dtt.service_date) >= @current_time_last_hour
+			AND
+				DATEADD(s,dtt.end_time_sec,dtt.service_date) <= @current_time
 		GROUP BY
 			dtt.route_id
 			,ct.threshold_id
@@ -448,16 +374,17 @@ BEGIN
 			,c1.threshold_id
 			,c1.threshold_name
 			,c1.threshold_type
-			,c1.metric_result_last_hour
-			,c2.metric_result_current_day
-			,c1.metric_result_trip_last_hour
-			,c2.metric_result_trip_current_day
+			,c2.metric_result_last_hour
+			,c1.metric_result_current_day
+			,c2.metric_result_trip_last_hour
+			,c1.metric_result_trip_current_day
 
-		FROM	#current_metrics_last_hour c1
-				,#current_metrics_day_til_now c2
-		WHERE
-			c1.route_id = c2.route_id
-			AND c1.threshold_id = c2.threshold_id
+		FROM #current_metrics_day_til_now c1
+		LEFT JOIN #current_metrics_last_hour c2
+		ON
+				c1.route_id = c2.route_id
+			AND 
+				c1.threshold_id = c2.threshold_id
 
 	BEGIN TRANSACTION
 
