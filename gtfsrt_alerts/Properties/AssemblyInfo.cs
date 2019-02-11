@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("gtfsrt_events_tu_latest_prediction")]
+[assembly: AssemblyTitle("gtfsrt_alerts")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("IBI Group")]
-[assembly: AssemblyProduct("gtfsrt_events_tu_latest_prediction")]
-[assembly: AssemblyCopyright("Copyright © IBI Group 2015")]
+[assembly: AssemblyCompany("")]
+[assembly: AssemblyProduct("gtfsrt_alerts")]
+[assembly: AssemblyCopyright("Copyright ©  2016")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("9e9f6c0f-6859-4c93-bfc0-13e1e044d1b4")]
+[assembly: Guid("5bc137a1-8624-4f19-b6a0-86e3d6fd0dfc")]
 
 // Version information for an assembly consists of the following four values:
 //

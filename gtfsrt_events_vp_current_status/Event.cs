@@ -6,44 +6,21 @@ namespace gtfsrt_events_vp_current_status
     internal class Event
     {
         public DateTime serviceDate;
-        public string routeId;
-        public string tripId;
-        public string stopId;
-        public uint stopSequence;
-        public string vehicleId;
-        public string vehicleLabel;
-        public EventType eventType;
-        public ulong eventTime;
-        public ulong fileTimestamp;
+        public readonly string routeId;
+        public readonly string tripId;
+        public readonly string stopId;
+        public readonly uint stopSequence;
+        public readonly string vehicleId;
+        public readonly string vehicleLabel;
+        public readonly EventType eventType;
+        public readonly ulong eventTime;
+        public readonly ulong fileTimestamp;
         public uint? directionId;
 
         public override string ToString()
         {
-            var sbr = new StringBuilder();
-            sbr.Append("");
-            sbr.Append(serviceDate.ToShortDateString());
-            sbr.Append(" , ");
-            sbr.Append(routeId);
-            sbr.Append(" , ");
-            sbr.Append(tripId);
-            sbr.Append(" , ");
-            sbr.Append(stopId);
-            sbr.Append(" , ");
-            sbr.Append(stopSequence);
-            sbr.Append(" , ");
-            sbr.Append(vehicleId);
-            sbr.Append(" , ");
-            sbr.Append(eventType);
-            sbr.Append(" , ");
-            sbr.Append(eventTime);
-
-            sbr.Append(" , ");
-            sbr.Append(fileTimestamp);
-
-            sbr.Append(" , ");
-            sbr.Append(directionId);
-
-            return sbr.ToString();
+            return $"{serviceDate.ToShortDateString()}|{routeId}|{tripId}|{stopId}|{stopSequence}|" +
+                   $"{vehicleId}|{eventType}|{eventTime}|{fileTimestamp}|{directionId}";
         }
 
         public string ToSwtring()

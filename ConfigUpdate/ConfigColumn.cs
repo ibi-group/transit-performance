@@ -37,5 +37,10 @@ namespace ConfigUpdate
 
         [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string name { get; set; }
+
+        public override string ToString()
+        {
+            return $"{name}|{primaryKey}|{type}|{required}|{allowNull}";
+        }
     }
 }
