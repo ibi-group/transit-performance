@@ -1,4 +1,5 @@
 ﻿using Newtonsoft.Json;
+using System.Linq;
 
 namespace ConfigUpdate
 {
@@ -17,5 +18,10 @@ namespace ConfigUpdate
 
         [JsonProperty("name", NullValueHandling = NullValueHandling.Ignore)]
         public string name { get; set; }
+
+        public override string ToString()
+        {
+            return $"{name}|{required}|Columns: {string.Join(";", columns.Select(x => x.ToString()))}";
+        }
     }
 }
