@@ -654,7 +654,8 @@ CREATE TABLE dbo.historical_schedule_adherence_threshold_pax
 	,departure_delay_sec				INT
 	,stop_order_flag					INT
 	,threshold_id						VARCHAR(255)	NOT NULL
-	,threshold_value					INT
+	,threshold_value_lower				INT
+	,threshold_value_upper				INT
 	,denominator_pax					FLOAT
 	,scheduled_threshold_numerator_pax	FLOAT
 	,denominator_trip					FLOAT
@@ -697,9 +698,13 @@ CREATE TABLE dbo.historical_headway_time_threshold_trip
 	,start_time_sec									INT				NOT NULL
 	,end_time_sec									INT				NOT NULL
 	,headway_time_sec								INT				NOT NULL
+	,time_period_id									VARCHAR(255)	NOT NULL
+	,time_period_type								VARCHAR(255)	NOT NULL
 	,threshold_id									VARCHAR(255)	NOT NULL
-	,threshold_scheduled_median_headway_time_sec	INT				NOT NULL
-	,threshold_scheduled_average_headway_time_sec	INT				NOT NULL
+	,threshold_lower_scheduled_median_headway_time_sec	INT			NULL
+	,threshold_upper_scheduled_median_headway_time_sec	INT			NULL
+	,threshold_lower_scheduled_average_headway_time_sec	INT			NULL
+	,threshold_upper_scheduled_average_headway_time_sec	INT			NULL
 	,denominator_trip								FLOAT			NOT NULL
 	,scheduled_threshold_numerator_trip				FLOAT			NOT NULL
 )

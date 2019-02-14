@@ -3389,8 +3389,12 @@ BEGIN
 		,time_period_id									VARCHAR(255)	NOT NULL
 		,time_period_type								VARCHAR(255)	NOT NULL											   											
 		,threshold_id									VARCHAR(255)	NOT NULL
-		,threshold_scheduled_median_headway_time_sec	INT				NOT NULL
-		,threshold_scheduled_average_headway_time_sec	INT				NOT NULL
+		,threshold_id_lower								VARCHAR(255)	NULL
+		,threshold_id_upper								VARCHAR(255)	NULL
+		,threshold_lower_scheduled_median_headway_time_sec	INT			NULL
+		,threshold_upper_scheduled_median_headway_time_sec	INT			NULL
+		,threshold_lower_scheduled_average_headway_time_sec	INT			NULL
+		,threshold_upper_scheduled_average_headway_time_sec	INT			NULL
 		,denominator_trip								FLOAT			NOT NULL
 		,scheduled_threshold_numerator_trip				FLOAT			NOT NULL
 	)
@@ -3417,8 +3421,12 @@ BEGIN
 		,time_period_id
 		,time_period_type				 			   
 		,threshold_id
-		,threshold_scheduled_median_headway_time_sec
-		,threshold_scheduled_average_headway_time_sec
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_lower_scheduled_median_headway_time_sec
+		,threshold_upper_scheduled_median_headway_time_sec
+		,threshold_lower_scheduled_average_headway_time_sec
+		,threshold_upper_scheduled_average_headway_time_sec
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
 	)
@@ -3435,11 +3443,32 @@ BEGIN
 		,wtt.time_period_id
 		,wtt.time_period_type					  					
 		,wtt.threshold_id AS threshold_id
-		,wtt.threshold_scheduled_median_headway_time_sec AS threshold_scheduled_median_headway_time_sec
-		,wtt.threshold_scheduled_average_headway_time_sec AS threshold_scheduled_average_headway_time_sec
+		,wtt.threshold_id_lower
+		,wtt.threshold_id_upper
+		,wtt.threshold_lower_scheduled_median_headway_time_sec --AS threshold_scheduled_median_headway_time_sec
+		,wtt.threshold_upper_scheduled_median_headway_time_sec
+		,wtt.threshold_lower_scheduled_average_headway_time_sec --AS threshold_scheduled_average_headway_time_sec
+		,wtt.threshold_upper_scheduled_average_headway_time_sec
 		,1 AS denominator_trip
 		,CASE
-			WHEN ((bd.d_time_sec - bd.b_time_sec) > threshold_scheduled_average_headway_time_sec) THEN 1
+			WHEN threshold_lower_scheduled_average_headway_time_sec IS NOT NULL AND threshold_upper_scheduled_average_headway_time_sec IS NOT NULL 
+				THEN
+					CASE 
+						WHEN (bd.d_time_sec - bd.b_time_sec) <= threshold_lower_scheduled_average_headway_time_sec OR (bd.d_time_sec - bd.b_time_sec) > threshold_upper_scheduled_average_headway_time_sec THEN 1
+						ELSE 0
+					END
+			WHEN threshold_lower_scheduled_average_headway_time_sec IS NULL AND threshold_upper_scheduled_average_headway_time_sec IS NOT NULL
+				THEN 
+					CASE
+						WHEN (bd.d_time_sec - bd.b_time_sec) > threshold_upper_scheduled_average_headway_time_sec THEN 1
+						ELSE 0
+					END
+			WHEN threshold_lower_scheduled_average_headway_time_sec IS NOT NULL AND threshold_upper_scheduled_average_headway_time_sec IS NULL
+				THEN
+					CASE
+						WHEN (bd.d_time_sec - bd.b_time_sec) < threshold_lower_scheduled_average_headway_time_sec THEN 1
+						ELSE 0
+					END
 			ELSE 0
 		END AS scheduled_threshold_numerator_trip
 	FROM
@@ -5399,11 +5428,12 @@ BEGIN
 		,departure_delay_sec
 		,stop_order_flag
 		,threshold_id
-		,threshold_value
+		,threshold_value_upper
 		,denominator_pax
 		,scheduled_threshold_numerator_pax
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
+		,threshold_value_lower
 	)
 	SELECT
 		service_date
@@ -5426,6 +5456,7 @@ BEGIN
 		,scheduled_threshold_numerator_pax
 		,NULL
 		,NULL
+		,threshold_value_lower
 	FROM dbo.daily_schedule_adherence_threshold_pax
 
 	IF
@@ -5583,12 +5614,14 @@ BEGIN
 		,end_time_sec
 		,headway_time_sec
 		,threshold_id
-		,threshold_scheduled_median_headway_time_sec
-		,threshold_scheduled_average_headway_time_sec
+		,threshold_upper_scheduled_median_headway_time_sec
+		,threshold_upper_scheduled_average_headway_time_sec
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
 		,time_period_id
-		,time_period_type						 
+		,time_period_type
+		,threshold_lower_scheduled_median_headway_time_sec
+		,threshold_lower_scheduled_average_headway_time_sec						 
 	)
 	SELECT
 		@service_date_process
@@ -5600,12 +5633,14 @@ BEGIN
 		,end_time_sec
 		,headway_time_sec
 		,threshold_id
-		,threshold_scheduled_median_headway_time_sec
-		,threshold_scheduled_average_headway_time_sec
+		,threshold_upper_scheduled_median_headway_time_sec
+		,threshold_upper_scheduled_average_headway_time_sec
 		,denominator_trip
 		,scheduled_threshold_numerator_trip
 		,time_period_id
-		,time_period_type					  
+		,time_period_type
+		,threshold_lower_scheduled_median_headway_time_sec
+		,threshold_lower_scheduled_average_headway_time_sec					  
 	FROM dbo.daily_headway_time_threshold_trip
 
 	IF

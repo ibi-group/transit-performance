@@ -22,3 +22,11 @@ threshold_id_20,late < 5 min.,wait_time_schedule_based,1,equal,upper,threshold_i
 threshold_id_21,Headway + 3 min.,wait_time_headway_based,1,equal,upper,threshold_id_23,0
 threshold_id_22,delayed 20%,travel_time,1,equal,upper,threshold_id_23,0
 threshold_id_23,On-Time,reliability,1,equal,,,0
+threshold_id_24,180 seconds,trip_headway_based,5,equal,upper,,0
+threshold_id_25,360 seconds,trip_headway_based,6,equal,upper,,0
+threshold_id_26,"> 90 seconds, <= 180 seconds",trip_headway_based,7,equal,both,,0
+threshold_id_27,> 90 seconds,trip_headway_based,8,equal,lower,threshold_id_26,2
+threshold_id_28,<= 180 seconds,trip_headway_based,9,equal,upper,threshold_id_26,2
+threshold_id_29,"> 180 seconds, <= 360 seconds",trip_headway_based,10,equal,both,,0
+threshold_id_30,> 180 seconds,trip_headway_based,11,equal,lower,threshold_id_29,2
+threshold_id_31,<= 360 seconds,trip_headway_based,12,equal,upper,threshold_id_29,2

@@ -59,7 +59,7 @@ BEGIN
 		WHERE
 			day_of_the_week = @day_of_the_week
 	);
-
+	
 	IF @service_date_process NOT IN
 		(
 			SELECT
@@ -126,7 +126,7 @@ BEGIN
 	--handle case where day being processed is an exception
 
 	--SCHEDULED
-
+	
 	-- Determine GTFS service_ids and trip_ids for day being processed
 	IF OBJECT_ID('dbo.daily_trips','U') IS NOT NULL
 		DROP TABLE dbo.daily_trips
@@ -216,7 +216,15 @@ BEGIN
 			AND
 			cd.date = @service_date_process
 			AND 
-				r.route_type IN (SELECT route_type FROM @route_types)
+				(
+					r.route_type IN (0,1,2)
+				OR
+					(
+						r.route_type = 3
+					AND
+						r.route_id IN ('712','713')
+					)
+				)
 	
 
 
@@ -1543,7 +1551,7 @@ BEGIN
 				)
 
 	----create table to store thresholds for headway trip metrics
-
+	
 	IF OBJECT_ID('dbo.daily_headway_time_threshold','U') IS NOT NULL
 		DROP TABLE dbo.daily_headway_time_threshold
 
@@ -1557,8 +1565,12 @@ BEGIN
 		,time_period_id									VARCHAR(255)	NOT NULL
 		,time_period_type								VARCHAR(255)	NOT NULL											   											
 		,threshold_id									VARCHAR(255)	NOT NULL
-		,threshold_scheduled_median_headway_time_sec	INT				NULL
-		,threshold_scheduled_average_headway_time_sec	INT				NULL
+		,threshold_id_lower								VARCHAR(255)	NULL
+		,threshold_id_upper								VARCHAR(255)	NULL
+		,threshold_lower_scheduled_median_headway_time_sec	INT			NULL
+		,threshold_upper_scheduled_median_headway_time_sec	INT			NULL
+		,threshold_lower_scheduled_average_headway_time_sec	INT			NULL
+		,threshold_upper_scheduled_average_headway_time_sec	INT			NULL
 	)
 
 	INSERT INTO dbo.daily_headway_time_threshold
@@ -1571,8 +1583,12 @@ BEGIN
 		,time_period_id
 		,time_period_type				 				   
 		,threshold_id
-		,threshold_scheduled_median_headway_time_sec
-		,threshold_scheduled_average_headway_time_sec
+		,threshold_id_lower
+		,threshold_id_upper
+		,threshold_lower_scheduled_median_headway_time_sec
+		,threshold_upper_scheduled_median_headway_time_sec
+		,threshold_lower_scheduled_average_headway_time_sec
+		,threshold_upper_scheduled_average_headway_time_sec
 	)
 	
 		SELECT
@@ -1584,31 +1600,77 @@ BEGIN
 			,tp.time_period_id
 			,tp.time_period_type					 				   
 			,th.threshold_id
+			,th.threshold_id_lower
+			,th.threshold_id_upper
 			,CASE
-				WHEN th.min_max_equal = 'min' THEN MIN(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
-				WHEN th.min_max_equal = 'max' THEN MAX(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
-				WHEN th.min_max_equal = 'equal' THEN AVG(aht.scheduled_median_headway_sec * thc.multiply_by + thc.add_to)
-				ELSE 0
-			END AS threshold_scheduled_median_headway_time_sec
+				WHEN th.min_max_equal = 'min' AND th.threshold_id_lower IS NOT NULL THEN MIN(aht.scheduled_median_headway_sec * thc1.multiply_by + thc1.add_to)
+				WHEN th.min_max_equal = 'max' AND th.threshold_id_lower IS NOT NULL THEN MAX(aht.scheduled_median_headway_sec * thc1.multiply_by + thc1.add_to)
+				WHEN th.min_max_equal = 'equal' AND th.threshold_id_lower IS NOT NULL THEN AVG(aht.scheduled_median_headway_sec * thc1.multiply_by + thc1.add_to)
+				ELSE NULL
+			END AS threshold_lower_scheduled_median_headway_time_sec
 			,CASE
-				WHEN th.min_max_equal = 'min' THEN MIN(aht.scheduled_average_headway_sec * thc.multiply_by + thc.add_to)
-				WHEN th.min_max_equal = 'max' THEN MAX(aht.scheduled_average_headway_sec * thc.multiply_by + thc.add_to)
-				WHEN th.min_max_equal = 'equal' THEN AVG(aht.scheduled_average_headway_sec * thc.multiply_by + thc.add_to)
-				ELSE 0
-			END AS threshold_scheduled_average_headway_time_sec
+				WHEN th.min_max_equal = 'min' AND th.threshold_id_upper IS NOT NULL THEN MIN(aht.scheduled_median_headway_sec * thc2.multiply_by + thc2.add_to)
+				WHEN th.min_max_equal = 'max' AND th.threshold_id_upper IS NOT NULL THEN MAX(aht.scheduled_median_headway_sec * thc2.multiply_by + thc2.add_to)
+				WHEN th.min_max_equal = 'equal' AND th.threshold_id_upper IS NOT NULL THEN AVG(aht.scheduled_median_headway_sec * thc2.multiply_by + thc2.add_to)
+				ELSE NULL
+			END AS threshold_upper_scheduled_median_headway_time_sec
+			,CASE
+				WHEN th.min_max_equal = 'min' AND th.threshold_id_lower IS NOT NULL THEN MIN(aht.scheduled_average_headway_sec * thc1.multiply_by + thc1.add_to)
+				WHEN th.min_max_equal = 'max' AND th.threshold_id_lower IS NOT NULL THEN MAX(aht.scheduled_average_headway_sec * thc1.multiply_by + thc1.add_to)
+				WHEN th.min_max_equal = 'equal' AND th.threshold_id_lower IS NOT NULL THEN AVG(aht.scheduled_average_headway_sec * thc1.multiply_by + thc1.add_to)
+				ELSE NULL
+			END AS threshold_lower_scheduled_average_headway_time_sec
+			,CASE
+				WHEN th.min_max_equal = 'min' AND th.threshold_id_upper IS NOT NULL THEN MIN(aht.scheduled_average_headway_sec * thc2.multiply_by + thc2.add_to)
+				WHEN th.min_max_equal = 'max' AND th.threshold_id_upper IS NOT NULL THEN MAX(aht.scheduled_average_headway_sec * thc2.multiply_by + thc2.add_to)
+				WHEN th.min_max_equal = 'equal' AND th.threshold_id_upper IS NOT NULL THEN AVG(aht.scheduled_average_headway_sec * thc2.multiply_by + thc2.add_to)
+				ELSE NULL
+			END AS threshold_upper_scheduled_average_headway_time_sec
 
 		FROM	dbo.daily_headway_time_sr_all_benchmark aht
-				,dbo.config_threshold th
-				,dbo.config_threshold_calculation thc
+				,
+				(
+					SELECT
+						ct.threshold_id
+						,ct.threshold_name
+						,ct.threshold_type
+						,ct.min_max_equal
+						,ct1.threshold_id as threshold_id_lower
+						,ct2.threshold_id as threshold_id_upper
+					FROM
+						config_threshold ct
+						LEFT JOIN config_threshold ct1
+							ON
+									ct.threshold_id = 
+										CASE 
+											WHEN ct1.parent_child = 0 THEN ct1.threshold_id
+											WHEN ct1.parent_child = 2 THEN ct1.parent_threshold_id
+										END
+								AND 
+									ct1.upper_lower = 'lower'
+						LEFT JOIN config_threshold ct2
+							ON
+									ct.threshold_id = 
+										CASE 
+											when ct2.parent_child = 0 then ct2.threshold_id
+											when ct2.parent_child = 2 then ct2.parent_threshold_id
+										END
+								AND 
+									ct2.upper_lower = 'upper'
+					WHERE ct.parent_child <> 2
+				) th
+				,dbo.config_threshold_calculation thc1
+				,dbo.config_threshold_calculation thc2
 				,dbo.config_mode_threshold mt
 				,dbo.config_time_slice ts
 				,dbo.config_time_period tp
 				,dbo.config_day_type dt							 
 
 		WHERE
-			th.threshold_id = thc.threshold_id
+			ISNULL(th.threshold_id_lower, th.threshold_id) = thc1.threshold_id
+			AND ISNULL(th.threshold_id_upper, th.threshold_id) = thc2.threshold_id
 			AND mt.threshold_id = th.threshold_id
-			AND mt.threshold_id = thc.threshold_id
+			--AND mt.threshold_id = thc.threshold_id
 			AND th.threshold_type = 'trip_headway_based'
 			AND aht.route_type = mt.route_type
 			AND aht.time_slice_id = ts.time_slice_id
@@ -1626,6 +1688,8 @@ BEGIN
 			,tp.time_period_id
 			,tp.time_period_type					 
 			,th.threshold_id
+			,th.threshold_id_lower
+			,th.threshold_id_upper
 			,th.min_max_equal
 
 	--Create a table to calculate and store benchmark headway for each stop for all trains of the same route serving that stop, 
