@@ -1860,6 +1860,9 @@ BEGIN
 	IF OBJECT_ID('tempdb..#webs_trip_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_time_temp
 
+	IF OBJECT_ID('tempdb..#webs_trip_order','u') IS NOT NULL
+		DROP TABLE #webs_trip_order
+
 END;
 
 GO
