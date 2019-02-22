@@ -259,7 +259,6 @@ BEGIN
 		,arrival_time_sec			INT				NOT NULL
 		,departure_time_sec			INT				NOT NULL
 		,pickup_type				INT				NOT NULL
-		,trip_order					INT				NOT NULL
 		,trip_first_stop_sequence	INT  --needed for cr
 		,trip_first_stop_id			VARCHAR(255)	NOT NULL --needed for cr
 		,trip_start_time			VARCHAR(255)	NOT NULL --needed for cr
@@ -435,39 +434,6 @@ BEGIN
 		WHERE
 			wts.trip_id = wte.trip_id
 
-	--create temp table for trip order to fill in trip_order
-	IF OBJECT_ID('tempdb..#webs_trip_order','u') IS NOT NULL
-		DROP TABLE #webs_trip_order
-
-	CREATE TABLE #webs_trip_order
-	(
-		trip_id						VARCHAR(255)	NOT NULL
-		,stop_id					VARCHAR(255)	NOT NULL
-		,checkpoint_id				VARCHAR(255)
-		,trip_order					INT				NOT NULL
-	)
-
-	INSERT INTO #webs_trip_order
-	(
-		trip_id	
-		,stop_id
-		,checkpoint_id
-		,trip_order
-	)
-	SELECT
-		ti.trip_id
-		,st.stop_id
-		,st.checkpoint_id
-		,CASE
-			WHEN @use_checkpoints_only = 0 THEN ROW_NUMBER() OVER (PARTITION BY ti.service_date, ti.route_id, ti.direction_id, st.stop_id ORDER BY st.arrival_time_sec)
-			WHEN @use_checkpoints_only = 1 AND ti.route_type = 3 THEN ROW_NUMBER() OVER (PARTITION BY ti.service_date, ti.route_id, ti.direction_id, st.checkpoint_id ORDER BY st.arrival_time_sec)
-			ELSE ROW_NUMBER() OVER (PARTITION BY ti.service_date, ti.route_id, ti.direction_id, st.stop_id ORDER BY st.arrival_time_sec)
-		END as trip_order
-	FROM
-		dbo.daily_trips ti
-		JOIN gtfs.stop_times st
-			ON ti.trip_id = st.trip_id
-
 	INSERT INTO dbo.daily_stop_times_sec
 	(
 		service_date
@@ -480,7 +446,6 @@ BEGIN
 		,arrival_time_sec
 		,departure_time_sec
 		,pickup_type
-		,trip_order
 		,trip_first_stop_sequence
 		,trip_first_stop_id
 		,trip_start_time
@@ -504,7 +469,6 @@ BEGIN
 			,sta.arrival_time_sec AS arrival_time_sec
 			,sta.departure_time_sec AS departure_time_sec
 			,sta.pickup_type as pickup_type
-			,wto.trip_order
 			,wtt.trip_first_stop_sequence
 			,wtt.trip_first_stop_id
 			,wtt.trip_start_time
@@ -525,16 +489,11 @@ BEGIN
 		FROM	gtfs.stop_times sta
 				,dbo.daily_trips ti
 				,#webs_trip_time_temp wtt
-				,#webs_trip_order wto
 
 		WHERE
 			ti.trip_id = sta.trip_id
 			AND wtt.trip_id = ti.trip_id
 			AND wtt.trip_id = sta.trip_id
-			AND wto.trip_id = ti.trip_id
-			AND wto.trip_id = sta.trip_id
-			AND wto.stop_id = sta.stop_id
-			AND (wto.checkpoint_id = sta.checkpoint_id OR (wto.checkpoint_id IS NULL AND sta.checkpoint_id IS NULL))
 	;
 
 	--create table for daily scheduled headway times
@@ -1923,9 +1882,6 @@ BEGIN
 
 	IF OBJECT_ID('tempdb..#webs_trip_time_temp','u') IS NOT NULL
 		DROP TABLE #webs_trip_time_temp
-
-	IF OBJECT_ID('tempdb..#webs_trip_order','u') IS NOT NULL
-		DROP TABLE #webs_trip_order
 
 END;
 
