@@ -157,3 +157,11 @@ API calls can be built using the Data Fetching Procedures created during the dat
 ## About
 
 This system was developed through a partnership between MBTA (Boston, MA) and  IBI Group and has been in operation since January 2015.
+
+## License
+
+TRANSIT-performance is licensed under the [MIT License](https://github.com/ibi-group/transit-performance/blob/master/LICENSE). 
+
+## Code of Conduct
+
+TRANSIT-performance is governed by the [Contributor Covenant](https://github.com/ibi-group/transit-performance/blob/master/CODE_OF_CONDUCT.md), version 1.4.
