@@ -5640,7 +5640,7 @@ BEGIN
 		,time_period_id
 		,time_period_type
 		,threshold_lower_scheduled_median_headway_time_sec
-		,threshold_lower_scheduled_average_headway_time_sec					  
+		,threshold_lower_scheduled_average_headway_time_sec		
 	FROM dbo.daily_headway_time_threshold_trip
 
 	IF
