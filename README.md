@@ -1,8 +1,8 @@
 # TRANSIT-performance
 
-The TRANSIT-performance system records and measures transit service performance in real-time from two perspectives: the quality of service provided by the agency including travel time, headway, dwell time, and schedule adherence; and the quality of service experienced by customers including passenger weighted wait times and travel times. 
+The TRANSIT-performance system records and measures transit service performance in real-time from two perspectives: the quality of service provided by the agency including travel time, headway, dwell time, on-time performance and schedule adherence; and the quality of service experienced by customers including passenger weighted wait times and travel times. The system also measures the accuracy of real-time predictions. 
 
-The system primarily uses GTFS and GTFS-realtime as data inputs. Information is recorded in real-time for all subway, light rail, and commuter rail routes, directions, trips, and stops in the transit system, allowing analysis of a near 100% sample of data. The system will be updated to include bus data at a later time.
+The system primarily uses GTFS and GTFS-realtime as data inputs. Information is recorded in real-time for all subway, light rail, commuter rail routes, and a number of bus routes, for all directions, trips, and stops in the transit system, allowing analysis of a near 100% sample of data. The system will be updated to include bus data for all routes at a later time.
 
 The outputs of the system are web services API calls and data tables to allow internal users and registered developers to access historical and real-time performance information that can be segmented by day and time period as well as by route, direction, or stop. The repository provides all the necessary source code to collect and process data in the database, and fetch data for API calls, but does not include the source code for creating APIs. 
 
@@ -72,25 +72,32 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 	* creates user-defined data types used in the API calls	
 * Execute ‘CreateInitializationTables’ SQL Script:
 	* creates the ‘dbo.service\_date’ table which stores information about each service\_date that is processed.
-	* creates the table which stores all arrival and departure events and times. 
+	* creates the tables which store all arrival and departure events and times, all predicted arrival and departure events and times, and all service alerts data 
 	* creates the historical tables which store performance information
 	* creates the config tables which stores files for day types, time periods, thresholds, and passenger arrival rates
 * Execute Create Procedure Scripts for Data Processing Stored Procedures
 	* ‘PreProcessDaily’ - This procedure creates the tables that store performance information for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application. 
 	* ‘PostProcessDaily’ - This procedure processes the performance data for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application.
+	* ‘ProcessPredictionAccuracyDaily’ - This stored procedure processes the prediction data for the service_date being processed. This is usually the previous service_date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘CreateTodayRTProcess’ - This stored procedure creates the tables that store real-time performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘PreProcessToday’ - This procedure creates the tables that store performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘ProcessRTEvent’ - This procedure processes the performance data for the current service date in real-time. This stored procedure is set to run as a Job every 1 minute (configurable) in the SQL Server Agent. 
 	* ‘ProcessCurrentMetrics’ - This procedure processes the performance data for the current service date in real-time and calculates the current metrics for the day until now and the last hour. This stored procedure is set to run as a Job every 5 minutes (configurable) in the SQL Server Agent.
 	* ‘UpdateGTFSNext’ - This procedure is needed by the ‘GTFSUpdate’ application. It creates arrival\_time\_sec and departure\_time\_sec fields in the gtfs.stop_times table and calculates arrival time and departure time in seconds after midnight. It also creates tables for the most common trip patterns for each route and direction based on GTFS.
+	* ‘ClearData’ - This procedure cleans up disaggregate Trip Updates and Vehicle Positions data older than 31 days (configurable). This stored procedure is executed by the ‘AppLauncher’ application.													 
 * Execute Create Procedure Scripts for Data Fetching Stored Procedures
 	* ‘getCurrentMetrics’ - This procedure is called by the ‘currentmetrics’ API call. It retrieves the metrics for a route (or all routes) for the current service date until now and the last hour
 	* ‘getDailyMetrics’ - This procedure is called by the ‘dailymetrics’ API call.It retreives the daily metrics for a route (or all routes) for the requested service date(s)
 	* ‘getDwellTimes’ - This procedure is called by the ‘dwells’ API call. It retrieves the dwell times for a stop (optionally filtered by route/direction) for the requested time period.
 	* ‘getHeadwayTimes’ - This procedure is called by the ‘headways’ API call. It retrieves the headways for a stop (optionally filtered by route/direction or destination stop) for the requested time period
-	* ‘getMetrics’ - This procedure is called by the ‘metrics’ API call. It retrieves the metrics for the requested stop/route/direction for the requested time period.
-	* ‘getScheduleAdherence’ - This procedure is called by the ‘scheduleadherence’ API call. It retrieves the schedule adherence for the requested stop (optionally filtered by route/direction) for the requested time period
 	* ‘getTravelTimes’ - This procedure is called by the ‘traveltimes’ API call. It retrieves the travel times for an o-d pair (optionally filtered by route/direction) for the requested time period
+	* ‘getDailyPredictionMetrics’ - This procedure is called by the ‘dailypredictionmetrics’ API call. It retrieves the daily prediction accuracy metrics for a route (or all routes) for the requested service date(s).
+	* ‘getPredictionMetrics’ - This procedure is called by the ‘predictionmetrics’ API call. It retrieves the prediction accuracy metrics in each thirty-minute time slice by route/direction/stop for the requested time period (optionally filtered by route/direction/stop).
+	* ‘getEvents’ - This procedure is called by the ‘events’ API call. It retrieves all arrival and departure events for the requested time period (optionally filtered by route/direction/stop/vehicle label). 
+	* ‘getPastAlerts’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all alert that were in effect for the requested time period (optionally filtered by route/stop/trip). 
+	* ‘getPastAlertsVersions’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves version information for all the requested alerts. 
+	* ‘getPastAlertsActivePeriods’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all the active periods for all the requested alert versions. 
+	* ‘getPastAlertsInformedEntities’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all the informed entities for all the requested alert versions.
 
 ### Application and Services Initialization
 Next add the applications and services that update the system and process data in real-time and daily. To run the applications and services, configuration files of the type .config.sample should be renamed to .config. Values in these files should be updated or added as necessary.
@@ -101,8 +108,10 @@ Next add the applications and services that update the system and process data i
 		* ‘ConfigUpdate’
 		* ‘PreProcessDaily’
 		* ‘PostProcessDaily’
+		* 'ProcessPredictionAccuracyDaily'
 		* ‘PreProcessToday’
 		* ‘CreateTodayRTProcess’
+		* 'ClearData'
 	* The order in which the tasks are executed is determined by the ‘tasks.json’ file. In this file, update the database configuration settings.
 	* This application should be scheduled to run through the Windows Task Scheduler once per day  after the previous service day has ended and before the next service day begins (for example, at 3:00 AM).
 * ‘GTFSUpdate’
@@ -118,7 +127,13 @@ Next add the applications and services that update the system and process data i
 	* To test this service, start the service and check that the ‘rt_event’ table in the database is being populated with arrival and departure events. 
 * ‘gtfsrt\_events\_tu\_latest\_prediction’
 	* This service checks the GTFS-realtime TripUpdates.pb source location every 30 seconds (configurable) and updates the database with new predicted arrival and departure events. This service also archives predicted arrival and departure events for the previous day at the time given by the “RESETTIME” parameter in the config file. This service needs to be installed as a service then set to run continuously.
-	* To test this service, start the service and check that the ‘event\_rt\_trip’ table in the database is being populated with the latest predicted times. The next day, all records from the previous day should have been moved to the ‘event\_rt\_trip\_archive’ table and the ‘event\_rt\_trip’ table should only contain records for the current day. 
+	* To test this service, start the service and check that the ‘event\_rt\_trip’ table in the database is being populated with the latest predicted times. The next day, all records from the previous day should have been moved to the ‘event\_rt\_trip\_archive’ table and the ‘event\_rt\_trip’ table should only contain records for the current day.
+* ‘gtfsrt\_tripupdate\_denormalized’
+	* This service checks the GTFS-realtime TripUpdates.pb source location every 30 seconds (configurable) and records all predicted arrival and departure events in the database every time the file is fetched. This service needs to be installed as a service then set to run continuously.
+	* To test this service, start the service and check that the ‘gtfsrt\_tripupdate\_denormalized’ table is being populated with predicted arrival and departure events.
+* ‘gtfsrt\_alerts’
+	* This service checks the GTFS-realtime ServiceAlerts.pb source location every 15 seconds (configurable) and updates the database with new alerts and versions of existing alerts. This service needs to be installed as a service then set to run continuously.
+	* To test this service, start the service and check that the ‘rt\_alert’, ‘rt\_alert\_active\_period’, rt_alert\_informed\_entity’ tables are being populated with alert information.	
 
 Next, set up the jobs in SQL Server Agent to process data in real-time.
 
