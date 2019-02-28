@@ -26,8 +26,7 @@ namespace gtfsrt_alerts.Properties {
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.ConnectionString)]
-        [global::System.Configuration.DefaultSettingValueAttribute("Data Source=52.21.161.12;Initial Catalog=mbta_performance;Persist Security Info=T" +
-            "rue;User ID=ibi;Password=Cellhouse333#")]
+        [global::System.Configuration.DefaultSettingValueAttribute("Data Source=;Initial Catalog=;Persist Security Info=;User ID=;Password=")]
         public string mbta_performanceConnectionString {
             get {
                 return ((string)(this["mbta_performanceConnectionString"]));
