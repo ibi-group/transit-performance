@@ -10,7 +10,7 @@ This document provides a brief guide for setting up the system. For detailed doc
 
 ## Input Requirements
 
-The TRANSIT-performance system primarily uses GTFS schedule data and the GTFS-realtime vehicle positions and trip updates feed as data inputs. Configuration files are also used to set up benchmarks and thresholds against which to measure performance. Passenger weighted metrics also require an origin-destination matrix for headway-based services and passenger information for trips and stops for schedule-based services. 
+The TRANSIT-performance system primarily uses GTFS schedule data and the GTFS-realtime Vehicle Positions and Trip Updates feeds as data inputs. Configuration files are also used to set up benchmarks and thresholds against which to measure performance. Passenger weighted metrics also require an origin-destination matrix for headway-based services and passenger information for trips and stops for schedule-based services. 
 
 ### GTFS
 GTFS is a standardized format for public transit agencies to publish their schedule information. GTFS files are used to determine the scheduled services for the system and compare how the system performs compared to the schedule. The system requires an agency’s GTFS dataset that complies with the GTFS specification and is available in a stable web accessible location.
@@ -19,7 +19,7 @@ For details about GTFS, please refer to the [GTFS specification](https://github.
 ### GTFS-realtime
 The GTFS-realtime specification is an extension to GTFS that allows agencies to provide real-time updates about their scheduled service referenced in the GTFS feed. The system requires an agency’s GTFS-realtime feeds that comply with the GTFS-realtime specification and are available as .pb files in a stable web accessible location.
 
-The GTFS-realtime vehicle positions feed is used to determine actual arrival and departure events for all trips at all stops in the system. The vehicle_positions feed must have all data elements required as part of the GTFS-realtime specification and the following optional fields:
+The GTFS-realtime Vehicle Positions feed is used to determine actual arrival and departure events for all trips at all stops in the system. The Vehicle Positions feed must have all data elements required as part of the GTFS-realtime specification and the following optional fields:
 
 * trip_id
 * route_id
@@ -31,7 +31,7 @@ The GTFS-realtime vehicle positions feed is used to determine actual arrival and
 * current_status
 * timestamp
 
-The GTFS-realtime trip updates feed is used to determine predicted arrival and departure events for all trips at all stops in the system. The latest available predicted arrival and departure events are used to estimate actual arrival and departure events for cases where the vehicle positions feed does not provide this information. The trip_updates feed must have all data elements required as part of the GTFS-realtime specification and the following optional fields:
+The GTFS-realtime Trip Updates feed is used to determine predicted arrival and departure events for all trips at all stops in the system. The latest available predicted arrival and departure events are used to estimate actual arrival and departure events for cases where the Vehicle Positions feed does not provide this information. The Trip Updates feed must have all data elements required as part of the GTFS-realtime specification and the following optional fields:
 
 * trip_id
 * direction_id
@@ -78,7 +78,7 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 * Execute Create Procedure Scripts for Data Processing Stored Procedures
 	* ‘PreProcessDaily’ - This procedure creates the tables that store performance information for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application. 
 	* ‘PostProcessDaily’ - This procedure processes the performance data for the service date being processed. This is usually the previous service date. This stored procedure is executed by the ‘AppLauncher’ application.
-	* ‘ProcessPredictionAccuracyDaily’ - This stored procedure processes the prediction data for the service_date being processed. This is usually the previous service_date. This stored procedure is executed by the ‘AppLauncher’ application.
+	* ‘ProcessPredictionAccuracyDaily’ - This stored procedure processes the prediction data for the service\_date being processed. This is usually the previous service\_date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘CreateTodayRTProcess’ - This stored procedure creates the tables that store real-time performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘PreProcessToday’ - This procedure creates the tables that store performance information for the upcoming service date. This stored procedure is executed by the ‘AppLauncher’ application.
 	* ‘ProcessRTEvent’ - This procedure processes the performance data for the current service date in real-time. This stored procedure is set to run as a Job every 1 minute (configurable) in the SQL Server Agent. 
@@ -87,14 +87,14 @@ To start, execute the stored procedures and SQL Scripts that initialize the syst
 	* ‘ClearData’ - This procedure cleans up disaggregate Trip Updates and Vehicle Positions data older than 31 days (configurable). This stored procedure is executed by the ‘AppLauncher’ application.													 
 * Execute Create Procedure Scripts for Data Fetching Stored Procedures
 	* ‘getCurrentMetrics’ - This procedure is called by the ‘currentmetrics’ API call. It retrieves the metrics for a route (or all routes) for the current service date until now and the last hour
-	* ‘getDailyMetrics’ - This procedure is called by the ‘dailymetrics’ API call.It retreives the daily metrics for a route (or all routes) for the requested service date(s)
+	* ‘getDailyMetrics’ - This procedure is called by the ‘dailymetrics’ API call.It retrieves the daily metrics for a route (or all routes) for the requested service date(s)
 	* ‘getDwellTimes’ - This procedure is called by the ‘dwells’ API call. It retrieves the dwell times for a stop (optionally filtered by route/direction) for the requested time period.
 	* ‘getHeadwayTimes’ - This procedure is called by the ‘headways’ API call. It retrieves the headways for a stop (optionally filtered by route/direction or destination stop) for the requested time period
 	* ‘getTravelTimes’ - This procedure is called by the ‘traveltimes’ API call. It retrieves the travel times for an o-d pair (optionally filtered by route/direction) for the requested time period
 	* ‘getDailyPredictionMetrics’ - This procedure is called by the ‘dailypredictionmetrics’ API call. It retrieves the daily prediction accuracy metrics for a route (or all routes) for the requested service date(s).
 	* ‘getPredictionMetrics’ - This procedure is called by the ‘predictionmetrics’ API call. It retrieves the prediction accuracy metrics in each thirty-minute time slice by route/direction/stop for the requested time period (optionally filtered by route/direction/stop).
 	* ‘getEvents’ - This procedure is called by the ‘events’ API call. It retrieves all arrival and departure events for the requested time period (optionally filtered by route/direction/stop/vehicle label). 
-	* ‘getPastAlerts’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all alert that were in effect for the requested time period (optionally filtered by route/stop/trip). 
+	* ‘getPastAlerts’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all alerts that were in effect for the requested time period (optionally filtered by route/stop/trip). 
 	* ‘getPastAlertsVersions’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves version information for all the requested alerts. 
 	* ‘getPastAlertsActivePeriods’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all the active periods for all the requested alert versions. 
 	* ‘getPastAlertsInformedEntities’ - This procedure is one of the stored procedures called by the ‘pastalerts’ API call. It retrieves all the informed entities for all the requested alert versions.
