@@ -92,6 +92,82 @@ INCLUDE (record_id,file_time,route_id,trip_id,direction_id,stop_id,
 stop_sequence,vehicle_id,event_type,event_time,event_time_sec,
 event_processed_rt,event_processed_daily)
 
+--Create Event Time Table which stores reprocessed arrival and departure events and times 
+IF OBJECT_ID('dbo.rt_event_reprocess','U') IS NOT NULL
+	DROP TABLE dbo.rt_event_reprocess
+
+GO
+
+CREATE TABLE dbo.rt_event_reprocess
+(
+	record_id				INT	IDENTITY PRIMARY KEY
+	,service_date			DATE
+	,file_time				INT
+	,route_id				VARCHAR(255)
+	,trip_id				VARCHAR(255)
+	,direction_id			INT
+	,stop_id				VARCHAR(255)
+	,stop_sequence			INT
+	,vehicle_id				VARCHAR(255)
+	,vehicle_label			VARCHAR(255)
+	,event_type				CHAR(3)
+	,event_time				INT
+	,event_time_sec			INT
+	,event_processed_rt		BIT	DEFAULT 0
+	,event_processed_daily	BIT	DEFAULT 0
+)
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_service_date
+ON rt_event_reprocess (service_date);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_route_id
+ON rt_event_reprocess (route_id);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_trip_id
+ON rt_event_reprocess (trip_id);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_direction_id
+ON rt_event_reprocess (direction_id);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_stop_id
+ON rt_event_reprocess (stop_id);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_stop_sequence
+ON rt_event_reprocess (stop_sequence);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_vehicle_id
+ON rt_event_reprocess (vehicle_id);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_event_type
+ON rt_event_reprocess (event_type);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_event_time
+ON rt_event_reprocess (event_time);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_event_time_sec
+ON rt_event_reprocess (event_time_sec);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_event_processed_rt
+ON rt_event_reprocess (event_processed_rt);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_event_processed_daily
+ON rt_event_reprocess (event_processed_daily);
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_index_1
+ON dbo.rt_event_reprocess (service_date,event_processed_rt)
+INCLUDE (record_id,file_time,route_id,trip_id,direction_id,stop_id,
+stop_sequence,vehicle_id,event_type,event_time,event_time_sec)
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_index_2
+ON dbo.rt_event_reprocess (service_date,event_time_sec)
+INCLUDE (record_id,event_time)
+
+CREATE NONCLUSTERED INDEX IX_rt_event_reprocess_index_3
+ON dbo.rt_event_reprocess (service_date)
+INCLUDE (record_id,file_time,route_id,trip_id,direction_id,stop_id,
+stop_sequence,vehicle_id,event_type,event_time,event_time_sec,
+event_processed_rt,event_processed_daily)
+
 -- create event_rt_trip and event_rt_trip archive tables to store latest predicted times  
 IF OBJECT_ID('dbo.event_rt_trip','U') IS NOT NULL
 	DROP TABLE dbo.event_rt_trip;
