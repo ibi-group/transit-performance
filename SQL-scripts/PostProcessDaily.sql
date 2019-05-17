@@ -3887,16 +3887,13 @@ BEGIN
 		JOIN dbo.service_date s
 		ON
 			s.service_date = cap.service_date
-		JOIN dbo.config_day_type cdt
-		ON
-			s.day_type_id = cdt.day_type_id
 		JOIN dbo.config_time_period ctp
 		ON
 				cap.departure_time_sec >= ctp.time_period_start_time_sec
 			AND
 				cap.departure_time_sec < ctp.time_period_end_time_sec
 			AND
-				ctp.day_type = cdt.day_type	
+				ctp.day_type_id = s.day_type_id	
 	WHERE
 			sad.route_type = 3 --bus only
 		AND 
@@ -4278,16 +4275,16 @@ BEGIN
 		JOIN dbo.service_date s
 		ON
 			s.service_date = cap.service_date
-		JOIN dbo.config_day_type cdt
-		ON
-			s.day_type_id = cdt.day_type_id
+		--JOIN dbo.config_day_type cdt
+		--ON
+		--	s.day_type_id = cdt.day_type_id
 		JOIN dbo.config_time_period ctp
 		ON
 				cap.departure_time_sec >= ctp.time_period_start_time_sec
 			AND
 				cap.departure_time_sec < ctp.time_period_end_time_sec
 			AND
-				ctp.day_type = cdt.day_type						   
+				ctp.day_type_id = s.day_type_id						   
 	WHERE
 			(acbd.bd_route_type = 3 OR acbd.ac_route_type = 3 )--bus only
 		AND 
@@ -4473,16 +4470,13 @@ BEGIN
 		JOIN dbo.service_date s
 		ON
 			s.service_date = st.service_date
-		JOIN dbo.config_day_type cdt
-		ON
-			s.day_type_id = cdt.day_type_id
 		JOIN dbo.config_time_period ctp
 		ON
 				st.arrival_time_sec >= ctp.time_period_start_time_sec
 			AND
 				st.arrival_time_sec < ctp.time_period_end_time_sec
 			AND
-				ctp.day_type = cdt.day_type				   
+				ctp.day_type_id = s.day_type_id				   
 	WHERE
 			de.de_route_type = 3 --bus only
 		AND 
