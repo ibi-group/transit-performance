@@ -66,6 +66,10 @@
                     "null": false,
                     "type": "BIT"
                 },
+				"sunday": {
+				    "null": false,
+                    "type": "BIT"
+				},
                 "start_date": {
                     "null": false,
                     "type": "DATE"
@@ -205,11 +209,9 @@
                     "type": "VARCHAR(255)"
                 },
                 "stop_lat": {
-                    "null": false,
                     "type": "FLOAT"
                 },
                 "stop_lon": {
-                    "null": false,
                     "type": "FLOAT"
                 },
                 "zone_id": {
