@@ -66,10 +66,10 @@
                     "null": false,
                     "type": "BIT"
                 },
-				"sunday": {
-					"null": false,
+                "sunday": {
+                    "null": false,
                     "type": "BIT"
-				},
+                },
                 "start_date": {
                     "null": false,
                     "type": "DATE"
