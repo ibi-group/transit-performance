@@ -67,7 +67,7 @@
                     "type": "BIT"
                 },
 				"sunday": {
-				    "null": false,
+					"null": false,
                     "type": "BIT"
 				},
                 "start_date": {
