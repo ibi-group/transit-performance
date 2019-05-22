@@ -269,6 +269,7 @@
 					"type": "VARCHAR(255)"
 				}
 			}
+		},
 		"config_expected_wait_time":{
 			"columns":{
 				"route_type":{
