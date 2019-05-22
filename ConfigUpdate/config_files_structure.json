@@ -269,6 +269,52 @@
 					"type": "VARCHAR(255)"
 				}
 			}
+		"config_expected_wait_time":{
+			"columns":{
+				"route_type":{
+					"type": "INT"
+				},
+				"expected_wait_time_sec":{
+					"null": false,
+					"type": "INT"
+				}
+			}
+		},
+		"config_expected_in_vehicle_time":{
+			"columns":{
+				"day_type_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"from_stop_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"to_stop_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"route_type":{
+					"null": false,
+					"type": "INT"
+				},
+				"route_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"direction_id":{
+					"null": false,
+					"type": "INT"
+				},
+				"time_slice_id":{
+					"null": false,
+					"type": "VARCHAR(255)"
+				},
+				"expected_in_vehicle_time_sec":{
+					"null": false,
+					"type": "INT"
+				}
+			}
 		}
 	}
 }
