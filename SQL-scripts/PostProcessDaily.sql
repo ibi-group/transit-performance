@@ -4428,6 +4428,11 @@ BEGIN
 		AND ((@use_checkpoints_only = 1 AND st.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
 		AND (st.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_arrival_headway_time_sec <= 900)
 		AND st.trip_order <> 1
+		
+	-- Execute ProcDailyJourneyTimeDisaggrgeate stored procedure to calculate and store disaggregate excess journey time into dbo.daily_journey_time_disaggregate
+	
+	EXEC ProcessDailyJourneyTimeDisaggregate    
+			@service_date_process
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
