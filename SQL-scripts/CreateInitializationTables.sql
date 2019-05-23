@@ -841,6 +841,30 @@ CREATE TABLE dbo.deleted_from_abcde_time
 	,bd_time_sec		INT				NOT NULL
 )
 
+IF OBJECT_ID('dbo.dhistorical_journey_time_disaggregate', 'U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_disaggregate
+
+
+CREATE TABLE dbo.historical_journey_time_disaggregate
+	(
+	service_date							VARCHAR(255)	
+	,from_stop_id							VARCHAR(255)	
+	,to_stop_id								VARCHAR(255)			
+	,route_type								INT				
+	,route_id								VARCHAR(255)	
+	,direction_id							INT				
+	,trip_id								VARCHAR(255)	
+	,expected_wait_time_sec					INT				
+	,expected_in_vehicle_time_sec			INT				
+	,expected_journey_time_sec				INT				
+	,total_excess_wait_time_sec				FLOAT
+	,total_excess_in_vehicle_time_sec		FLOAT
+	,total_excess_journey_time_sec			FLOAT
+	,total_expected_journey_time_sec		FLOAT
+	,bd_passengers							FLOAT
+	,excess_journey_time_per_passenger_min	FLOAT
+	)
+	
 --Create tables for configuration files 
 -- Create Day Type Table 
 IF OBJECT_ID('dbo.config_day_type','U') IS NOT NULL
