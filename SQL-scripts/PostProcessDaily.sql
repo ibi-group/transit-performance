@@ -5852,6 +5852,58 @@ BEGIN
 		,denominator_pax
 		,scheduled_threshold_numerator_pax
 	FROM dbo.daily_trip_run_time_adherence_threshold_pax
+	
+	IF
+	(
+		SELECT
+			COUNT(*)
+		FROM dbo.historical_journey_time_disaggregate
+		WHERE 
+			service_date = @service_date_process
+	)
+		> 0
+
+		DELETE FROM dbo.historical_journey_time_disaggregate
+		WHERE 
+			service_date = @service_date_process
+
+	INSERT INTO dbo.historical_journey_time_disaggregate
+	(
+		service_date	
+		,from_stop_id
+		,to_stop_id			
+		,route_type		
+		,route_id	
+		,direction_id		
+		,trip_id	
+		,expected_wait_time_sec			
+		,expected_in_vehicle_time_sec			
+		,expected_journey_time_sec			
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,bd_passengers
+		,excess_journey_time_per_passenger_min
+	)
+	SELECT
+		service_date	
+		,from_stop_id
+		,to_stop_id			
+		,route_type		
+		,route_id	
+		,direction_id		
+		,trip_id	
+		,expected_wait_time_sec			
+		,expected_in_vehicle_time_sec			
+		,expected_journey_time_sec			
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,bd_passengers
+		,excess_journey_time_per_passenger_min
+	FROM dbo.daily_journey_time_disaggregate	
 
 	--DROP all temp tables
 
