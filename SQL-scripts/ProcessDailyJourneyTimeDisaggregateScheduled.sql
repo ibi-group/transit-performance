@@ -3,10 +3,10 @@
 --USE transit_performance
 --GO
 
---This procedure processes all of the events for the service_date being processed. It runs during PostProcessDaily.
+--This procedure processes all of the scheduled events for the service_date being processed. It runs during PreProcessDaily.
 
-IF OBJECT_ID('dbo.ProcessDailyJourneyTimeDisaggregate ','P') IS NOT NULL
-	DROP PROCEDURE dbo.ProcessDailyJourneyTimeDisaggregate
+IF OBJECT_ID('dbo.ProcessDailyJourneyTimeDisaggregateScheduled ','P') IS NOT NULL
+	DROP PROCEDURE dbo.ProcessDailyJourneyTimeDisaggregateScheduled
 
 GO
 
@@ -17,7 +17,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
-CREATE PROCEDURE dbo.ProcessDailyJourneyTimeDisaggregate
+CREATE PROCEDURE dbo.ProcessDailyJourneyTimeDisaggregateScheduled
 
 	@service_date_process DATE
 
@@ -26,11 +26,11 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-IF OBJECT_ID('dbo.daily_journey_time_disaggregate', 'U') IS NOT NULL
-	DROP TABLE dbo.daily_journey_time_disaggregate
+IF OBJECT_ID('dbo.daily_journey_time_disaggregate_scheduled', 'U') IS NOT NULL
+	DROP TABLE dbo.daily_journey_time_disaggregate_scheduled
 
 
-CREATE TABLE dbo.daily_journey_time_disaggregate
+CREATE TABLE dbo.daily_journey_time_disaggregate_scheduled
 	(
 	service_date													VARCHAR(255)	
 	,from_stop_id													VARCHAR(255)	
@@ -79,7 +79,7 @@ CREATE TABLE dbo.daily_journey_time_disaggregate
 	,passengers_with_excess_journey_time_greater_than_twenty_min	FLOAT
 	)
 
-INSERT INTO dbo.daily_journey_time_disaggregate
+INSERT INTO dbo.daily_journey_time_disaggregate_scheduled
 	(
 	service_date
 	,from_stop_id
@@ -451,7 +451,7 @@ SELECT
 			) * par.passenger_arrival_rate																					-- and passengers_with_excess_journey_time = (max_excess_journey_time - min_excess_journey_time) * passenger_arrival_rate
 		END																													AS passengers_with_excess_journey_time_greater_than_twenty_min		
 FROM	
-	##daily_abcde_time abcde
+	##daily_abcde_time_scheduled abcde
         
 		LEFT JOIN dbo.config_time_slice ts
 		ON

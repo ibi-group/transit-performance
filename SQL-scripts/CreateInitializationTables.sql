@@ -841,28 +841,121 @@ CREATE TABLE dbo.deleted_from_abcde_time
 	,bd_time_sec		INT				NOT NULL
 )
 
-IF OBJECT_ID('dbo.dhistorical_journey_time_disaggregate', 'U') IS NOT NULL
+IF OBJECT_ID('dbo.historical_journey_time_disaggregate_scheduled', 'U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_disaggregate_scheduled
+
+
+CREATE TABLE dbo.historical_journey_time_disaggregate_scheduled
+	(
+	service_date													VARCHAR(255)	
+	,from_stop_id													VARCHAR(255)	
+	,to_stop_id														VARCHAR(255)				
+	,route_type														INT				
+	,route_id														VARCHAR(255)	
+	,direction_id													INT				
+	,trip_id														VARCHAR(255)	
+	,expected_wait_time_sec											INT				
+	,expected_in_vehicle_time_sec									INT				
+	,expected_journey_time_sec										INT				
+	,total_excess_wait_time_sec										FLOAT
+	,total_excess_in_vehicle_time_sec								FLOAT
+	,total_excess_journey_time_sec									FLOAT
+	,total_expected_journey_time_sec								FLOAT
+	,excess_journey_time_per_passenger_sec							FLOAT
+	,passengers														FLOAT
+	,passengers_with_excess_journey_time							FLOAT
+	,passengers_with_excess_journey_time_greater_than_five_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_ten_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_fifteen_min	FLOAT
+	,passengers_with_excess_journey_time_greater_than_twenty_min	FLOAT
+	)
+
+IF OBJECT_ID('dbo.historical_journey_time_disaggregate_scheduled_public_timetable', 'U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_disaggregate_scheduled_public_timetable
+
+
+CREATE TABLE dbo.historical_journey_time_disaggregate_scheduled_public_timetable
+	(
+	service_date													VARCHAR(255)	
+	,from_stop_id													VARCHAR(255)	
+	,to_stop_id														VARCHAR(255)				
+	,route_type														INT				
+	,route_id														VARCHAR(255)	
+	,direction_id													INT				
+	,trip_id														VARCHAR(255)	
+	,expected_wait_time_sec											INT				
+	,expected_in_vehicle_time_sec									INT				
+	,expected_journey_time_sec										INT				
+	,total_excess_wait_time_sec										FLOAT
+	,total_excess_in_vehicle_time_sec								FLOAT
+	,total_excess_journey_time_sec									FLOAT
+	,total_expected_journey_time_sec								FLOAT
+	,excess_journey_time_per_passenger_sec							FLOAT
+	,passengers														FLOAT
+	,passengers_with_excess_journey_time							FLOAT
+	,passengers_with_excess_journey_time_greater_than_five_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_ten_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_fifteen_min	FLOAT
+	,passengers_with_excess_journey_time_greater_than_twenty_min	FLOAT
+	)
+
+
+IF OBJECT_ID('dbo.historical_journey_time_disaggregate', 'U') IS NOT NULL
 	DROP TABLE dbo.historical_journey_time_disaggregate
 
 
 CREATE TABLE dbo.historical_journey_time_disaggregate
 	(
-	service_date							VARCHAR(255)	
-	,from_stop_id							VARCHAR(255)	
-	,to_stop_id								VARCHAR(255)			
-	,route_type								INT				
-	,route_id								VARCHAR(255)	
-	,direction_id							INT				
-	,trip_id								VARCHAR(255)	
-	,expected_wait_time_sec					INT				
-	,expected_in_vehicle_time_sec			INT				
-	,expected_journey_time_sec				INT				
-	,total_excess_wait_time_sec				FLOAT
-	,total_excess_in_vehicle_time_sec		FLOAT
-	,total_excess_journey_time_sec			FLOAT
-	,total_expected_journey_time_sec		FLOAT
-	,bd_passengers							FLOAT
-	,excess_journey_time_per_passenger_min	FLOAT
+	service_date													VARCHAR(255)	
+	,from_stop_id													VARCHAR(255)	
+	,to_stop_id														VARCHAR(255)				
+	,route_type														INT				
+	,route_id														VARCHAR(255)	
+	,direction_id													INT				
+	,trip_id														VARCHAR(255)	
+	,expected_wait_time_sec											INT				
+	,expected_in_vehicle_time_sec									INT				
+	,expected_journey_time_sec										INT				
+	,total_excess_wait_time_sec										FLOAT
+	,total_excess_in_vehicle_time_sec								FLOAT
+	,total_excess_journey_time_sec									FLOAT
+	,total_expected_journey_time_sec								FLOAT
+	,excess_journey_time_per_passenger_sec							FLOAT
+	,passengers														FLOAT
+	,passengers_with_excess_journey_time							FLOAT
+	,passengers_with_excess_journey_time_greater_than_five_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_ten_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_fifteen_min	FLOAT
+	,passengers_with_excess_journey_time_greater_than_twenty_min	FLOAT
+	)
+
+IF OBJECT_ID('dbo.historical_journey_time_disaggregate_public_timetable', 'U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_disaggregate_public_timetable
+
+
+CREATE TABLE dbo.historical_journey_time_disaggregate_public_timetable
+	(
+	service_date													VARCHAR(255)	
+	,from_stop_id													VARCHAR(255)	
+	,to_stop_id														VARCHAR(255)				
+	,route_type														INT				
+	,route_id														VARCHAR(255)	
+	,direction_id													INT				
+	,trip_id														VARCHAR(255)	
+	,expected_wait_time_sec											INT				
+	,expected_in_vehicle_time_sec									INT				
+	,expected_journey_time_sec										INT				
+	,total_excess_wait_time_sec										FLOAT
+	,total_excess_in_vehicle_time_sec								FLOAT
+	,total_excess_journey_time_sec									FLOAT
+	,total_expected_journey_time_sec								FLOAT
+	,excess_journey_time_per_passenger_sec							FLOAT
+	,passengers														FLOAT
+	,passengers_with_excess_journey_time							FLOAT
+	,passengers_with_excess_journey_time_greater_than_five_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_ten_min		FLOAT
+	,passengers_with_excess_journey_time_greater_than_fifteen_min	FLOAT
+	,passengers_with_excess_journey_time_greater_than_twenty_min	FLOAT
 	)
 	
 --Create tables for configuration files 

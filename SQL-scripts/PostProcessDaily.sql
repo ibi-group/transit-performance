@@ -4429,11 +4429,16 @@ BEGIN
 		AND (st.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_arrival_headway_time_sec <= 900)
 		AND st.trip_order <> 1
 		
-	-- Execute ProcDailyJourneyTimeDisaggrgeate stored procedure to calculate and store disaggregate excess journey time into dbo.daily_journey_time_disaggregate
+	-- Execute ProcDailyJourneyTimeDisaggregate stored procedure to calculate and store disaggregate excess journey time into dbo.daily_journey_time_disaggregate
 	
 	EXEC ProcessDailyJourneyTimeDisaggregate    
 			@service_date_process
-
+		
+	-- Execute ProcDailyJourneyTimeDisaggrgeatePublicTimetable stored procedure to calculate and store disaggregate excess journey time into dbo.daily_journey_time_disaggregate_public_timetable
+	
+	EXEC ProcessDailyJourneyTimeDisaggregatePublicTimetable    
+			@service_date_process
+			
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
 		DROP TABLE dbo.daily_metrics
@@ -5857,6 +5862,130 @@ BEGIN
 	(
 		SELECT
 			COUNT(*)
+		FROM dbo.historical_journey_time_disaggregate_scheduled
+		WHERE 
+			service_date = @service_date_process
+	)
+		> 0
+
+		DELETE FROM dbo.historical_journey_time_disaggregate_scheduled
+		WHERE 
+			service_date = @service_date_process
+
+	INSERT INTO dbo.historical_journey_time_disaggregate_scheduled
+	(
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id	
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
+	)
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id	
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
+	FROM dbo.daily_journey_time_disaggregate_scheduled	
+	
+	IF
+	(
+		SELECT
+			COUNT(*)
+		FROM dbo.historical_journey_time_disaggregate_scheduled_public_timetable
+		WHERE 
+			service_date = @service_date_process
+	)
+		> 0
+
+		DELETE FROM dbo.historical_journey_time_disaggregate_scheduled_public_timetable
+		WHERE 
+			service_date = @service_date_process
+
+	INSERT INTO dbo.historical_journey_time_disaggregate_scheduled_public_timetable
+	(
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id	
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
+	)
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id	
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
+	FROM dbo.daily_journey_time_disaggregate_scheduled_public_timetable	
+
+	IF
+	(
+		SELECT
+			COUNT(*)
 		FROM dbo.historical_journey_time_disaggregate
 		WHERE 
 			service_date = @service_date_process
@@ -5869,42 +5998,114 @@ BEGIN
 
 	INSERT INTO dbo.historical_journey_time_disaggregate
 	(
-		service_date	
+		service_date
 		,from_stop_id
-		,to_stop_id			
-		,route_type		
+		,to_stop_id
+		,route_type
 		,route_id	
-		,direction_id		
-		,trip_id	
-		,expected_wait_time_sec			
-		,expected_in_vehicle_time_sec			
-		,expected_journey_time_sec			
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
 		,total_excess_wait_time_sec
 		,total_excess_in_vehicle_time_sec
 		,total_excess_journey_time_sec
 		,total_expected_journey_time_sec
-		,bd_passengers
-		,excess_journey_time_per_passenger_min
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
 	)
 	SELECT
-		service_date	
+		service_date
 		,from_stop_id
-		,to_stop_id			
-		,route_type		
+		,to_stop_id
+		,route_type
 		,route_id	
-		,direction_id		
-		,trip_id	
-		,expected_wait_time_sec			
-		,expected_in_vehicle_time_sec			
-		,expected_journey_time_sec			
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
 		,total_excess_wait_time_sec
 		,total_excess_in_vehicle_time_sec
 		,total_excess_journey_time_sec
 		,total_expected_journey_time_sec
-		,bd_passengers
-		,excess_journey_time_per_passenger_min
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
 	FROM dbo.daily_journey_time_disaggregate	
+	
+	IF
+	(
+		SELECT
+			COUNT(*)
+		FROM dbo.historical_journey_time_disaggregate_public_timetable
+		WHERE 
+			service_date = @service_date_process
+	)
+		> 0
 
+		DELETE FROM dbo.historical_journey_time_disaggregate_public_timetable
+		WHERE 
+			service_date = @service_date_process
+
+	INSERT INTO dbo.historical_journey_time_disaggregate_public_timetable
+	(
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id	
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
+	)
+	SELECT
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id	
+		,direction_id
+		,trip_id
+		,expected_wait_time_sec		
+		,expected_in_vehicle_time_sec
+		,expected_journey_time_sec
+		,total_excess_wait_time_sec
+		,total_excess_in_vehicle_time_sec
+		,total_excess_journey_time_sec
+		,total_expected_journey_time_sec
+		,excess_journey_time_per_passenger_sec
+		,passengers
+		,passengers_with_excess_journey_time
+		,passengers_with_excess_journey_time_greater_than_five_min
+		,passengers_with_excess_journey_time_greater_than_ten_min
+		,passengers_with_excess_journey_time_greater_than_fifteen_min
+		,passengers_with_excess_journey_time_greater_than_twenty_min
+	FROM dbo.daily_journey_time_disaggregate_public_timetable		
+	
 	--DROP all temp tables
 
 	IF OBJECT_ID('tempdb..##daily_cd_time','U') IS NOT NULL
