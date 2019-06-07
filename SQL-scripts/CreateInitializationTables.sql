@@ -854,9 +854,9 @@ CREATE TABLE dbo.historical_journey_time_disaggregate_scheduled
 	,route_id														VARCHAR(255)	
 	,direction_id													INT				
 	,trip_id														VARCHAR(255)	
-	,expected_wait_time_sec											INT				
-	,expected_in_vehicle_time_sec									INT				
-	,expected_journey_time_sec										INT				
+	,expected_wait_time_sec											FLOAT				
+	,expected_in_vehicle_time_sec									FLOAT				
+	,expected_journey_time_sec										FLOAT				
 	,total_excess_wait_time_sec										FLOAT
 	,total_excess_in_vehicle_time_sec								FLOAT
 	,total_excess_journey_time_sec									FLOAT
@@ -883,9 +883,9 @@ CREATE TABLE dbo.historical_journey_time_disaggregate_scheduled_public_timetable
 	,route_id														VARCHAR(255)	
 	,direction_id													INT				
 	,trip_id														VARCHAR(255)	
-	,expected_wait_time_sec											INT				
-	,expected_in_vehicle_time_sec									INT				
-	,expected_journey_time_sec										INT				
+	,expected_wait_time_sec											FLOAT				
+	,expected_in_vehicle_time_sec									FLOAT				
+	,expected_journey_time_sec										FLOAT				
 	,total_excess_wait_time_sec										FLOAT
 	,total_excess_in_vehicle_time_sec								FLOAT
 	,total_excess_journey_time_sec									FLOAT
@@ -913,9 +913,9 @@ CREATE TABLE dbo.historical_journey_time_disaggregate
 	,route_id														VARCHAR(255)	
 	,direction_id													INT				
 	,trip_id														VARCHAR(255)	
-	,expected_wait_time_sec											INT				
-	,expected_in_vehicle_time_sec									INT				
-	,expected_journey_time_sec										INT				
+	,expected_wait_time_sec											FLOAT				
+	,expected_in_vehicle_time_sec									FLOAT				
+	,expected_journey_time_sec										FLOAT				
 	,total_excess_wait_time_sec										FLOAT
 	,total_excess_in_vehicle_time_sec								FLOAT
 	,total_excess_journey_time_sec									FLOAT
@@ -942,9 +942,9 @@ CREATE TABLE dbo.historical_journey_time_disaggregate_public_timetable
 	,route_id														VARCHAR(255)	
 	,direction_id													INT				
 	,trip_id														VARCHAR(255)	
-	,expected_wait_time_sec											INT				
-	,expected_in_vehicle_time_sec									INT				
-	,expected_journey_time_sec										INT				
+	,expected_wait_time_sec											FLOAT				
+	,expected_in_vehicle_time_sec									FLOAT				
+	,expected_journey_time_sec										FLOAT				
 	,total_excess_wait_time_sec										FLOAT
 	,total_excess_in_vehicle_time_sec								FLOAT
 	,total_excess_journey_time_sec									FLOAT

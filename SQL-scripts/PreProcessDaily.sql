@@ -1903,7 +1903,17 @@ BEGIN
 				AND his.direction_id = sch.direction_id
 				AND his.time_slice_id = sch.time_slice_id
 				)
-
+		
+	-- Execute ProcDailyJourneyTimeDisaggregate stored procedure to calculate and store disaggregate excess journey time into dbo.daily_journey_time_disaggregate
+	
+	EXEC ProcessDailyJourneyTimeDisaggregateScheduled    
+			@service_date_process
+		
+	-- Execute ProcDailyJourneyTimeDisaggrgeatePublicTimetable stored procedure to calculate and store disaggregate excess journey time into dbo.daily_journey_time_disaggregate_public_timetable
+	
+	EXEC ProcessDailyJourneyTimeDisaggregateScheduledPublicTimetable    
+			@service_date_process
+			
 
 	IF OBJECT_ID('tempdb..#daily_abcde_time_scheduled','U') IS NOT NULL
 		DROP TABLE #daily_abcde_time_scheduled

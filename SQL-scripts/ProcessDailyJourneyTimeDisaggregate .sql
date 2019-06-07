@@ -40,9 +40,9 @@ CREATE TABLE dbo.daily_journey_time_disaggregate
 	,route_id														VARCHAR(255)	
 	,direction_id													INT				
 	,trip_id														VARCHAR(255)	
-	,expected_wait_time_sec											INT				
-	,expected_in_vehicle_time_sec									INT				
-	,expected_journey_time_sec										INT				
+	,expected_wait_time_sec											FLOAT				
+	,expected_in_vehicle_time_sec									FLOAT			
+	,expected_journey_time_sec										FLOAT				
 	--,passenger_arrival_rate										FLOAT			-- temporary, for validation only
 	--,bc_passengers												FLOAT			-- temporary, for validation only
 	--,bc_max_wait_time												FLOAT			-- temporary, for validation only
@@ -269,7 +269,7 @@ SELECT
 				)
 			) * par.passenger_arrival_rate																						-- passengers_with_excess_journey_time
 		END																														AS total_excess_journey_time_sec
-	,(wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec) * (par.passenger_arrival_rate * (d_time_sec - c_time_sec))	AS total_expected_journey_time_sec
+	,(wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec) * (par.passenger_arrival_rate * (d_time_sec - b_time_sec))	AS total_expected_journey_time_sec
 	,CASE	
 		WHEN 
 			(e_time_sec - b_time_sec) - (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec) <= 0						-- when max_excess_journey_time <= 0

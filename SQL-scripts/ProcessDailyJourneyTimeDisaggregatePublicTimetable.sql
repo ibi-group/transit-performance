@@ -40,9 +40,9 @@ CREATE TABLE dbo.daily_journey_time_disaggregate_public_timetable
 	,route_id														VARCHAR(255)	
 	,direction_id													INT				
 	,trip_id														VARCHAR(255)	
-	,expected_wait_time_sec											INT				
-	,expected_in_vehicle_time_sec									INT				
-	,expected_journey_time_sec										INT				
+	,expected_wait_time_sec											FLOAT			
+	,expected_in_vehicle_time_sec									FLOAT				
+	,expected_journey_time_sec										FLOAT			
 	--,passenger_arrival_rate										FLOAT			-- temporary, for validation only
 	--,bc_passengers												FLOAT			-- temporary, for validation only
 	--,bc_max_wait_time												FLOAT			-- temporary, for validation only
@@ -269,7 +269,7 @@ SELECT
 				)
 			) * par.passenger_arrival_rate																						-- passengers_with_excess_journey_time
 		END																														AS total_excess_journey_time_sec
-	,(wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec) * (par.passenger_arrival_rate * (d_time_sec - c_time_sec))	AS total_expected_journey_time_sec
+	,(wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec) * (par.passenger_arrival_rate * (d_time_sec - b_time_sec))	AS total_expected_journey_time_sec
 	,CASE	
 		WHEN 
 			(e_time_sec - b_time_sec) - (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec) <= 0						-- when max_excess_journey_time <= 0
@@ -458,11 +458,6 @@ FROM
 			abcde.d_time_sec >= ts.time_slice_start_sec
 			AND abcde.d_time_sec < ts.time_slice_end_sec
 			
-		LEFT JOIN dbo.config_time_period tp
-		ON
-			abcde.d_time_sec >= tp.time_period_start_time_sec
-			AND abcde.d_time_sec < tp.time_period_end_time_sec	
-        
 		LEFT JOIN dbo.service_date sd
 		ON 
 			abcde.service_date = sd.service_date
@@ -480,9 +475,10 @@ FROM
 				
 		LEFT JOIN dbo.config_expected_wait_time_public_timetable wt
 		ON
-			abcde.abcd_stop_id = wt.from_stop_id
+			sd.day_type_id = wt.day_type_id
+			AND abcde.abcd_stop_id = wt.from_stop_id
 			AND abcde.e_stop_id = wt.to_stop_id
-			AND tp.time_period_id = wt.time_period_id
+			AND ts.time_slice_id = wt.time_slice_id
 				
 		LEFT JOIN dbo.config_expected_in_vehicle_time ivt
 		ON	
