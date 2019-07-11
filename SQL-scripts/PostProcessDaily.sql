@@ -595,6 +595,7 @@ BEGIN
 	)
 
 	--Heavy Rail and Commuter Rail: finding missed heavy rail and CR events at the destination
+	--Scheduled Trips
 	INSERT INTO ##missed_events
 	(
 		service_date
@@ -629,6 +630,60 @@ BEGIN
 				st.stop_order_flag = 3
 			AND
 				de.event_type = 'ARR' --only arrival events at terminals
+
+	--Added trips
+	INSERT INTO ##missed_events
+    (
+        service_date
+		,trip_id
+		,vehicle_id
+        ,route_type
+        ,stop_id
+        ,stop_sequence
+		,stop_order_flag
+		,event_type
+    )
+
+		SELECT DISTINCT
+			dtu.service_date
+			,dtu.trip_id
+			,dtu.vehicle_id
+			,dtu.route_type
+			,dtu.stop_id
+			,dtu.stop_sequence
+			,NULL--st.stop_order_flag
+			,dtu.event_type
+		FROM
+			dbo.daily_trip_updates dtu
+		JOIN
+		 (
+			SELECT 
+				service_date
+				,route_type
+				,trip_id
+				,vehicle_id
+				,MAX(stop_sequence) as max_stop_sequence
+			FROM daily_event
+			WHERE
+					route_type = 1
+				AND
+					suspect_record = 0
+			GROUP BY 
+				service_date
+				,route_type
+				,trip_id
+				,vehicle_id	
+		 ) de_temp
+		ON
+				dtu.service_date = de_temp.service_date
+			AND
+				dtu.trip_id = de_temp.trip_id
+			AND
+				dtu.vehicle_id = de_temp.vehicle_id
+			AND 
+				dtu.stop_sequence > de_temp.max_stop_sequence
+		WHERE
+			dtu.trip_id NOT IN (SELECT DISTINCT trip_id FROM daily_trips)
 
 	--Bus: finding missed bus events at all stops
 	INSERT INTO ##missed_events
