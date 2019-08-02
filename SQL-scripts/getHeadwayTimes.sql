@@ -47,7 +47,14 @@ BEGIN
 		,threshold_flag_2			VARCHAR(255)
 		,threshold_flag_3			VARCHAR(255)
 	)
-	IF (DATEDIFF(D,@from_time,@to_time) <= 7)
+	
+	IF 
+		(
+				DATEDIFF(D,@from_time,@to_time) <= 7 --only return results for 7-day span
+			AND
+				@route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E') --only return results for heavy rail/light rail
+		)
+	
 	BEGIN --if a timespan is less than 7 days, then do the processing, if not return empty set
 
 		DECLARE @service_date DATE

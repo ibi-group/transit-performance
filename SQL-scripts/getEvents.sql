@@ -52,8 +52,13 @@ BEGIN
 	DECLARE @service_date_to DATE
 	SET @service_date_to = dbo.fnConvertDateTimeToServiceDate(@to_time)
 
-	IF @service_date_from = @service_date_to --only return results for one day
-	
+	IF 
+		(
+				@service_date_from = @service_date_to --only return results for one day
+			AND
+				@route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E') --only return results for heavy rail/light rail
+		)
+
 	BEGIN
 
 		DECLARE @service_date  DATE
