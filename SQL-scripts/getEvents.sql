@@ -52,12 +52,7 @@ BEGIN
 	DECLARE @service_date_to DATE
 	SET @service_date_to = dbo.fnConvertDateTimeToServiceDate(@to_time)
 
-	IF 
-		(
-				@service_date_from = @service_date_to --only return results for one day
-			AND
-				@route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E') --only return results for heavy rail/light rail
-		)
+	IF (@service_date_from = @service_date_to) --only return results for one day
 
 	BEGIN
 
@@ -122,7 +117,6 @@ BEGIN
 						event_time >= dbo.fnConvertDateTimeToEpoch(@from_time)
 					AND
 						event_time <= dbo.fnConvertDateTimeToEpoch(@to_time)
-			ORDER BY event_time
 
 		END
 
@@ -183,7 +177,6 @@ BEGIN
 						event_time <= dbo.fnConvertDateTimeToEpoch(@to_time)
 					AND
 						suspect_record = 0
-			ORDER BY event_time
 
 		END
 
@@ -191,7 +184,7 @@ BEGIN
 
 	SELECT
 		service_date
-		,route_id
+		,e.route_id
 		,trip_id
 		,direction_id
 		,stop_id
@@ -202,7 +195,13 @@ BEGIN
 		,event_type
 		,event_time
 		,event_time_sec
-	FROM @eventstemp
+	FROM @eventstemp e
+	JOIN gtfs.routes r
+	ON
+		e.route_id = r.route_id
+	WHERE
+		r.route_type <> 2 --do not return results for Commuter Rail
+	ORDER BY event_time
 
 END
 
