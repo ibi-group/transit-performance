@@ -1,3 +1,4 @@
+--Script Version: Master - 1.1.0.0 - latest-prediction-terminals-fix - 1
 
 ---run this script in the transit-performance database
 --USE transit_performance
