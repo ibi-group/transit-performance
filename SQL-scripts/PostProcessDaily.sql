@@ -1,10 +1,7 @@
---Script Version: Master - 1.1.0.0 - latest-prediction-terminals-fix - 1
 
 ---run this script in the transit-performance database
 --USE transit_performance
 --GO
-
---This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
 IF OBJECT_ID('dbo.PostProcessDaily','P') IS NOT NULL
 	DROP PROCEDURE dbo.PostProcessDaily
@@ -19,6 +16,10 @@ GO
 
 
 CREATE PROCEDURE dbo.PostProcessDaily 
+
+--Script Version: Master - 1.1.1.0
+
+--This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
 	@service_date DATE
 
