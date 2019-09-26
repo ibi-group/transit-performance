@@ -185,6 +185,10 @@
 		"checkpoint_id": {
 		    "required": false,
 		    "type": "VARCHAR(255)"
+		},
+		"stop_order_flag": {
+			"required": false,
+			"type": "INT"
 		}
             }
         },

@@ -238,6 +238,12 @@ CREATE TABLE dbo.gtfsrt_tripupdate_denormalized(
 
 CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_start_date ON gtfsrt_tripupdate_denormalized(trip_start_date);
 
+CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_1 ON dbo.gtfsrt_tripupdate_denormalized (direction_id)
+INCLUDE (trip_id,trip_start_date);
+
+CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_2 ON dbo.gtfsrt_tripupdate_denormalized (trip_id,direction_id)
+INCLUDE (trip_start_date);
+
 -- create gtfsrt_vehicleposition_denormalized to store all vehicle position data
 IF OBJECT_ID('dbo.gtfsrt_vehicleposition_denormalized', 'U') IS NOT NULL
   DROP TABLE dbo.gtfsrt_vehicleposition_denormalized
@@ -245,30 +251,32 @@ IF OBJECT_ID('dbo.gtfsrt_vehicleposition_denormalized', 'U') IS NOT NULL
 
 CREATE TABLE dbo.gtfsrt_vehicleposition_denormalized(
 	gtfs_realtime_version 				VARCHAR(255) NOT NULL
-	,incrementality 					VARCHAR(255) 
+	,incrementality 					VARCHAR(255) NULL
 	,header_timestamp 					INT NOT NULL
-	,feed_entity_id 					VARCHAR(255) 
-	,trip_id 							VARCHAR(255) 
-	,route_id 							VARCHAR(255) 
-	,direction_id 						INT 
-	,trip_start_date 					CHAR(8) 
-	,trip_start_time 					VARCHAR(8) 
-	,trip_schedule_relationship 		VARCHAR(255) 
-	,vehicle_id 						VARCHAR(255) 
-	,vehicle_label 						VARCHAR(255) 
-	,vehicle_license_plate 				VARCHAR(255) 
-	,vehicle_timestamp 					INT 
-	,current_stop_sequence		 		INT 
-	,current_status 					VARCHAR(255) 
-	,stop_id 							VARCHAR(255) 
-	,congestion_level 					VARCHAR(255) 
-	,occupancy_status 					VARCHAR(255) 
-	,latitude 							FLOAT 
-	,longitude 							FLOAT 
-	,bearing 							FLOAT 
-	,odometer 							FLOAT 
-	,speed 								FLOAT 
+	,feed_entity_id 					VARCHAR(255) NULL
+	,trip_id 							VARCHAR(255) NULL
+	,route_id 							VARCHAR(255) NULL
+	,direction_id 						INT NULL
+	,trip_start_date 					CHAR(8) NULL
+	,trip_start_time 					VARCHAR(8) NULL
+	,trip_schedule_relationship 		VARCHAR(255) NULL
+	,vehicle_id 						VARCHAR(255) NULL
+	,vehicle_label 						VARCHAR(255) NULL
+	,vehicle_license_plate 				VARCHAR(255) NULL
+	,vehicle_timestamp 					INT NULL
+	,current_stop_sequence		 		INT NULL
+	,current_status 					VARCHAR(255) NULL
+	,stop_id 							VARCHAR(255) NULL
+	,congestion_level 					VARCHAR(255) NULL
+	,occupancy_status 					VARCHAR(255) NULL
+	,latitude 							FLOAT NULL
+	,longitude 							FLOAT NULL
+	,bearing 							FLOAT NULL
+	,odometer 							FLOAT NULL
+	,speed 								FLOAT NULL
 	)
+
+CREATE NONCLUSTERED INDEX IX_gtfsrt_vehicleposition_denormalized_start_date ON gtfsrt_vehicleposition_denormalized(trip_start_date);	
 
 -- Create all historical tables 
 IF OBJECT_ID('dbo.historical_event','U') IS NOT NULL
@@ -482,6 +490,8 @@ CREATE TABLE dbo.historical_travel_time_threshold_pax
 	,denominator_trip								FLOAT			NULL
 	,historical_threshold_numerator_trip			FLOAT			NULL
 	,scheduled_threshold_numerator_trip				FLOAT			NULL
+	,time_period_id									VARCHAR(255)	NOT NULL
+	,time_period_type								VARCHAR(255)	NOT NULL										  
 )
 
 CREATE NONCLUSTERED INDEX IX_historical_travel_time_threshold_pax_from_stop_id
@@ -534,6 +544,8 @@ CREATE TABLE dbo.historical_wait_time_od_threshold_pax
 	,denominator_trip							FLOAT			NULL
 	,historical_threshold_numerator_trip		FLOAT			NULL
 	,scheduled_threshold_numerator_trip			FLOAT			NULL
+	,time_period_id									VARCHAR(255)	NOT NULL
+	,time_period_type								VARCHAR(255)	NOT NULL											  
 )
 
 CREATE NONCLUSTERED INDEX IX_historical_wait_time_od_threshold_pax_from_stop_id

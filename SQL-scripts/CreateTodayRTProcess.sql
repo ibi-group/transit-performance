@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.CreateTodayRTProcess
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.1.0 - RT prediction accuracy - 1
 
 --This procedure sets up the today_rt tables. These tables store the real-time information for today's events. 
 --They are updated in real-time by the ProcessRTEvent stored procedure that runs every minute via the ProcessRTEvent Job.
@@ -513,6 +513,89 @@ BEGIN
 
 	)
 
+	--create today_rt_prediction table. This table stores today's predictions in real-time.
+	IF OBJECT_ID('dbo.today_rt_prediction','U') IS NOT NULL
+		DROP TABLE dbo.today_rt_prediction
+
+	CREATE TABLE dbo.today_rt_prediction
+	(
+		record_id						INT IDENTITY
+		,service_date					DATE
+		,file_time						INT
+		,route_id						VARCHAR(255)
+		,trip_id						VARCHAR(255)
+		,direction_id					INT
+		,stop_id						VARCHAR(255)
+		,stop_sequence					INT
+		,vehicle_id						VARCHAR(255)
+		,vehicle_label					VARCHAR(255)
+		,predicted_arrival_time			INT
+		,predicted_departure_time		INT
+		,predicted_arrival_time_sec		INT
+		,predicted_departure_time_sec	INT
+	)
+
+	--create today_rt_prediction_disaggregate table. This table stores today's predicted, actual and scheduled times and calculates time away and prediction error.
+	IF OBJECT_ID('dbo.today_rt_prediction_disaggregate','U') IS NOT NULL
+		DROP TABLE dbo.today_rt_prediction_disaggregate
+
+	CREATE TABLE dbo.today_rt_prediction_disaggregate
+	(
+		service_date					DATE
+		,file_time						INT
+		,route_type						INT
+		,route_id						VARCHAR(255)
+		,trip_id						VARCHAR(255)
+		,direction_id					INT
+		,stop_id						VARCHAR(255)
+		,stop_sequence					INT
+		,vehicle_id						VARCHAR(255)
+		,vehicle_label					VARCHAR(255)
+		,stop_order_flag				INT
+		,scheduled_arrival_time			INT
+		,scheduled_departure_time		INT
+		,predicted_arrival_time			INT
+		,predicted_departure_time		INT
+		,predicted_arrival_time_sec		INT
+		,predicted_departure_time_sec	INT
+		,actual_arrival_time			INT
+		,actual_departure_time			INT
+		,arrival_seconds_away			INT
+		,departure_seconds_away			INT
+		,arrival_prediction_error		INT
+		,departure_prediction_error		INT
+	)
+
+	--create today_rt_prediction_threshold. This table stores the components to calculate today's prediction accuracy metrics.
+	IF OBJECT_ID('dbo.today_rt_prediction_threshold','U') IS NOT NULL
+		DROP TABLE today_rt_prediction_threshold
+
+	CREATE TABLE today_rt_prediction_threshold
+	(
+		service_date					DATE
+		,file_time						INT
+		,route_type						INT
+		,route_id						VARCHAR(255)
+		,trip_id						VARCHAR(255)
+		,direction_id					INT
+		,stop_id						VARCHAR(255)
+		,stop_sequence					INT
+		,vehicle_id						VARCHAR(255)
+		,vehicle_label					VARCHAR(255)
+		,stop_order_flag				INT
+		,predicted_time					INT
+		,actual_time					INT
+		,time_slice_id					VARCHAR(255)
+		,seconds_away					INT
+		,prediction_error				INT
+		,threshold_id					VARCHAR(255)
+		,bin_lower						INT
+		,bin_upper						INT
+		,pred_error_threshold_lower		INT
+		,pred_error_threshold_upper		INT
+		,prediction_within_threshold	INT
+		,prediction_in_bin				INT
+	)
 
 	IF OBJECT_ID('dbo.today_rt_current_metrics','U') IS NOT NULL
 		DROP TABLE dbo.today_rt_current_metrics
@@ -528,7 +611,6 @@ BEGIN
 		,metric_result_trip_last_hour	FLOAT			NULL 
 		,metric_result_trip_current_day	FLOAT			NULL 
 	)
-
 
 END
 

@@ -21,7 +21,7 @@ GO
 
 CREATE PROCEDURE dbo.UpdateGTFSNext
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - stop order flag - 1
 
 AS
 
@@ -50,6 +50,157 @@ BEGIN
 		END 
 		;
  
+--create temp table for start times to fill in stop_order_flag
+	IF OBJECT_ID('tempdb..#webs_trip_start_time_temp','u') IS NOT NULL
+		DROP TABLE #webs_trip_start_time_temp
+
+	CREATE TABLE #webs_trip_start_time_temp 
+	(
+		trip_id						VARCHAR(255)	NOT NULL
+		,trip_first_stop_sequence	INT				NOT NULL
+		,trip_first_stop_id			VARCHAR(255)	NOT NULL
+		,trip_start_time			VARCHAR(255)	NOT NULL
+		,trip_start_time_sec		INT				NOT NULL
+	)
+	
+	CREATE NONCLUSTERED INDEX IX_webs_trip_start_time_temp_trip_id ON #webs_trip_start_time_temp (trip_id)
+	INCLUDE (trip_first_stop_sequence,trip_first_stop_id,trip_start_time)
+
+	INSERT INTO #webs_trip_start_time_temp 
+	(
+		trip_id
+		,trip_first_stop_sequence
+		,trip_first_stop_id
+		,trip_start_time
+		,trip_start_time_sec
+	)
+
+	SELECT
+		ss_min.trip_id
+		,ss_min.trip_first_stop
+		,st.stop_id
+		,st.departure_time
+		,st.departure_time_sec
+	FROM	gtfs_next.stop_times st
+			,
+			(
+				SELECT
+					st.trip_id
+					,MIN(st.stop_sequence) AS trip_first_stop
+				FROM gtfs_next.stop_times st
+				GROUP BY
+					st.trip_id
+			) ss_min
+			
+	WHERE
+		ss_min.trip_id = st.trip_id
+		AND ss_min.trip_first_stop = st.stop_sequence
+
+	--create temp table for end times to fill in stop_order_flag
+
+	IF OBJECT_ID('tempdb..#webs_trip_end_time_temp','u') IS NOT NULL
+		DROP TABLE #webs_trip_end_time_temp
+
+	CREATE TABLE #webs_trip_end_time_temp
+	(
+		trip_id						VARCHAR(255)	NOT NULL
+		,trip_last_stop_sequence	INT				NOT NULL
+		,trip_last_stop_id			VARCHAR(255)	NOT NULL
+		,trip_end_time				VARCHAR(255)	NOT NULL
+		,trip_end_time_sec			INT				NOT NULL
+	)
+
+	INSERT INTO #webs_trip_end_time_temp
+	(
+		trip_id
+		,trip_last_stop_sequence
+		,trip_last_stop_id
+		,trip_end_time
+		,trip_end_time_sec
+	)
+
+		SELECT
+			ss_max.trip_id
+			,ss_max.trip_last_stop
+			,st.stop_id
+			,st.arrival_time
+			,st.arrival_time_sec
+
+		FROM	gtfs_next.stop_times st
+				,
+				(
+					SELECT
+						st.trip_id
+						,MAX(st.stop_sequence) AS trip_last_stop
+					FROM gtfs_next.stop_times st
+					GROUP BY
+						st.trip_id
+				) ss_max
+
+		WHERE
+			ss_max.trip_id = st.trip_id
+			AND ss_max.trip_last_stop = st.stop_sequence
+
+	IF OBJECT_ID('tempdb..#webs_trip_time_temp','u') IS NOT NULL
+		DROP TABLE #webs_trip_time_temp
+
+	CREATE TABLE #webs_trip_time_temp
+	(
+		trip_id						VARCHAR(255)	NOT NULL
+		,trip_first_stop_sequence	INT				NOT NULL
+		,trip_first_stop_id			VARCHAR(255)	NOT NULL
+		,trip_start_time			VARCHAR(255)	NOT NULL
+		,trip_start_time_sec		INT				NOT NULL
+		,trip_last_stop_sequence	INT				NOT NULL
+		,trip_last_stop_id			VARCHAR(255)	NOT NULL
+		,trip_end_time				VARCHAR(255)	NOT NULL
+		,trip_end_time_sec			INT				NOT NULL
+	)
+
+	INSERT INTO #webs_trip_time_temp
+	(
+		trip_id
+		,trip_first_stop_sequence
+		,trip_first_stop_id
+		,trip_start_time
+		,trip_start_time_sec
+		,trip_last_stop_sequence
+		,trip_last_stop_id
+		,trip_end_time
+		,trip_end_time_sec
+	)
+
+		SELECT
+			wts.trip_id
+			,wts.trip_first_stop_sequence
+			,wts.trip_first_stop_id
+			,wts.trip_start_time
+			,wts.trip_start_time_sec
+			,wte.trip_last_stop_sequence
+			,wte.trip_last_stop_id
+			,wte.trip_end_time
+			,wte.trip_end_time_sec
+		FROM	#webs_trip_start_time_temp wts
+				,#webs_trip_end_time_temp wte
+		WHERE
+			wts.trip_id = wte.trip_id
+ 
+	UPDATE gtfs_next.stop_times 
+
+	SET
+		stop_order_flag =
+			CASE
+				WHEN sta.stop_id = wtt.trip_first_stop_id AND
+					sta.stop_sequence = wtt.trip_first_stop_sequence THEN 1
+				WHEN sta.stop_id = wtt.trip_last_stop_id AND
+					sta.stop_sequence = wtt.trip_last_stop_sequence THEN 3
+				ELSE 2
+			END 
+	FROM gtfs_next.stop_times sta
+	JOIN #webs_trip_time_temp wtt
+		ON 
+			wtt.trip_id = sta.trip_id
+
 --create gtfs_next.route_direction_stop
 
 -- Route List

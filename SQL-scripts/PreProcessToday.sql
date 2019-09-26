@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PreProcessToday 
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.1.0 - route parameter - 1
 
 --This procedure sets up the today tables. These tables store the performance information for the day being processed events after the day has happened.
 --This procedure is run at the end of the service_date and processes all information for that date after it has ended. 
@@ -33,6 +33,16 @@ BEGIN
 
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
+
+	--create a table to store route types that will be processed
+	DECLARE @route_types AS TABLE
+	(
+		route_type	INT
+	)
+
+	INSERT INTO @route_types   --update for each deployment
+	VALUES
+		(3)
 
 	--Create a table to determine valid service_ids for day being processed restricting to light rail and subway only
 
@@ -164,17 +174,7 @@ BEGIN
 		WHERE
 			t.service_id = c.service_id
 			AND t.route_id = r.route_id
-			AND (
-			r.route_type = 0
-			OR r.route_type = 1
-			OR r.route_type = 2 --added cr
-			OR
-					(
-						r.route_type = 3
-					AND
-						r.route_id IN ('712','713')
-					)
-			)
+			AND r.route_type IN (SELECT route_type FROM @route_types)
 			AND (
 			(@day_of_the_week = 'Monday'
 			AND monday = 1)
@@ -213,15 +213,7 @@ BEGIN
 			AND cd.exception_type = 1 -- service added
 			AND
 			cd.date = @service_date_process
-			AND (
-			r.route_type = 0 --green line
-			OR
-			r.route_type = 1 --subway
-			OR
-			r.route_type = 2 --cr
-			OR
-			r.route_type = 3 --bus
-			)
+			AND r.route_type IN (SELECT route_type FROM @route_types)
 
 
 	DELETE FROM --delete for exception type 2 (removed for the specified date)	
@@ -533,8 +525,8 @@ BEGIN
 			,stb.departure_time_sec AS to_departure_time_sec
 			,stb.arrival_time_sec - sta.departure_time_sec AS travel_time_sec
 
-		FROM	gtfs.stop_times sta
-				,gtfs.stop_times stb
+		FROM	dbo.today_stop_times_sec sta
+				,dbo.today_stop_times_sec stb
 				,dbo.today_trips ti
 
 		WHERE

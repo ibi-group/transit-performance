@@ -1,4 +1,4 @@
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - VP quality - 1
 
 ---run this script in the transit-performance database
 --USE transit_performance
@@ -99,7 +99,49 @@ BEGIN
 	RETURN @toDateTime;
 
 END
+GO
 
+IF OBJECT_ID ('fnGetDistanceFeet') IS NOT NULL
+DROP FUNCTION dbo.fnGetDistanceFeet
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE FUNCTION dbo.fnGetDistanceFeet 
+( 
+      @Lat1 Float(18),  
+      @Long1 Float(18), 
+      @Lat2 Float(18), 
+      @Long2 Float(18)
+)
+RETURNS INT
+AS
+BEGIN
+      Declare @R Float(8); 
+      Declare @dLat Float(18); 
+      Declare @dLon Float(18); 
+      Declare @a Float(18); 
+      Declare @c Float(18); 
+      Declare @d INT;
+      Set @R = 3956.55 
+      Set @dLat = Radians(@lat2 - @lat1);
+      Set @dLon = Radians(@long2 - @long1);
+      Set @a = Sin(@dLat / 2)  
+                 * Sin(@dLat / 2)  
+                 + Cos(Radians(@lat1)) 
+                 * Cos(Radians(@lat2))  
+                 * Sin(@dLon / 2)  
+                 * Sin(@dLon / 2); 
+      Set @c = 2 * Asin(Min(Sqrt(@a))); 
+
+      Set @d = ROUND(@R * @c * 5280,0); 
+      Return @d; 
+
+END
 
 
 

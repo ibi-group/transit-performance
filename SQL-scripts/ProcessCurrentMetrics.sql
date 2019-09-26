@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessCurrentMetrics
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - RT prediction accuracy - 1
 
 --This procedure processes all the real-time events. It is executed by the process_rt_event trigger ON INSERT into the dbo.rt_event table.
 
@@ -33,6 +33,12 @@ BEGIN
 	DECLARE @current_time_last_hour DATETIME
 	SET @current_time_last_hour = DATEADD(s,-3600,@current_time)
 
+	--create list of routes to calculate metrics for
+	DECLARE @route_ids TABLE
+	(
+		route_id VARCHAR(255)
+	)
+											 
 	--save current metrics for each route	
 
 	IF OBJECT_ID('tempdb..#today_rt_current_metrics','U') IS NOT NULL
@@ -76,17 +82,6 @@ BEGIN
 		,metric_result_trip_last_hour	FLOAT			NULL
 	)
 
-	DECLARE @route_ids TABLE
-	(
-		route_id VARCHAR(255)
-	)
-
-	INSERT INTO @route_ids
-		VALUES ('Red'),('Blue'),('Orange')
-		,('Green-B'),('Green-C'),('Green-D'),('Green-E')
-		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
-		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester')
-
 	INSERT INTO #current_metrics_day_til_now
 	(
 		route_id
@@ -125,7 +120,6 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
 
 		UNION
 
@@ -152,7 +146,6 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
 
 		UNION
 
@@ -179,7 +172,7 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
+
 		UNION
 
 		SELECT
@@ -204,7 +197,35 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
+
+		UNION
+
+		SELECT
+			tpt.route_id
+			,cpt.threshold_id
+			,cpt.threshold_name
+			,cpt.threshold_type
+			,SUM(prediction_within_threshold)/(SUM(prediction_in_bin)*1.0) AS metric_result_current_day
+			,NULL AS metric_result_trip_current_day
+		FROM 
+			dbo.today_rt_prediction_threshold tpt
+		JOIN
+			dbo.config_prediction_threshold cpt
+		ON
+				tpt.threshold_id = cpt.threshold_id
+			AND
+				tpt.route_type = cpt.route_type	
+		WHERE
+			(
+				(SELECT COUNT(route_id) FROM @route_ids) = 0
+			OR 
+				route_id IN (SELECT route_id FROM @route_ids)
+			)
+		GROUP BY
+			tpt.route_id
+			,cpt.threshold_id
+			,cpt.threshold_name
+			,cpt.threshold_type	   
 
 		ORDER BY
 			route_id,threshold_id
@@ -252,7 +273,6 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
 
 		UNION
 
@@ -282,7 +302,6 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
 
 		UNION
 
@@ -320,15 +339,17 @@ BEGIN
 					)
 		) t
 		WHERE
-			t.end_date_time >= @current_time_last_hour
-			AND t.end_date_time <= @current_time
+				t.end_date_time >= @current_time_last_hour
+			AND 
+				t.end_date_time <= @current_time
 		GROUP BY
 			t.route_id
 			,t.threshold_id
 			,t.threshold_name
 			,t.threshold_type
-			,t.threshold_id
+
 		UNION
+  
 		SELECT
 			dtt.route_id
 			,ct.threshold_id
@@ -355,7 +376,43 @@ BEGIN
 			,ct.threshold_id
 			,ct.threshold_name
 			,ct.threshold_type
-			,ct.threshold_id
+
+		UNION
+
+		SELECT
+			tpt.route_id
+			,cpt.threshold_id
+			,cpt.threshold_name
+			,cpt.threshold_type
+			,SUM(prediction_within_threshold)/(SUM(prediction_in_bin)*1.0) AS metric_result_last_hour
+			,NULL AS metric_result_trip_last_hour
+
+		FROM 
+			dbo.today_rt_prediction_threshold tpt
+		JOIN
+			dbo.config_prediction_threshold cpt
+		ON
+				tpt.threshold_id = cpt.threshold_id
+			AND
+				tpt.route_type = cpt.route_type	
+			AND
+				dbo.fnConvertEpochToDateTime(tpt.predicted_time) >= @current_time_last_hour
+			AND
+				dbo.fnConvertEpochToDateTime(tpt.predicted_time) <= @current_time
+				
+		WHERE
+			(
+				(SELECT COUNT(route_id) FROM @route_ids) = 0
+			OR 
+				route_id IN (SELECT route_id FROM @route_ids)
+			)
+
+		GROUP BY
+			tpt.route_id
+			,cpt.threshold_id
+			,cpt.threshold_name
+			,cpt.threshold_type			
+
 		ORDER BY
 			route_id,threshold_id
 
