@@ -15,7 +15,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessRTEvent
 
---Script Version: Master - 1.1.0.0 - RT prediction accuracy - 1
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --This procedure processes all the real-time events. It is executed by the process_rt_event trigger ON INSERT into the dbo.rt_event table.
 
@@ -1352,14 +1352,14 @@ BEGIN
 					,ttt.threshold_scheduled_median_travel_time_sec
 					,ttt.threshold_historical_average_travel_time_sec 
 					,ttt.threshold_scheduled_average_travel_time_sec 
-					,(abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate AS denominator_pax
+					,(abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1) AS denominator_pax
 					,CASE
-						WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
+						WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1)
 						WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_historical_median_travel_time_sec <= 0) THEN 0
 						ELSE 0
 					END AS historical_threshold_numerator_pax
 					,CASE
-						WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * par.passenger_arrival_rate
+						WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec > 0) THEN (abcde.d_time_sec - abcde.b_time_sec) * ISNULL(par.passenger_arrival_rate,1)
 						WHEN ((abcde.e_time_sec - abcde.d_time_sec) - ttt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
 						ELSE 0
 					END AS scheduled_threshold_numerator_pax 
@@ -1440,14 +1440,14 @@ BEGIN
 					,dtt.threshold_scheduled_median_travel_time_sec AS threshold_scheduled_median_travel_time_sec
 					,dtt.threshold_historical_average_travel_time_sec AS threshold_historical_average_travel_time_sec
 					,dtt.threshold_scheduled_average_travel_time_sec AS threshold_scheduled_average_travel_time_sec
-					,po.num_passenger_off_subset AS denominator_pax
+					,ISNULL(po.num_passenger_off_subset,1) AS denominator_pax
 					,CASE
-						WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec > 0) THEN po.num_passenger_off_subset
+						WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec > 0) THEN ISNULL(po.num_passenger_off_subset,1)
 						WHEN (dat.de_time_sec - dtt.threshold_historical_median_travel_time_sec <= 0) THEN 0
 						ELSE 0
 					END AS historical_threshold_numerator_pax
 					,CASE
-						WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec > 0) THEN po.num_passenger_off_subset
+						WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec > 0) THEN ISNULL(po.num_passenger_off_subset,1)
 						WHEN (dat.de_time_sec - dtt.threshold_scheduled_average_travel_time_sec <= 0) THEN 0
 						ELSE 0
 					END AS scheduled_threshold_numerator_pax 
@@ -1553,14 +1553,14 @@ BEGIN
 					,wtt.threshold_scheduled_median_wait_time_sec
 					,wtt.threshold_historical_average_wait_time_sec 
 					,wtt.threshold_scheduled_average_wait_time_sec 
-					,(d_time_sec - b_time_sec) * par.passenger_arrival_rate AS denominator_pax
+					,(d_time_sec - b_time_sec) * ISNULL(par.passenger_arrival_rate,1) AS denominator_pax
 					,CASE
-						WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec) * par.passenger_arrival_rate
+						WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec) * ISNULL(par.passenger_arrival_rate,1)
 						WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_historical_median_wait_time_sec <= 0) THEN 0
 						ELSE 0
 					END AS historical_threshold_numerator_pax
 					,CASE
-						WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_median_wait_time_sec) * par.passenger_arrival_rate
+						WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec > 0) THEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_median_wait_time_sec) * ISNULL(par.passenger_arrival_rate,1)
 						WHEN ((abcde.c_time_sec - abcde.b_time_sec) - wtt.threshold_scheduled_average_wait_time_sec <= 0) THEN 0
 						ELSE 0
 					END AS scheduled_threshold_numerator_pax   
@@ -1738,11 +1738,11 @@ BEGIN
 					,stop_order_flag
 					,th.threshold_id
 					,thc.add_to AS threshold_value
-					,po.from_stop_passenger_on AS denominator_pax
+					,ISNULL(po.from_stop_passenger_on,1) AS denominator_pax
 					,CASE
-						WHEN sad.stop_order_flag = 1 AND sad.departure_delay_sec > thc.add_to THEN po.from_stop_passenger_on
-						WHEN sad.stop_order_flag = 2 AND sad.arrival_delay_sec > thc.add_to THEN po.from_stop_passenger_on
-						WHEN sad.stop_order_flag = 3 AND sad.arrival_delay_sec > thc.add_to THEN po.from_stop_passenger_on
+						WHEN sad.stop_order_flag = 1 AND sad.departure_delay_sec > thc.add_to THEN ISNULL(po.from_stop_passenger_on,1)
+						WHEN sad.stop_order_flag = 2 AND sad.arrival_delay_sec > thc.add_to THEN ISNULL(po.from_stop_passenger_on,1)
+						WHEN sad.stop_order_flag = 3 AND sad.arrival_delay_sec > thc.add_to THEN ISNULL(po.from_stop_passenger_on,1)
 						WHEN sad.stop_order_flag = 1 AND sad.departure_delay_sec <= thc.add_to THEN 0
 						WHEN sad.stop_order_flag = 2 AND sad.arrival_delay_sec <= thc.add_to THEN 0
 						WHEN sad.stop_order_flag = 3 AND sad.arrival_delay_sec <= thc.add_to THEN 0
@@ -2108,7 +2108,7 @@ BEGIN
 				AND
 					uef.stop_id = st.stop_id
 				AND
-					uef.stop_sequence = st.stop_sequence + 1 ---temporary fix
+					uef.stop_sequence = st.stop_sequence 
 			
 			--SELECT * FROM @today_rt_prediction_disaggregate_temp
 			

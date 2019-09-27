@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PreProcessToday 
 
---Script Version: Master - 1.1.1.0 - route parameter - 1
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --This procedure sets up the today tables. These tables store the performance information for the day being processed events after the day has happened.
 --This procedure is run at the end of the service_date and processes all information for that date after it has ended. 

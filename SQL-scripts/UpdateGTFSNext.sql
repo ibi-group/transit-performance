@@ -21,7 +21,7 @@ GO
 
 CREATE PROCEDURE dbo.UpdateGTFSNext
 
---Script Version: Master - 1.1.0.0 - stop order flag - 1
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 AS
 

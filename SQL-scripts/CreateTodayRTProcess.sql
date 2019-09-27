@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.CreateTodayRTProcess
 
---Script Version: Master - 1.1.1.0 - RT prediction accuracy - 1
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --This procedure sets up the today_rt tables. These tables store the real-time information for today's events. 
 --They are updated in real-time by the ProcessRTEvent stored procedure that runs every minute via the ProcessRTEvent Job.

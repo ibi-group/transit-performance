@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.getDailyPredictionMetrics
 
---Script Version: Master - 1.1.0.0 - route parameter - 1
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --This stored procedure is called by the dailypredictionmetrics API call.  It selects daily prediction metrics for a particular route (or all routes) and time period.
 
@@ -48,9 +48,10 @@ BEGIN
 		(
 				(DATEDIFF(D,@from_date,@to_date) <= 31)
 			AND 
-				(SELECT COUNT(str_val) FROM @route_ids WHERE str_val NOT IN (SELECT route_id FROM @include_route_ids) = 0)
+				(SELECT COUNT(str_val) FROM @route_ids WHERE str_val NOT IN (SELECT route_id FROM @include_route_ids)) = 0
 		)
-	BEGIN --if a timespan is less than 31 days and routes are only subway/light rail, then do the processing, if not return empty set
+	
+	BEGIN --if a timespan is less than 31 days and routes are only those that should be included, then do the processing, if not return empty set
 
 		INSERT INTO @metricstemp
 			SELECT --selects pre-calculated daily metrics from days in the past, if the from_date and to_date are not today 
@@ -78,7 +79,7 @@ BEGIN
 					route_id IN (SELECT route_id FROM @include_route_ids)
 
 
-	END --if a timespan is less than 31 days and routes are only subway/light rail, then do the processing, if not return empty set
+	END --if a timespan is less than 31 days and routes are only those that should be included, then do the processing, if not return empty set
 
 	SELECT
 		service_date
