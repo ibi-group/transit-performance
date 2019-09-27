@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.getDailyPredictionMetrics
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - route parameter - 1
 
 --This stored procedure is called by the dailypredictionmetrics API call.  It selects daily prediction metrics for a particular route (or all routes) and time period.
 
@@ -39,18 +39,16 @@ BEGIN
 		,metric_result		FLOAT
 	)
 
+	DECLARE @include_route_ids AS TABLE
+	(
+		route_id	VARCHAR(255)
+	)	
+	
 	IF
 		(
-		(DATEDIFF(D,@from_date,@to_date) <= 31)
-		AND (
-		(
-			SELECT
-				COUNT(str_val)
-			FROM @route_ids
-			WHERE
-				str_val NOT IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E', 'Mattapan')
-		)
-		= 0)
+				(DATEDIFF(D,@from_date,@to_date) <= 31)
+			AND 
+				(SELECT COUNT(str_val) FROM @route_ids WHERE str_val NOT IN (SELECT route_id FROM @include_route_ids) = 0)
 		)
 	BEGIN --if a timespan is less than 31 days and routes are only subway/light rail, then do the processing, if not return empty set
 
@@ -68,22 +66,16 @@ BEGIN
 			WHERE
 
 				(
-					(
-						SELECT
-							COUNT(str_val)
-						FROM @route_ids
-					)
-					= 0
-					OR route_id IN
-					(
-						SELECT
-							str_val
-						FROM @route_ids
-					)
+						(SELECT COUNT(str_val) FROM @route_ids) = 0
+					OR 
+						route_id IN (SELECT str_val FROM @route_ids)
 				)
-				AND service_date >= @from_date
-				AND service_date <= @to_date
-				AND route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E','Mattapan')
+				AND 
+					service_date >= @from_date
+				AND 
+					service_date <= @to_date
+				AND 
+					route_id IN (SELECT route_id FROM @include_route_ids)
 
 
 	END --if a timespan is less than 31 days and routes are only subway/light rail, then do the processing, if not return empty set

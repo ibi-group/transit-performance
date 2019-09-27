@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.PreProcessDaily
 
---Script Version: Master - 1.1.0.0 
+--Script Version: Master - 1.1.0.0 - route parameter - 1
 
 --This procedure sets up the daily tables. These tables store the performance information for the day being processed after the day has happened.
 
@@ -170,16 +170,7 @@ BEGIN
 		WHERE
 			t.service_id = c.service_id
 			AND t.route_id = r.route_id
-			AND 
-				(
-					r.route_type IN (0,1,2)
-				OR
-					(
-						r.route_type = 3
-					AND
-						r.route_id IN ('712','713')
-					)
-				)
+			AND r.route_type IN (SELECT route_type FROM @route_types)
 			AND (
 			(@day_of_the_week = 'Monday'
 			AND monday = 1)
@@ -219,16 +210,7 @@ BEGIN
 			AND
 			cd.date = @service_date_process
 			AND 
-				(
-					r.route_type IN (0,1,2)
-				OR
-					(
-						r.route_type = 3
-					AND
-						r.route_id IN ('712','713')
-					)
-				)
-	
+				r.route_type IN (SELECT route_type FROM @route_types)
 
 
 	DELETE FROM --delete for exception type 2 (removed for the specified date)	
@@ -522,8 +504,11 @@ BEGIN
 				WHEN sta.stop_id = wtt.trip_last_stop_id AND
 					sta.stop_sequence = wtt.trip_last_stop_sequence THEN 3
 				ELSE 2
-			END AS stop_order_flag
-			,sta.checkpoint_id
+			END AS stop_order_flag					   
+			,CASE
+				WHEN @use_checkpoints_only = 1 AND sta.checkpoint_id IS NULL AND sta.timepoint = 1 THEN sta.stop_id
+				ELSE sta.checkpoint_id
+			END as checkpoint_id
 
 		FROM	gtfs.stop_times sta
 				,dbo.daily_trips ti

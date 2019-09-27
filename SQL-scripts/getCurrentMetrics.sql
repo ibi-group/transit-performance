@@ -19,7 +19,7 @@ GO
 
 CREATE PROCEDURE dbo.getCurrentMetrics
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - route parameter - 1
 
 --This stored procedure is called by the dailymetrics API call.  It selects daily metrics for a particular route (or all routes) and time period.
 
@@ -30,6 +30,11 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
+	DECLARE @include_route_ids AS TABLE
+	(
+		route_id	VARCHAR(255)
+	)
+	
 	DECLARE @metricstemp AS TABLE
 	(
 		route_id						VARCHAR(255)
@@ -44,12 +49,7 @@ BEGIN
 
 	IF
 		(
-		(
-			SELECT
-				COUNT(str_val)
-			FROM @route_ids
-			WHERE
-				str_val NOT IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E')
+			SELECT COUNT(str_val) FROM @route_ids WHERE str_val NOT IN (SELECT route_id FROM @include_route_ids)
 		)
 		= 0)
 
@@ -70,20 +70,12 @@ BEGIN
 
 			WHERE
 				(
-				(
-					SELECT
-						COUNT(str_val)
-					FROM @route_ids
+					(SELECT COUNT(str_val) FROM @route_ids) = 0
+				OR 
+					route_id IN (SELECT str_val FROM @route_ids)
 				)
-				= 0
-				OR route_id IN
-				(
-					SELECT
-						str_val
-					FROM @route_ids
-				)
-				)
-				AND route_id IN ('Red','Orange','Blue','Green-B','Green-C','Green-D','Green-E')
+				AND 
+					route_id IN (SELECT route_id FROM @include_route_ids)
 
 
 	END --if routes are only subway/light rail, then do the processing, if not return empty set
