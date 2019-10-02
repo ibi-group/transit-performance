@@ -40,6 +40,11 @@ BEGIN
 		,metric_result		FLOAT
 		,metric_result_trip	FLOAT
 	)
+	
+	DECLARE @include_route_ids AS TABLE
+	(
+		route_id	VARCHAR(255)
+	)
 
 	IF
 		(

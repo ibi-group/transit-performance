@@ -17,7 +17,7 @@ GO
 
 CREATE PROCEDURE dbo.PostProcessDaily 
 
---Script Version: Master - 1.1.1.0
+--Script Version: Master - 1.1.1.0 - generic-all-agencies - 1
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
@@ -35,6 +35,8 @@ BEGIN
 	--variable for using checkpoints only in bus metrics TRUE = 1, FALSE = 0
 	DECLARE @use_checkpoints_only BIT
 	SET @use_checkpoints_only = 1
+	
+	DECLARE @deployment_name VARCHAR(255) = (SELECT setting_value FROM mbta_realtime.dbo.admin_deployment_settings WHERE setting_name = 'deployment_name')
 
 	--MBTA-specific correct route-direction-stop id combinations 
 	DECLARE @correct_stop_ids AS TABLE
@@ -45,22 +47,7 @@ BEGIN
 		,correct_stop_sequence	INT
 		,incorrect_stop_id		VARCHAR(255)
 	)
-
-	INSERT INTO @correct_stop_ids
-	VALUES
-		('Green-B',0,'70196',50,'70197')
-		,('Green-B',0,'70196',50,'70198')
-		,('Green-B',0,'70196',50,'70199')
-		,('Green-C',0,'70197',60,'70196')
-		,('Green-C',0,'70197',60,'70198')
-		,('Green-C',0,'70197',60,'70199')
-		,('Green-D',0,'70198',70,'70196')
-		,('Green-D',0,'70198',70,'70197')
-		,('Green-D',0,'70198',70,'70199')
-		,('Green-E',0,'70199',80,'70196')
-		,('Green-E',0,'70199',80,'70197')
-		,('Green-E',0,'70199',80,'70198')
-
+	
 	--Terminals and Park Street for eliminating double headways
 	DECLARE @multiple_berths as TABLE
 	(
@@ -68,42 +55,88 @@ BEGIN
 		,direction_id		INT
 		,stop_id			VARCHAR(255)
 	)
-
-	INSERT INTO @multiple_berths
-	VALUES
-		('Blue',0,'70059')
-		,('Blue',1,'70038')
-		,('Orange',0,'70036')
-		,('Orange',1,'70001')
-		,('Red',0,'70061')
-		,('Red',1,'70105')
-		,('Red',1,'70094')
-		,('Green-B',0,'70196')
-		,('Green-C',0,'70197')
-		,('Green-D',0,'70198')
-		,('Green-E',0,'70199')
-		,('Green-B',1,'70200')
-		,('Green-C',1,'70200')
-		,('Green-D',1,'70200')
-		,('Green-E',1,'70200')
-		,('Green-B',0,'70210')
-		,('Green-C',0,'70210')
-		,('Green-D',0,'70210')
-		,('Green-E',0,'70210')
-		,('Green-B',1,'70106')
-		,('Green-C',1,'70238')
-		,('Green-D',1,'70160')
-		,('Green-E',1,'70260')
-
+	
 	--Key Bus Routes for determining headway- or departure time-based metrics
 	DECLARE @kbr TABLE
 	(
 		route_id VARCHAR(255)
 	)
-	INSERT INTO @kbr
+	
+	DECLARE @missed_stop_pairs AS TABLE
+	(
+		route_id		VARCHAR(255)
+		,direction_id	INT
+		,stop_id		VARCHAR(255)
+		,missed_stop_id	VARCHAR(255)
+	)	
+
+	IF @deployment_name = 'MBTA'
+	
+	BEGIN
+
+		INSERT INTO @correct_stop_ids
+		VALUES
+			('Green-B',0,'70196',50,'70197')
+			,('Green-B',0,'70196',50,'70198')
+			,('Green-B',0,'70196',50,'70199')
+			,('Green-C',0,'70197',60,'70196')
+			,('Green-C',0,'70197',60,'70198')
+			,('Green-C',0,'70197',60,'70199')
+			,('Green-D',0,'70198',70,'70196')
+			,('Green-D',0,'70198',70,'70197')
+			,('Green-D',0,'70198',70,'70199')
+			,('Green-E',0,'70199',80,'70196')
+			,('Green-E',0,'70199',80,'70197')
+			,('Green-E',0,'70199',80,'70198')
+	
+		INSERT INTO @multiple_berths
+		VALUES
+			('Blue',0,'70059')
+			,('Blue',1,'70038')
+			,('Orange',0,'70036')
+			,('Orange',1,'70001')
+			,('Red',0,'70061')
+			,('Red',1,'70105')
+			,('Red',1,'70094')
+			,('Green-B',0,'70196')
+			,('Green-C',0,'70197')
+			,('Green-D',0,'70198')
+			,('Green-E',0,'70199')
+			,('Green-B',1,'70200')
+			,('Green-C',1,'70200')
+			,('Green-D',1,'70200')
+			,('Green-E',1,'70200')
+			,('Green-B',0,'70210')
+			,('Green-C',0,'70210')
+			,('Green-D',0,'70210')
+			,('Green-E',0,'70210')
+			,('Green-B',1,'70106')
+			,('Green-C',1,'70238')
+			,('Green-D',1,'70160')
+			,('Green-E',1,'70260')
+			
+		INSERT INTO @kbr
 		VALUES 
 		('1'),('15'),('22'),('23'),('28'),('32'),('39'),('57'),('66'),('71'),('73'),('77'),('11'),('741'),('742'),('751'),('749'),('743')
 
+		INSERT INTO @missed_stop_pairs
+		VALUES
+			('Green-B', 0, '70159', '70196') --Boylston, Park Street B
+			,('Green-C', 0, '70159', '70197') --Boylston, Park Street C
+			,('Green-D', 0, '70159', '70198') --Boylston, Park Street D
+			,('Green-E', 0, '70159', '70199') --Boylston, Park Street E
+			,('Green-C', 0, '70197', '70202') -- Park Street C, Gov Center
+			,('Green-D', 0, '70198', '70202') -- Park Street D, Gov Center
+			,('Green-E', 0, '70199', '70202') -- Park Street E, Gov Center
+			,(NULL, 0, '70204', '70206') --Haymarket, North Station
+			,(NULL, 0, '70208', '70210') --Science Park, Lechmere
+			,(NULL, 1, '70158', '70200') --Boylston, Park Street
+			,(NULL, 1, '70200', '70201') --Park Street, Gov Center
+			,(NULL, 1, '70203', '70205') --Haymarket, North Station
+			,(NULL, 1, '70207', '70209') --Science Park, Lechmere
+	
+	END
+		
 	--ensure events from vehicle positions have direction_id and event_time_sec----------------------
 	UPDATE dbo.rt_event
 		SET direction_id = t.direction_id
@@ -241,7 +274,6 @@ BEGIN
 			r.route_id = ert.route_id
 		AND 
 			ert.vehicle_id IS NOT NULL
-
 
 	------update "incorrect" berths for Green Line in trip updates
 	UPDATE daily_trip_updates
@@ -848,7 +880,7 @@ BEGIN
 
 		SELECT DISTINCT
 			st.service_date
-			,st.trip_id--
+			,st.trip_id
 			,de.vehicle_id     
 			,st.route_type
 			,st.stop_id
@@ -1058,30 +1090,6 @@ BEGIN
 			AND
 				dtu.stop_id = st.stop_id
 
-	DECLARE @missed_stop_pairs AS TABLE
-	(
-		route_id		VARCHAR(255)
-		,direction_id	INT
-		,stop_id		VARCHAR(255)
-		,missed_stop_id	VARCHAR(255)
-	)
-
-	INSERT INTO @missed_stop_pairs
-	VALUES
-		('Green-B', 0, '70159', '70196') --Boylston, Park Street B
-		,('Green-C', 0, '70159', '70197') --Boylston, Park Street C
-		,('Green-D', 0, '70159', '70198') --Boylston, Park Street D
-		,('Green-E', 0, '70159', '70199') --Boylston, Park Street E
-		,('Green-C', 0, '70197', '70202') -- Park Street C, Gov Center
-		,('Green-D', 0, '70198', '70202') -- Park Street D, Gov Center
-		,('Green-E', 0, '70199', '70202') -- Park Street E, Gov Center
-		,(NULL, 0, '70204', '70206') --Haymarket, North Station
-		,(NULL, 0, '70208', '70210') --Science Park, Lechmere
-		,(NULL, 1, '70158', '70200') --Boylston, Park Street
-		,(NULL, 1, '70200', '70201') --Park Street, Gov Center
-		,(NULL, 1, '70203', '70205') --Haymarket, North Station
-		,(NULL, 1, '70207', '70209') --Science Park, Lechmere
-	
 	INSERT INTO ##missed_events
     (
         service_date
@@ -1957,6 +1965,8 @@ BEGIN
 						AND 
 							CASE
 								WHEN
+										@deployment_name = 'MBTA'
+									AND
 										y.cde_route_id IN ('Green-B','Green-C','Green-D','Green-E')
 									OR 
 									(
@@ -3738,7 +3748,7 @@ BEGIN
 					(wtt.route_type = 1) --subway numbers only
 	--end headway trip metrics
 
-	--save disaggreagate schedule adherence 
+	--save disaggregate schedule adherence 
 	IF OBJECT_ID('dbo.daily_schedule_adherence_disaggregate','U') IS NOT NULL
 		DROP TABLE dbo.daily_schedule_adherence_disaggregate
 
@@ -4049,7 +4059,24 @@ BEGIN
 			th.threshold_type = 'wait_time_schedule_based'
 		--Added to determine metrics category (headway- or schedule-based)
 		AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
-		AND ((cap.route_id NOT IN (SELECT route_id FROM @kbr) AND dsth.scheduled_arrival_headway_time_sec > 900) OR cap.trip_order = 1) --For schedule-based trips
+		AND 
+			(
+				(
+						@deployment_name = 'MBTA' 
+					AND 
+						(
+								(
+									cap.route_id NOT IN (SELECT route_id FROM @kbr) 
+								AND 
+									dsth.scheduled_arrival_headway_time_sec > 900
+								) 
+							OR 
+								cap.trip_order = 1
+						) --For schedule-based trips
+				)
+				OR
+					@deployment_name <> 'MBTA'
+			)
 
 	UNION
 
@@ -4671,11 +4698,15 @@ BEGIN
 		route_id VARCHAR(255)
 	)
 	
-	INSERT INTO @route_ids
-		VALUES 
-		('Red'),('Blue'),('Orange'),('Green-B'),('Green-C'),('Green-D'),('Green-E')																			 
-		,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
-		,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('712'),('713')
+	IF @deployment_name = 'MBTA'
+	
+	BEGIN
+		INSERT INTO @route_ids
+			VALUES 
+			('Red'),('Blue'),('Orange'),('Green-B'),('Green-C'),('Green-D'),('Green-E')																			 
+			,('CR-Fairmount'),('CR-Fitchburg'),('CR-Franklin'),('CR-Greenbush'),('CR-Haverhill'),('CR-Kingston'),('CR-Lowell'),('CR-Middleborough')
+			,('CR-Needham'),('CR-Newburyport'),('CR-Providence'),('CR-Worcester'),('712'),('713')
+	END
 
 	INSERT INTO dbo.daily_metrics
 	(
@@ -4844,6 +4875,12 @@ BEGIN
 			)
 		AND 
 			route_type = 2
+		AND
+			(
+					(@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) 
+				OR 
+					@use_checkpoints_only = 0
+			)
 	GROUP BY
 			route_id
 			,ct.threshold_id
@@ -4981,7 +5018,7 @@ BEGIN
 		JOIN config_threshold ct1
 			ON r.threshold_id = ct1.threshold_id
 		JOIN config_threshold ct2
-			ON ct1.parent_threshold_id = ct2.threshold_id
+			ON ISNULL(ct1.parent_threshold_id, ct1.threshold_id) = ct2.threshold_id
 	GROUP BY
 		r.route_id
 		,ct2.threshold_id

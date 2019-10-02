@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessPredictionAccuracyDaily
 
---Script Version: Master - 1.1.0.0 - CT APC data - 1
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --This procedure calculates daily prediction accuracy metrics.
 
