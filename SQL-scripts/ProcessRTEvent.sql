@@ -15,7 +15,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessRTEvent
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - real-time-headway-fix - 1
 
 --This procedure processes all the real-time events. It is executed by the process_rt_event trigger ON INSERT into the dbo.rt_event table.
 
@@ -29,6 +29,47 @@ BEGIN
 	DECLARE @current_service_date DATE
 	SET @current_service_date = dbo.fnConvertDateTimeToServiceDate(GETDATE())
 
+	--Terminals and Park Street for eliminating double headways
+	DECLARE @multiple_berths as TABLE
+	(
+		route_id			VARCHAR(255)
+		,direction_id		INT
+		,stop_id			VARCHAR(255)
+	)
+
+	INSERT INTO @multiple_berths
+	VALUES
+		('Blue',0,'70059')
+		,('Blue',1,'70038')
+		,('Orange',0,'70036')
+		,('Orange',0,'Oak Grove-01')
+		,('Orange',0,'Oak Grove-02')
+		,('Orange',1,'70001')
+		,('Orange',1,'Forest Hills-01')
+		,('Orange',1,'Forest Hills-02')
+		,('Red',0,'70061')
+		,('Red',0,'Alewife-01')
+		,('Red',0,'Alewife-02')
+		,('Red',1,'70105')
+		,('Red',1,'70094')
+		,('Red',1,'Braintree-01')
+		,('Red',1,'Braintree-02')
+		,('Green-B',0,'70196')
+		,('Green-C',0,'70197')
+		,('Green-D',0,'70198')
+		,('Green-E',0,'70199')
+		,('Green-B',1,'70200')
+		,('Green-C',1,'70200')
+		,('Green-D',1,'70200')
+		,('Green-E',1,'70200')
+		,('Green-B',0,'70210')
+		,('Green-C',0,'70210')
+		,('Green-D',0,'70210')
+		,('Green-E',0,'70210')
+		,('Green-B',1,'70106')
+		,('Green-C',1,'70238')
+		,('Green-D',1,'70160')
+		,('Green-E',1,'70260')
 
 	UPDATE dbo.rt_event
 		SET direction_id = t.direction_id
@@ -978,7 +1019,20 @@ BEGIN
 							AND 
 								y.cde_trip_id <> x.cde_trip_id
 							AND 
-								y.c_time_sec > x.d_time_sec
+								CASE
+									WHEN
+											y.cde_route_id IN ('Green-B','Green-C','Green-D','Green-E')
+										OR 
+										(
+												y.cd_stop_id IN (SELECT stop_id FROM @multiple_berths)
+											AND 
+												y.cde_direction_id = (SELECT DISTINCT direction_id FROM @multiple_berths WHERE stop_id = y.cd_stop_id)
+										)
+									THEN y.d_time_sec
+									ELSE y.c_time_sec
+								END > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
+								--BUT compare departure times only for subway/Green Line terminals and Park Street (in both directions)
+							--, but not by more than 30 minutes, as determined by the next statement
 							AND 
 								y.c_time_sec - x.d_time_sec <= 1800
 							)
