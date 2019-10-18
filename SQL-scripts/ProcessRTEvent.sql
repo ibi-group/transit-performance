@@ -15,7 +15,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessRTEvent
 
---Script Version: Master - 1.1.0.0 - real-time-headway-fix - 1
+--Script Version: Master - 1.1.0.0 - real-time-headway-fix - 2
 
 --This procedure processes all the real-time events. It is executed by the process_rt_event trigger ON INSERT into the dbo.rt_event table.
 
@@ -42,18 +42,10 @@ BEGIN
 		('Blue',0,'70059')
 		,('Blue',1,'70038')
 		,('Orange',0,'70036')
-		,('Orange',0,'Oak Grove-01')
-		,('Orange',0,'Oak Grove-02')
 		,('Orange',1,'70001')
-		,('Orange',1,'Forest Hills-01')
-		,('Orange',1,'Forest Hills-02')
 		,('Red',0,'70061')
-		,('Red',0,'Alewife-01')
-		,('Red',0,'Alewife-02')
 		,('Red',1,'70105')
 		,('Red',1,'70094')
-		,('Red',1,'Braintree-01')
-		,('Red',1,'Braintree-02')
 		,('Green-B',0,'70196')
 		,('Green-C',0,'70197')
 		,('Green-D',0,'70198')
@@ -248,6 +240,27 @@ BEGIN
 				WHERE
 					file_time = (SELECT file_time FROM @unprocessed_files WHERE file_time_num = @file_time_num_current)
 
+			UPDATE @unprocessed_events_file
+				SET stop_id = ps.stop_id
+				FROM @unprocessed_events_file e
+				LEFT JOIN
+				(
+					SELECT rds.route_type, rds.route_id, rds.direction_id, rds.stop_order, rds.stop_id, s.parent_station
+					FROM gtfs.route_direction_stop rds
+					JOIN gtfs.stops s
+					ON
+						rds.stop_id = s.stop_id
+				) ps
+				ON
+						e.route_id = ps.route_id
+					AND
+						e.direction_id = ps.direction_id
+					AND
+						(SELECT parent_station FROM gtfs.stops s WHERE e.stop_id = s.stop_id) = ps.parent_station
+				WHERE		
+					--	e.service_date = @service_date_process
+					--AND
+						e.stop_id NOT IN (SELECT stop_id FROM gtfs.route_direction_stop)
 
 			--Start processing departure events
 			--This table stores dwell times in real-time
