@@ -258,8 +258,8 @@ BEGIN
 					AND
 						(SELECT parent_station FROM gtfs.stops s WHERE e.stop_id = s.stop_id) = ps.parent_station
 				WHERE		
-					--	e.service_date = @service_date_process
-					--AND
+						e.service_date = @current_service_date
+					AND
 						e.stop_id NOT IN (SELECT stop_id FROM gtfs.route_direction_stop)
 
 			--Start processing departure events
