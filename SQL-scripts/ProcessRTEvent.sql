@@ -15,7 +15,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessRTEvent
 
---Script Version: Master - 1.1.1.0
+--Script Version: Master - 1.1.1.1
 
 --This procedure processes all the real-time events. It is executed by the process_rt_event trigger ON INSERT into the dbo.rt_event table.
 
