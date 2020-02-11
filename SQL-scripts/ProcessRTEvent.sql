@@ -15,7 +15,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessRTEvent
 
---Script Version: Master - 1.1.1.1
+--Script Version: Master - 1.1.2.0
 
 --This procedure processes all the real-time events. It is executed by the process_rt_event trigger ON INSERT into the dbo.rt_event table.
 
@@ -1046,8 +1046,19 @@ BEGIN
 								END > x.d_time_sec --the arrival time of the current trip should be later than the departure time of the previous trip
 								--BUT compare departure times only for subway/Green Line terminals and Park Street (in both directions)
 							--, but not by more than 30 minutes, as determined by the next statement
-							AND 
-								y.c_time_sec - x.d_time_sec <= 1800
+							AND
+								CASE
+									WHEN
+											y.cde_route_id IN ('Green-B','Green-C','Green-D','Green-E')
+										OR 
+										(
+												y.cd_stop_id IN (SELECT stop_id FROM @multiple_berths)
+											AND 
+												y.cde_direction_id = (SELECT DISTINCT direction_id FROM @multiple_berths WHERE stop_id = y.cd_stop_id)
+										)
+									THEN y.d_time_sec - x.d_time_sec 
+									ELSE y.c_time_sec - x.d_time_sec
+								END <= 1800
 							)
 				) temp
 				WHERE
