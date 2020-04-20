@@ -437,7 +437,7 @@ BEGIN
 
 	CREATE NONCLUSTERED INDEX IX_daily_event_event_suspect_record ON daily_event (suspect_record);
 
-	CREATE NONCLUSTERED INDEX IX_daily_event_1 ON dbo.daily_event (event_type)
+	CREATE NONCLUSTERED INDEX IX_daily_event ON dbo.daily_event (event_type)
 	INCLUDE (trip_id,stop_sequence,event_time_sec)
 
 	INSERT INTO dbo.daily_event
@@ -3247,6 +3247,8 @@ BEGIN
 			mst.suspect_record = 1
 		AND 
 			mst.event_type IN ('DEP','PRD')
+		AND
+			abcde.cde_trip_id <> mst.trip_id
 
 	DELETE FROM ##daily_bd_sr_same_time
 	FROM
@@ -4027,32 +4029,32 @@ BEGIN
 				AND 
 					sad.stop_id = par.from_stop_id
 		--Added to determine metrics category (headway- or schedule-based)
-		JOIN dbo.daily_stop_times_sec cap
+		LEFT JOIN dbo.daily_stop_times_sec cap
 			ON
-				@deployment_name = 'MBTA' --FM: can we still do these joins even for deployments besides MBTA. Wouldn't the where clause already handle the MBTA case? Try a LEFT JOIN and remove @deployment_name condition, and see if it works for MBTA.
-				AND sad.service_date = cap.service_date
+				/*@deployment_name = 'MBTA' --FM: can we still do these joins even for deployments besides MBTA. Wouldn't the where clause already handle the MBTA case? Try a LEFT JOIN and remove @deployment_name condition, and see if it works for MBTA.
+				AND */ sad.service_date = cap.service_date
 				AND sad.route_type = cap.route_type
 				AND sad.route_id = cap.route_id
 				AND sad.direction_id = cap.direction_id
 				AND sad.trip_id = cap.trip_id
 				AND sad.stop_id = cap.stop_id
-		JOIN dbo.daily_stop_times_headway_same_sec dsth
+		LEFT JOIN dbo.daily_stop_times_headway_same_sec dsth
 			ON
-				@deployment_name = 'MBTA'
-				AND cap.service_date = dsth.service_date
+				/*@deployment_name = 'MBTA'
+				AND */cap.service_date = dsth.service_date
 				AND cap.route_type = dsth.route_type
 				AND cap.route_id = dsth.route_id
 				AND cap.direction_id = dsth.direction_id
 				AND cap.trip_id = dsth.cd_trip_id
 				AND cap.stop_id = dsth.cd_stop_id
-		JOIN dbo.service_date s
+		LEFT JOIN dbo.service_date s
 		ON
-			@deployment_name = 'MBTA'
-			AND s.service_date = cap.service_date
-		JOIN dbo.config_time_period ctp
+			/*@deployment_name = 'MBTA'
+			AND */s.service_date = cap.service_date
+		LEFT JOIN dbo.config_time_period ctp
 		ON
-				@deployment_name = 'MBTA'
-			AND
+				/*@deployment_name = 'MBTA'
+			AND */
 				cap.departure_time_sec >= ctp.time_period_start_time_sec
 			AND
 				cap.departure_time_sec < ctp.time_period_end_time_sec
@@ -4063,7 +4065,7 @@ BEGIN
 		AND 
 			th.threshold_type = 'wait_time_schedule_based'
 		--Added to determine metrics category (headway- or schedule-based)
-		AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+		AND ((@use_checkpoints_only = 1 AND sad.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
 		AND 
 			(
 				(
@@ -4181,8 +4183,8 @@ BEGIN
 	--Create table for headway adherence weighted by passengers and trips ----
 	-- add pax numbers later ---
 	--FOR MBTA-- --FM: why can't we create the next to tables for all deployments?
-	IF @deployment_name = 'MBTA'
-	BEGIN
+	/*IF @deployment_name = 'MBTA'
+	BEGIN*/
 		IF OBJECT_ID('dbo.daily_headway_adherence_threshold_pax','U') IS NOT NULL
 			DROP TABLE dbo.daily_headway_adherence_threshold_pax
 
@@ -4218,7 +4220,7 @@ BEGIN
 	
 		CREATE NONCLUSTERED INDEX IX_daily_headway_adherence_threshold_pax_direction_id ON daily_headway_adherence_threshold_pax (direction_id);
 
-		INSERT INTO daily_headway_adherence_threshold_pax
+		INSERT INTO dbo.daily_headway_adherence_threshold_pax
 		(
 			service_date
 			,route_id
@@ -4446,7 +4448,7 @@ BEGIN
 					AND 
 						(acbd.bd_stop_id = par.from_stop_id OR acbd.ac_stop_id = par.from_stop_id)
 			--Added to determine metrics category (headway- or schedule-based)
-			JOIN dbo.daily_stop_times_sec cap
+			LEFT JOIN dbo.daily_stop_times_sec cap
 				ON
 					cap.service_date = st.service_date
 					AND cap.route_type = st.route_type
@@ -4456,10 +4458,10 @@ BEGIN
 					AND cap.stop_id = st.cd_stop_id
 					AND cap.stop_order_flag = st.cd_stop_order_flag
 					AND (cap.checkpoint_id = st.checkpoint_id OR (cap.checkpoint_id IS NULL AND st.checkpoint_id IS NULL))
-			JOIN dbo.service_date s
+			LEFT JOIN dbo.service_date s
 			ON
 				s.service_date = cap.service_date
-			JOIN dbo.config_time_period ctp
+			LEFT JOIN dbo.config_time_period ctp
 			ON
 					cap.departure_time_sec >= ctp.time_period_start_time_sec
 				AND
@@ -4471,16 +4473,16 @@ BEGIN
 			AND 
 				th.threshold_type = 'wait_time_headway_based'
 			--Added to determine metrics category (headway- or schedule-based)
-			AND ((@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
-			AND (cap.route_id IN (SELECT route_id FROM @kbr) OR st.scheduled_arrival_headway_time_sec <= 900)
+			AND ((@use_checkpoints_only = 1 AND st.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
+			AND (@deployment_name <> 'MBTA' OR (@deployment_name = 'MBTA' AND cap.route_id IN (SELECT route_id FROM @kbr) OR st.scheduled_arrival_headway_time_sec <= 900))
 			AND cap.trip_order <> 1
-	END
+	--END
 
 	--Create table for travel time adherence weighted by passengers and trips ----
 	-- add pax numbers later ---
 	--FOR MBTA--
-	IF @deployment_name = 'MBTA'
-	BEGIN
+	/*IF @deployment_name = 'MBTA'
+	BEGIN*/
 		IF OBJECT_ID('dbo.daily_trip_run_time_adherence_threshold_pax','U') IS NOT NULL
 			DROP TABLE dbo.daily_trip_run_time_adherence_threshold_pax
 
@@ -4514,7 +4516,7 @@ BEGIN
 	
 		CREATE NONCLUSTERED INDEX IX_daily_travel_time_adherence_threshold_pax_direction_id ON daily_trip_run_time_adherence_threshold_pax (direction_id);
 
-		INSERT INTO daily_trip_run_time_adherence_threshold_pax
+		INSERT INTO dbo.daily_trip_run_time_adherence_threshold_pax
 		(
 			service_date
 			,route_id
@@ -4644,7 +4646,7 @@ BEGIN
 					AND 
 						mt.route_type = de.de_route_type
 			--Added to determine metrics category (headway- or schedule-based)
-			JOIN dbo.daily_stop_times_headway_same_sec dsth
+			LEFT JOIN dbo.daily_stop_times_headway_same_sec dsth
 				ON
 					st.service_date = dsth.service_date
 					AND st.route_type = dsth.route_type
@@ -4652,10 +4654,10 @@ BEGIN
 					AND st.direction_id = dsth.direction_id
 					AND st.trip_id = dsth.cd_trip_id
 					AND st.stop_id = dsth.cd_stop_id
-			JOIN dbo.service_date s
+			LEFT JOIN dbo.service_date s
 			ON
 				s.service_date = st.service_date
-			JOIN dbo.config_time_period ctp
+			LEFT JOIN dbo.config_time_period ctp
 			ON
 					st.arrival_time_sec >= ctp.time_period_start_time_sec
 				AND
@@ -4668,9 +4670,9 @@ BEGIN
 				th.threshold_type = 'travel_time'
 			--Added to determine metrics category (headway- or schedule-based)
 			AND ((@use_checkpoints_only = 1 AND st.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
-			AND (st.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_arrival_headway_time_sec <= 900)
+			AND  (@deployment_name <> 'MBTA' OR (@deployment_name = 'MBTA' AND st.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_arrival_headway_time_sec <= 900))
 			AND st.trip_order <> 1
-	END
+	--END
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
@@ -5001,8 +5003,8 @@ BEGIN
 			FROM
 				dbo.daily_headway_adherence_threshold_pax dh
 			WHERE
-				@deployment_name = 'MBTA' --FM: this is wrong. We would still want to keep these conditions if we populated the temp tables for deployments besides MBTA. Check out config join for excluding reliability thresholds.
-				AND ((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dh.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				/*@deployment_name = 'MBTA' --FM: this is wrong. We would still want to keep these conditions if we populated the temp tables for deployments besides MBTA. Check out config join for excluding reliability thresholds.
+				AND */((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dh.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR dh.direction_id IN (SELECT direction_id FROM @direction_ids))
 				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR dh.route_id IN (SELECT route_id FROM @route_ids))
 				AND dh.route_type = 3 --Not needed, because already selected in creating table
@@ -5024,8 +5026,8 @@ BEGIN
 			FROM
 				dbo.daily_trip_run_time_adherence_threshold_pax dtt
 			WHERE
-				@deployment_name = 'MBTA'
-				AND ((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dtt.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				/*@deployment_name = 'MBTA'
+				AND */((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dtt.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR dtt.direction_id IN (SELECT direction_id FROM @direction_ids))
 				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR dtt.route_id IN (SELECT route_id FROM @route_ids))
 				AND dtt.route_type = 3 --Not needed, because already selected in creating table
