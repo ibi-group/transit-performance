@@ -3227,6 +3227,8 @@ BEGIN
 				mst.suspect_record = 1
 			AND 
 				mst.event_type IN ('DEP','PRD')
+			AND
+				abcde.cde_trip_id <> mst.trip_id
 
 	---DELETE headways between events with suspect records in the middle-------------------------------
 	DELETE FROM ##daily_abcde_time
@@ -3268,6 +3270,8 @@ BEGIN
 			mst.suspect_record = 1
 		AND 
 			mst.event_type IN ('DEP','PRD')
+		AND
+			hsr.d_trip_id <> mst.trip_id
 
 	DELETE FROM ##daily_ac_sr_same_time
 	FROM
@@ -3287,6 +3291,8 @@ BEGIN
 			mst.suspect_record = 1
 		AND 
 			mst.event_type = 'ARR'
+		AND
+			hsr.c_trip_id <> mst.trip_id
 
 	DELETE FROM ##daily_bd_sr_all_time
 	FROM
@@ -3306,6 +3312,8 @@ BEGIN
 			mst.suspect_record = 1
 		AND 
 			mst.event_type IN ('DEP','PRD')
+		AND
+			hsr.d_trip_id <> mst.trip_id
 
 	--Create passenger weighted travel time vs. threshold tables 
 	IF OBJECT_ID('dbo.daily_travel_time_threshold_pax','U') IS NOT NULL
@@ -4890,12 +4898,6 @@ BEGIN
 			)
 		AND 
 			route_type = 2
-		AND
-			(
-					(@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) 
-				OR 
-					@use_checkpoints_only = 0
-			)
 	GROUP BY
 			route_id
 			,ct.threshold_id
