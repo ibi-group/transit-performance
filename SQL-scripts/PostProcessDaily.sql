@@ -17,7 +17,7 @@ GO
 
 CREATE PROCEDURE dbo.PostProcessDaily 
 
---Script Version: Master - 1.1.2.0
+--Script Version: Master - 1.1.3.0
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
