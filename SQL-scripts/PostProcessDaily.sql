@@ -293,7 +293,7 @@ BEGIN
 	UPDATE dbo.daily_trip_updates
 		SET stop_id = ps.stop_id
 		FROM dbo.daily_trip_updates e
-		LEFT JOIN
+		JOIN
 		(
 			SELECT rds.route_type, rds.route_id, rds.direction_id, rds.stop_order, rds.stop_id, s.parent_station
 			FROM gtfs.route_direction_stop rds
@@ -504,7 +504,7 @@ BEGIN
 	UPDATE dbo.daily_event
 		SET stop_id = ps.stop_id
 		FROM dbo.daily_event e
-		LEFT JOIN
+		JOIN
 		(
 			SELECT rds.route_type, rds.route_id, rds.direction_id, rds.stop_order, rds.stop_id, s.parent_station
 			FROM gtfs.route_direction_stop rds
