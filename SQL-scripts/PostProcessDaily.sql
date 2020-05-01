@@ -17,7 +17,7 @@ GO
 
 CREATE PROCEDURE dbo.PostProcessDaily 
 
---Script Version: Master - 1.1.1.0 - generic-all-agencies - 1
+--Script Version: Master - 1.1.1.0 - generic-all-agencies - 3
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
@@ -1965,7 +1965,7 @@ BEGIN
 						AND 
 							CASE
 								WHEN
-										@deployment_name = 'MBTA' --FM: does multiple berths only apply to MBTA?
+										@deployment_name = 'MBTA'
 									AND
 										y.cde_route_id IN ('Green-B','Green-C','Green-D','Green-E')
 									OR 
@@ -4038,31 +4038,26 @@ BEGIN
 					sad.stop_id = par.from_stop_id
 		--Added to determine metrics category (headway- or schedule-based)
 		LEFT JOIN dbo.daily_stop_times_sec cap
-			ON
-				/*@deployment_name = 'MBTA' --FM: can we still do these joins even for deployments besides MBTA. Wouldn't the where clause already handle the MBTA case? Try a LEFT JOIN and remove @deployment_name condition, and see if it works for MBTA.
-				AND */ sad.service_date = cap.service_date
+			ON		
+				sad.service_date = cap.service_date
 				AND sad.route_type = cap.route_type
 				AND sad.route_id = cap.route_id
 				AND sad.direction_id = cap.direction_id
 				AND sad.trip_id = cap.trip_id
 				AND sad.stop_id = cap.stop_id
 		LEFT JOIN dbo.daily_stop_times_headway_same_sec dsth
-			ON
-				/*@deployment_name = 'MBTA'
-				AND */cap.service_date = dsth.service_date
+			ON	  			
+				cap.service_date = dsth.service_date
 				AND cap.route_type = dsth.route_type
 				AND cap.route_id = dsth.route_id
 				AND cap.direction_id = dsth.direction_id
 				AND cap.trip_id = dsth.cd_trip_id
 				AND cap.stop_id = dsth.cd_stop_id
 		LEFT JOIN dbo.service_date s
-		ON
-			/*@deployment_name = 'MBTA'
-			AND */s.service_date = cap.service_date
+		ON		
+			s.service_date = cap.service_date
 		LEFT JOIN dbo.config_time_period ctp
 		ON
-				/*@deployment_name = 'MBTA'
-			AND */
 				cap.departure_time_sec >= ctp.time_period_start_time_sec
 			AND
 				cap.departure_time_sec < ctp.time_period_end_time_sec
@@ -4190,9 +4185,7 @@ BEGIN
 
 	--Create table for headway adherence weighted by passengers and trips ----
 	-- add pax numbers later ---
-	--FOR MBTA-- --FM: why can't we create the next to tables for all deployments?
-	/*IF @deployment_name = 'MBTA'
-	BEGIN*/
+
 		IF OBJECT_ID('dbo.daily_headway_adherence_threshold_pax','U') IS NOT NULL
 			DROP TABLE dbo.daily_headway_adherence_threshold_pax
 
@@ -4484,13 +4477,10 @@ BEGIN
 			AND ((@use_checkpoints_only = 1 AND st.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
 			AND (@deployment_name <> 'MBTA' OR (@deployment_name = 'MBTA' AND cap.route_id IN (SELECT route_id FROM @kbr) OR st.scheduled_arrival_headway_time_sec <= 900))
 			AND cap.trip_order <> 1
-	--END
 
 	--Create table for travel time adherence weighted by passengers and trips ----
 	-- add pax numbers later ---
-	--FOR MBTA--
-	/*IF @deployment_name = 'MBTA'
-	BEGIN*/
+
 		IF OBJECT_ID('dbo.daily_trip_run_time_adherence_threshold_pax','U') IS NOT NULL
 			DROP TABLE dbo.daily_trip_run_time_adherence_threshold_pax
 
@@ -4680,7 +4670,6 @@ BEGIN
 			AND ((@use_checkpoints_only = 1 AND st.checkpoint_id IS NOT NULL) OR @use_checkpoints_only = 0)
 			AND  (@deployment_name <> 'MBTA' OR (@deployment_name = 'MBTA' AND st.route_id IN (SELECT route_id FROM @kbr) OR dsth.scheduled_arrival_headway_time_sec <= 900))
 			AND st.trip_order <> 1
-	--END
 
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
@@ -4898,6 +4887,12 @@ BEGIN
 			)
 		AND 
 			route_type = 2
+		AND
+			(
+					(@use_checkpoints_only = 1 AND cap.checkpoint_id IS NOT NULL) 
+				OR 
+					@use_checkpoints_only = 0
+			)
 	GROUP BY
 			route_id
 			,ct.threshold_id
@@ -5005,8 +5000,7 @@ BEGIN
 			FROM
 				dbo.daily_headway_adherence_threshold_pax dh
 			WHERE
-				/*@deployment_name = 'MBTA' --FM: this is wrong. We would still want to keep these conditions if we populated the temp tables for deployments besides MBTA. Check out config join for excluding reliability thresholds.
-				AND */((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dh.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dh.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR dh.direction_id IN (SELECT direction_id FROM @direction_ids))
 				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR dh.route_id IN (SELECT route_id FROM @route_ids))
 				AND dh.route_type = 3 --Not needed, because already selected in creating table
@@ -5028,8 +5022,7 @@ BEGIN
 			FROM
 				dbo.daily_trip_run_time_adherence_threshold_pax dtt
 			WHERE
-				/*@deployment_name = 'MBTA'
-				AND */((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dtt.stop_id IN (SELECT stop_id FROM @from_stop_ids))
+				((SELECT COUNT(stop_id) FROM @from_stop_ids) = 0 OR dtt.stop_id IN (SELECT stop_id FROM @from_stop_ids))
 				AND ((SELECT COUNT(direction_id) FROM @direction_ids) = 0 OR dtt.direction_id IN (SELECT direction_id FROM @direction_ids))
 				AND ((SELECT COUNT(route_id) FROM @route_ids) = 0 OR dtt.route_id IN (SELECT route_id FROM @route_ids))
 				AND dtt.route_type = 3 --Not needed, because already selected in creating table
