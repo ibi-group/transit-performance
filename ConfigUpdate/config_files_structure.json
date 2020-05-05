@@ -269,6 +269,18 @@
 					"type": "VARCHAR(255)"
 				}
 			}
+		},
+		"config_route_description":{
+			"columns":{
+				"route_id": {
+					"primaryKey": true,
+					"type": "VARCHAR(255)"
+				},
+				"route_desc": {
+					"type": "VARCHAR(255)",
+					"null": false
+				}
+			}
 		}
 	}
 }
