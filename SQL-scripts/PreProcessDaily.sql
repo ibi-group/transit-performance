@@ -3,7 +3,9 @@
 --USE transit_performance
 --GO
 
-IF OBJECT_ID('PreProcessDaily','P') IS NOT NULL
+--This procedure sets up the daily tables. These tables store the performance information for the day being processed after the day has happened.
+
+IF OBJECT_ID('dbo.PreProcessDaily','P') IS NOT NULL
 	DROP PROCEDURE dbo.PreProcessDaily
 GO
 
@@ -16,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PreProcessDaily
 
---Script Version: Master - 1.1.0.0 
+--Script Version: Master - 1.1.0.0 [need to update]
 
 --This procedure sets up the daily tables. These tables store the performance information for the day being processed after the day has happened.
 
@@ -894,6 +896,70 @@ BEGIN
 		WHERE
 			t.rn = 1
 
+			
+IF OBJECT_ID('dbo.daily_scheduled_in_vehicle_time', 'U') IS NOT NULL
+DROP TABLE dbo.daily_scheduled_in_vehicle_time
+
+CREATE TABLE dbo.daily_scheduled_in_vehicle_time
+	(
+		service_date					VARCHAR(255)
+		,from_stop_id					VARCHAR(255)
+		,to_stop_id						VARCHAR(255)
+		,route_type						INT
+		,route_id						VARCHAR(255)
+		,direction_id					INT
+		,time_period_id 				VARCHAR(255)
+		,scheduled_in_vehicle_time_sec 	FLOAT
+	)
+
+
+INSERT INTO dbo.daily_scheduled_in_vehicle_time
+	(
+		service_date
+		,from_stop_id
+		,to_stop_id
+		,route_type
+		,route_id
+		,direction_id
+		,time_period_id
+		,scheduled_in_vehicle_time_sec
+	)
+
+SELECT
+	@service_date_process						AS service_date
+	,abcde.abcd_stop_id 						AS from_stop_id
+	,abcde.e_stop_id 							AS to_stop_id
+	,abcde.abcde_route_type						AS route_type
+	,abcde.cde_route_id							AS route_id
+	,abcde.abcde_direction_id					AS direction_id
+	,tp.time_period_id							AS time_period_id
+	,AVG(abcde.e_time_sec - abcde.c_time_sec)	AS scheduled_in_vehicle_time_sec
+FROM	
+	#daily_abcde_time_scheduled abcde			
+LEFT JOIN 
+	dbo.config_time_period tp
+	ON	
+		@day_type_id = tp.day_type_id
+		AND abcde.c_time_sec >= tp.time_period_start_time_sec
+		AND	abcde.c_time_sec < tp.time_period_end_time_sec	
+LEFT JOIN gtfs.routes r
+	ON	
+		abcde.cde_route_id	 = r.route_id
+WHERE
+	r.route_type IN (0,1)
+GROUP BY
+	abcde.abcd_stop_id
+	,abcde.e_stop_id
+	,abcde.abcde_route_type	
+	,abcde.cde_route_id
+	,abcde.abcde_direction_id
+	,tp.time_period_id
+
+	
+	EXEC ExcessJourneyTimeScheduled    
+			@service_date_process
+	
+	
 	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_ab_route_id ON #daily_abcde_time_scheduled (ab_route_id);
 
 	CREATE NONCLUSTERED INDEX IX_daily_abcde_time_scheduled_cde_route_id ON #daily_abcde_time_scheduled (cde_route_id);

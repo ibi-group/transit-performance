@@ -1071,3 +1071,80 @@ CREATE TABLE dbo.revise_historical_metrics_log
 	,revised_numerator_pax		FLOAT
 	,revised_denominator_pax	FLOAT
 )
+
+--Create historical journey time table for results using schedule
+IF OBJECT_ID('dbo.historical_journey_time_using_schedule','U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_using_schedule
+	
+CREATE TABLE dbo.historical_journey_time_using_schedule
+	(
+		service_date									VARCHAR(255)
+		,route_id										VARCHAR(255)
+		,total_excess_journey_time_hr					FLOAT
+		,total_passengers								FLOAT
+		,excess_journey_time_per_passenger_sec			FLOAT
+		,passengers_with_zero_ejt						FLOAT
+		,passengers_with_ejt_greater_than_zero_min		FLOAT
+		,passengers_with_ejt_greater_than_one_min		FLOAT
+		,passengers_with_ejt_greater_than_two_min		FLOAT
+		,passengers_with_ejt_greater_than_three_min		FLOAT
+		,passengers_with_ejt_greater_than_four_min		FLOAT
+		,passengers_with_ejt_greater_than_five_min		FLOAT
+		,passengers_with_ejt_greater_than_six_min		FLOAT
+		,passengers_with_ejt_greater_than_seven_min		FLOAT
+		,passengers_with_ejt_greater_than_eight_min		FLOAT
+		,passengers_with_ejt_greater_than_nine_min		FLOAT
+		,passengers_with_ejt_greater_than_ten_min		FLOAT
+	)
+
+--Create historical journey time table for results using ab_time
+IF OBJECT_ID('dbo.historical_journey_time_using_ab_time','U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_using_ab_time
+	
+CREATE TABLE dbo.historical_journey_time_using_ab_time
+	(
+		service_date									VARCHAR(255)
+		,route_id										VARCHAR(255)
+		,total_excess_journey_time_hr					FLOAT
+		,total_passengers								FLOAT
+		,excess_journey_time_per_passenger_sec			FLOAT
+		,passengers_with_zero_ejt						FLOAT
+		,passengers_with_ejt_greater_than_zero_min		FLOAT
+		,passengers_with_ejt_greater_than_one_min		FLOAT
+		,passengers_with_ejt_greater_than_two_min		FLOAT
+		,passengers_with_ejt_greater_than_three_min		FLOAT
+		,passengers_with_ejt_greater_than_four_min		FLOAT
+		,passengers_with_ejt_greater_than_five_min		FLOAT
+		,passengers_with_ejt_greater_than_six_min		FLOAT
+		,passengers_with_ejt_greater_than_seven_min		FLOAT
+		,passengers_with_ejt_greater_than_eight_min		FLOAT
+		,passengers_with_ejt_greater_than_nine_min		FLOAT
+		,passengers_with_ejt_greater_than_ten_min		FLOAT
+	)
+
+--Create historical journey time table for results using ab_time
+IF OBJECT_ID('dbo.historical_journey_time_using_cd_time','U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_using_cd_time
+	
+CREATE TABLE dbo.historical_journey_time_using_cd_time
+	(
+		service_date									VARCHAR(255)
+		,route_id										VARCHAR(255)
+		,total_excess_journey_time_hr					FLOAT
+		,total_passengers								FLOAT
+		,excess_journey_time_per_passenger_sec			FLOAT
+		,passengers_with_zero_ejt						FLOAT
+		,passengers_with_ejt_greater_than_zero_min		FLOAT
+		,passengers_with_ejt_greater_than_one_min		FLOAT
+		,passengers_with_ejt_greater_than_two_min		FLOAT
+		,passengers_with_ejt_greater_than_three_min		FLOAT
+		,passengers_with_ejt_greater_than_four_min		FLOAT
+		,passengers_with_ejt_greater_than_five_min		FLOAT
+		,passengers_with_ejt_greater_than_six_min		FLOAT
+		,passengers_with_ejt_greater_than_seven_min		FLOAT
+		,passengers_with_ejt_greater_than_eight_min		FLOAT
+		,passengers_with_ejt_greater_than_nine_min		FLOAT
+		,passengers_with_ejt_greater_than_ten_min		FLOAT
+	)
+
+
