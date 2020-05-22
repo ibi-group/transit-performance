@@ -19,6 +19,8 @@ CREATE PROCEDURE dbo.ExcessJourneyTimeUsingCD
 
 	@service_date_process DATE
 
+--Script Version: Master - 1.0.0.0	
+	
 AS
 
 BEGIN
@@ -554,14 +556,14 @@ JOIN gtfs.routes r
 ON	
 	abcde.cde_route_id = r.route_id
 		
-LEFT JOIN dbo.config_expected_wait_time_ol_rl_gl wt
+LEFT JOIN dbo.config_expected_wait_time wt
 ON
 	abcde.abcd_stop_id = wt.from_stop_id
 	AND abcde.e_stop_id = wt.to_stop_id
 	AND ts.time_slice_id = wt.time_slice_id
 	AND sd.day_type_id = wt.day_type_id
 		
-LEFT JOIN dbo.config_expected_in_vehicle_time_ol_rl_gl ivt
+LEFT JOIN dbo.config_expected_in_vehicle_time ivt
 ON	
 	sd.day_type_id = ivt.day_type_id
 	AND abcde.abcd_stop_id = ivt.from_stop_id
@@ -581,7 +583,7 @@ IF
 		SELECT 
 			COUNT(*)
 		FROM 
-			dbo.historical_journey_time_using_ab_time
+			dbo.historical_journey_time_using_cd_time
 		WHERE 
 			service_date = @service_date_process
 	)

@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PreProcessDaily
 
---Script Version: Master - 1.1.0.0 [need to update]
+--Script Version: Master - 1.1.0.0 - extrapolated-events-and-ejt - 1
 
 --This procedure sets up the daily tables. These tables store the performance information for the day being processed after the day has happened.
 

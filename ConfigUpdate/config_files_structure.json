@@ -269,6 +269,53 @@
 					"type": "VARCHAR(255)"
 				}
 			}
-		}
+		},
+		"config_expected_in_vehicle_time": {
+			"columns": {
+				"day_type_id": {
+					"type": "VARCHAR(255)"
+				},
+				"from_stop_id": {
+					"type": "VARCHAR(255)"
+				},
+				"to_stop_id": {
+					"type": "VARCHAR(255)"
+				},
+				"route_type": {
+					"type": "INT"
+				},
+				"route_id": {
+					"type": "VARCHAR(255)"
+				},
+				"direction_id": {
+					"type": "INT"
+				},
+				"time_slice_id": {
+					"type": "VARCHAR(255)"
+				},
+				"expected_in_vehicle_time_sec": {
+					"type": "INT"
+				}
+			}
+		},
+		"config_expected_wait_time": {
+			"columns": {
+				"day_type_id": {
+					"type": "VARCHAR(255)"
+				},
+				"from_stop_id": {
+					"type": "VARCHAR(255)"
+				},
+				"to_stop_id": {
+					"type": "VARCHAR(255)"
+				},
+				"time_slice_id": {
+					"type": "VARCHAR(255)"
+				},
+				"expected_in_vehicle_time_sec": {
+					"type": "INT"
+				}
+			}
+		}		
 	}
 }

@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PostProcessDaily 
 
---Script Version: Master - 1.1.2.0  [need to update]
+--Script Version: Master - 1.1.2.0 - extrapolated-events-and-ejt - 1
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
@@ -727,7 +727,7 @@ BEGIN
 					AND 
 						ed.event_type = t.event_type
 					)	
-/*
+
 	--Records where there are duplicate events for vehicle-stop under different trip_id's within a certain time threshold (20 minutes)
 	--For all other modes
 	UPDATE dbo.daily_event
@@ -783,7 +783,7 @@ BEGIN
 		AND a.trip_id <> b.trip_id
 		AND	ABS(a.max_event_time_sec - b.min_event_time_sec) <= 20*60
 
-*/		
+	
 		
 	-------finding missed events at the destination and adding last available prediction from trip_udpates----------
 	IF OBJECT_ID('tempdb..##missed_events','U') IS NOT NULL
@@ -838,7 +838,38 @@ BEGIN
 			AND
 				de.event_type = 'ARR' --only arrival events at terminals
 
-	
+	--Bus: finding missed bus events at all stops
+	INSERT INTO ##missed_events
+	( 
+        service_date
+		,trip_id
+		,vehicle_id
+        ,route_type
+        ,stop_id
+        ,stop_sequence
+		,stop_order_flag
+		,event_type
+    )
+
+		SELECT DISTINCT
+			st.service_date
+			,st.trip_id--
+			,de.vehicle_id     
+			,st.route_type
+			,st.stop_id
+			,st.stop_sequence
+			,st.stop_order_flag									
+			,de.event_type
+		FROM
+			dbo.daily_stop_times_sec st
+			,dbo.daily_event de
+		WHERE
+				de.trip_id = st.trip_id
+			AND 
+				de.service_date = st.service_date
+			AND 
+				st.route_type = 3
+				
 	--remove stops from missed events that have events in daily_event
 	DELETE FROM ##missed_events
 	FROM
