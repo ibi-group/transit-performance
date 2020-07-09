@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.getEvents
 
---Script Version: Master - 1.1.0.0 - API-restrict-days - 1
+--Script Version: Master - 1.2.0.0
 
 --This stored procedure is called by the getEvents API call.  It selects events for a particular route, direction, stop and time period.
 	

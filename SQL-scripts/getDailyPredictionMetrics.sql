@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.getDailyPredictionMetrics
 
---Script Version: Master - 1.1.0.0 - API-restrict-days - 1
+--Script Version: Master - 1.2.0.0
 
 --This stored procedure is called by the dailypredictionmetrics API call.  It selects daily prediction metrics for a particular route (or all routes) and time period.
 

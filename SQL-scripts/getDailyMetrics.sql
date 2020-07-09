@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.getDailyMetrics
 
---Script Version: Master - 1.1.0.0 - API-restrict-days - 1
+--Script Version: Master - 1.2.0.0
 
 --This stored procedure is called by the dailymetrics API call.  It selects daily metrics for a particular route (or all routes) and time period.
 

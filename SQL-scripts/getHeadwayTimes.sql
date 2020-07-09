@@ -19,7 +19,7 @@ GO
 
 CREATE PROCEDURE dbo.getHeadwayTimes
 
---Script Version: Master - 1.1.0.0 - API-restrict-days - 1
+--Script Version: Master - 1.2.0.0
 
 --This Procedure is called by the headway API call. It selects headways  for a particular stop (and optionally to_stop or route + direction) and time period.
 

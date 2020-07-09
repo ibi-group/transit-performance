@@ -20,7 +20,7 @@ GO
 
 CREATE PROCEDURE dbo.getTravelTimes
 
---Script Version: Master - 1.1.0.0 - API-restrict-days - 1
+--Script Version: Master - 1.2.0.0
 
 --This Procedure is called by the traveltimes API call. It selects travel times for a particular from_stop and to_stop pair (and optionally route)
 --and time period.

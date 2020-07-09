@@ -16,7 +16,7 @@ GO
 
 CREATE PROCEDURE dbo.getDwellTimes
 
---Script Version: Master - 1.1.0.0 - API-restrict-days - 1
+--Script Version: Master - 1.2.0.0
 
 --This Procedure is called by the dwelltimes API call. It selects dwell times for a particular stop (and optionally route + direction) and time period.
 
