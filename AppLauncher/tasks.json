@@ -60,9 +60,22 @@
             ]
         },
 		{	
-            "Name": "dbo.PreProcessToday",
+            "Name": "dbo.ProcessVPQualityDaily",
             "TaskType": "StoredProcedure",
 			"Order": 6,
+			"Enable":"True",
+			"Arguments": [
+                {
+                    "Name": "service_date ",
+                    "Value": "Yesterday",
+                    "Datatype": "date"
+                }
+            ]
+        },
+		{	
+            "Name": "dbo.PreProcessToday",
+            "TaskType": "StoredProcedure",
+			"Order": 7,
 			"Enable":"True",
 			"Arguments": [
                 {
@@ -75,14 +88,14 @@
 		{	
             "Name": "dbo.CreateTodayRTProcess",
             "TaskType": "StoredProcedure",
-			"Order": 7,
+			"Order": 8,
 			"Enable":"True",
 			"Arguments": []
         },
 		{	
             "Name": "dbo.ClearData",
             "TaskType": "StoredProcedure",
-			"Order": 8,
+			"Order": 9,
 			"Enable":"True",
 			"Arguments": [
                 {
