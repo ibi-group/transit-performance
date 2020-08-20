@@ -1,17 +1,8 @@
 
-
-/*
-questions:
-0) add parameters to config_table?
-1) select from gtfsrt_vp_denormalized where trip_start_date = service_date or between start and end?
-2) negative vehicle count threshold or use absolute?
-*/
 ---run this script in the transit-performance database
 --USE transit_performance
 --GO
 
---This procedure calculates daily prediction accuracy metrics.
-/*
 IF OBJECT_ID('dbo.ProcessVPQualityDaily','P') IS NOT NULL
 	DROP PROCEDURE dbo.ProcessVPQualityDaily
 GO
@@ -26,26 +17,26 @@ GO
 
 
 CREATE PROCEDURE dbo.ProcessVPQualityDaily
+
+--Script Version: Master - 1.1.0.0
+
+--This procedure calculates daily location quality metrics.
+
 	@service_date							DATE
-	,@file_gap_threshold					INT
-	,@vehicle_count_threshold				INT
-	,@distance_from_centroid_feet_threshold	INT
-	,@file_time_gap_threshold				INT
-	,@vehicle_gap_threshold					INT
-	,@vehicle_movement_threshold			INT
 
 AS
 
+
 BEGIN
     SET NOCOUNT ON; 
-*/
+
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 	--Set parameters
 	
-	DECLARE @service_date_process DATE
-		SET @service_date_process = '2018-10-15' --@service_date
-
+	DECLARE @service_date_process DATE 
+		SET @service_date_process = @service_date
+	
 	DECLARE @process_start_time INT
 		SET @process_start_time = dbo.fnConvertDateTimeToEpoch(CAST(@service_date_process AS datetime)) + (3*60*60) -- + (3*60*60)  -- Set to 3am then adjust from transit-dev server time to CommTrans local time
 
@@ -70,7 +61,11 @@ BEGIN
 	DECLARE @vehicle_movement_threshold INT
 		SET @vehicle_movement_threshold = 300
 
-		--select dbo.fnConvertEpochToDateTime(@process_start_time), dbo.fnConvertEpochToDateTime(@process_end_time)
+	DECLARE @vehicle_speed_threshold_commuter INT 
+		SET @vehicle_speed_threshold_commuter = 70
+
+	DECLARE @vehicle_speed_threshold_local INT 
+		SET @vehicle_speed_threshold_local = 40
 
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -86,7 +81,7 @@ BEGIN
 		,service_date				DATE			NOT NULL
 		,file_time					INT				NOT NULL
 		,file_time_dt				DATETIME		NOT NULL
-		,trip_start_time			VARCHAR(8)		NOT NULL
+		,trip_start_time			VARCHAR(8)		
 		,trip_schedule_relationship	VARCHAR(255)	NOT NULL
 		,route_id					VARCHAR(255)	NOT NULL
 		,trip_id					VARCHAR(255)
@@ -142,11 +137,6 @@ BEGIN
 	WHERE	gtfsrt.header_timestamp >= @process_start_time AND
 			gtfsrt.header_timestamp < @process_end_time
 	--WHERE CONVERT(DATE, trip_start_date) = @service_date_process 
-	ORDER BY
-		gtfsrt.vehicle_id
-		,gtfsrt.route_id
-		,gtfsrt.trip_start_time
-		,gtfsrt.header_timestamp
 
 	UPDATE daily_vehicle_position 
 	SET direction_id = t.direction_id
@@ -156,15 +146,16 @@ BEGIN
 		AND 
 			dbo.daily_vehicle_position.direction_id IS NULL
 
-		--select * from daily_vehicle_position
+
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
+	--FILE METRICS
 
 	--Create dbo.daily_vehicle_position_file_summary table.
 	--This table identifies potential issues with any of the day's GTFS realtime vehicle position files.
 	--Files are uniquely identified by their header_timestamp, and are flagged for the following issues:
-		--1) Large gap between updates (using the difference between header_timestamps)
-		--2) Large number of missing vehicles (comparing the number of vehicles in each file to the number of scheduled trips at the time of the header_timestamp)
+		--1) file_gap: Large gap between updates (using the difference between header_timestamps)
+		--2) vehicle_count: Large number of missing vehicles (comparing the number of vehicles in each file to the number of scheduled trips at the time of the header_timestamp)
 
 	IF OBJECT_ID('tempdb..#daily_vehicle_position_file_disaggregate', 'U') IS NOT NULL 
 		DROP TABLE #daily_vehicle_position_file_disaggregate
@@ -234,8 +225,6 @@ BEGIN
 	) st
 	ON
 		vp.file_time = st.file_time
-
-		--select * from #daily_vehicle_position_file_disaggregate
 
 	UPDATE	#daily_vehicle_position_file_disaggregate
 	SET		vehicle_count_flag = 1
@@ -308,7 +297,7 @@ BEGIN
 		,service_date							DATE			NOT NULL
 		,file_time								INT				NOT NULL
 		,file_time_dt							DATETIME		NOT NULL
-		,trip_start_time						VARCHAR(8)		NOT NULL
+		,trip_start_time						VARCHAR(8)		
 		,trip_schedule_relationship				VARCHAR(255)	NOT NULL
 		,route_id								VARCHAR(255)	NOT NULL
 		,trip_id								VARCHAR(255)
@@ -332,6 +321,12 @@ BEGIN
 		,time_since_last_movement				INT
 		,first_stop_sequence					INT
 		,last_stop_sequence						INT
+		,previous_latitude						FLOAT 
+		,previous_longitude						FLOAT 
+		,previous_vehicle_timestamp				INT 
+		,vehicle_timestamp_gap_hour				FLOAT 
+		,distance_traveled_since_last_file_mi	FLOAT 
+		,vehicle_mph							FLOAT
 		,file_quality_flag						BIT				DEFAULT 0
 		,location_missing_flag					BIT				DEFAULT 0
 		,location_quality_flag					BIT				DEFAULT 0
@@ -341,6 +336,7 @@ BEGIN
 		,vehicle_update_flag_lead				BIT				DEFAULT 0		
 		,vehicle_movement_flag					BIT				DEFAULT 0
 		,vehicle_movement_flag_lead				BIT				DEFAULT 0
+		,vehicle_speed_flag						BIT				DEFAULT 0
 	)
 
 	INSERT INTO #daily_vehicle_position_disaggregate
@@ -367,6 +363,10 @@ BEGIN
 		,previous_file_time
 		,file_time_gap
 		,file_time_vehicle_timestamp_lag
+		,previous_latitude
+		,previous_longitude
+		,previous_vehicle_timestamp
+		,vehicle_timestamp_gap_hour
 	)
 	
 	SELECT
@@ -389,13 +389,29 @@ BEGIN
 		,dvp.longitude
 		,(SELECT AVG(latitude) FROM dbo.daily_vehicle_position) AS avg_latitude
 		,(SELECT AVG(longitude) FROM dbo.daily_vehicle_position) AS avg_longitude
-		,LAG(dvp.file_time, 1) OVER (PARTITION BY dvp.trip_start_time, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) AS previous_file_time
-		,dvp.file_time - LAG(dvp.file_time, 1) OVER (PARTITION BY	dvp.trip_start_time, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) AS file_time_gap
+		,LAG(dvp.file_time, 1) OVER (PARTITION BY dvp.trip_id, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) AS previous_file_time
+		,dvp.file_time - LAG(dvp.file_time, 1) OVER (PARTITION BY	dvp.trip_id, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) AS file_time_gap
 		,dvp.file_time - dvp.vehicle_timestamp AS file_time_vehicle_timestamp_lag
+		,lag(dvp.latitude,1) over (partition by dvp.trip_id, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) as previous_latitude 
+		,lag(dvp.longitude,1) over (partition by dvp.trip_id, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) as previous_longitude
+		,lag(dvp.vehicle_timestamp,1) over (partition by dvp.trip_id, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time) as previous_vehicletimestamp
+		,(dvp.vehicle_timestamp - (lag(dvp.vehicle_timestamp,1) over (partition by dvp.trip_id, dvp.trip_schedule_relationship, dvp.route_id, dvp.vehicle_id ORDER BY dvp.file_time)))*1.0 / 3600 *1.0 as vehicle_timestamp_gap_hour
+				
 	FROM dbo.daily_vehicle_position dvp
-	
+
 	UPDATE	#daily_vehicle_position_disaggregate
 	SET		distance_from_centroid_feet = dbo.fnGetDistanceFeet(latitude, longitude, avg_latitude, avg_longitude)	
+		
+	--Calculate distance traveled since last file in miles 
+	UPDATE #daily_vehicle_position_disaggregate
+	SET distance_traveled_since_last_file_mi = dbo.fnGetDistanceFeet(latitude, longitude, previous_latitude, previous_longitude)*1.0/ 5280*1.0
+
+	--Calculate the vehicle speed in mph
+	UPDATE #daily_vehicle_position_disaggregate
+	SET vehicle_mph = 
+		CASE WHEN vehicle_timestamp_gap_hour *1.0 = 0 then 0 
+		ELSE distance_traveled_since_last_file_mi *1.0 / vehicle_timestamp_gap_hour *1.0
+		END
 
 	--Create temporary reference table with each unique combination of file_time and previous_file_time and determine the number of missing files between each.
 	--And join to #daily_vehicle_position_disaggregate to set files_missing_since_previous_file_time.
@@ -455,7 +471,7 @@ BEGIN
 
 	CREATE TABLE #unique_vehicle_positions 
 	(
-		trip_start_time							VARCHAR(8)
+		trip_id							VARCHAR(300)
 		,trip_schedule_relationship				VARCHAR(255)
 		,route_id								VARCHAR(255)
 		,vehicle_id								VARCHAR(255)
@@ -466,7 +482,7 @@ BEGIN
 
 	INSERT INTO #unique_vehicle_positions
 	(
-		trip_start_time
+		trip_id
 		,trip_schedule_relationship
 		,route_id
 		,vehicle_id
@@ -476,7 +492,7 @@ BEGIN
 	)
 	
 	SELECT
-		dvp.trip_start_time
+		dvp.trip_id
 		,dvp.trip_schedule_relationship
 		,dvp.route_id
 		,dvp.vehicle_id
@@ -485,7 +501,7 @@ BEGIN
 		,MIN(dvp.vehicle_timestamp)
 	FROM	dbo.daily_vehicle_position dvp
 	GROUP BY	
-		dvp.trip_start_time
+		dvp.trip_id
 		,dvp.trip_schedule_relationship
 		,dvp.route_id
 		,dvp.vehicle_id
@@ -497,7 +513,7 @@ BEGIN
 	FROM	#daily_vehicle_position_disaggregate dvpd
 	LEFT JOIN	#unique_vehicle_positions uvp
 	ON	
-			dvpd.trip_start_time = uvp.trip_start_time 
+			dvpd.trip_id = uvp.trip_id 
 		AND
 			dvpd.trip_schedule_relationship = uvp.trip_schedule_relationship
 		AND
@@ -520,7 +536,7 @@ BEGIN
 
 	CREATE TABLE #first_last_stop_sequence 
 	(
-		trip_start_time				VARCHAR(8)	
+		trip_id				VARCHAR(300)	
 		,trip_schedule_relationship	VARCHAR(255)
 		,route_id					VARCHAR(255)
 		,vehicle_id					VARCHAR(255)
@@ -530,7 +546,7 @@ BEGIN
 
 	INSERT INTO #first_last_stop_sequence
 	(
-		trip_start_time
+		trip_id
 		,trip_schedule_relationship
 		,route_id
 		,vehicle_id
@@ -538,7 +554,7 @@ BEGIN
 		,last_stop_sequence
 	)
 	SELECT
-		dvp.trip_start_time
+		dvp.trip_id
 		,dvp.trip_schedule_relationship
 		,dvp.route_id
 		,dvp.vehicle_id
@@ -546,7 +562,7 @@ BEGIN
 		,MAX(dvp.stop_sequence)
 	FROM	dbo.daily_vehicle_position dvp
 	GROUP BY	
-		dvp.trip_start_time
+		dvp.trip_id
 		,dvp.trip_schedule_relationship
 		,dvp.route_id
 		,dvp.vehicle_id
@@ -556,7 +572,7 @@ BEGIN
 	FROM	#daily_vehicle_position_disaggregate dvpd
 	LEFT JOIN	#first_last_stop_sequence flss
 	ON	
-			dvpd.trip_start_time =  flss.trip_start_time
+			dvpd.trip_id =  flss.trip_id
 		AND
 			dvpd.trip_schedule_relationship =  flss.trip_schedule_relationship
 		AND
@@ -569,7 +585,7 @@ BEGIN
 	FROM	#daily_vehicle_position_disaggregate dvpd
 	LEFT JOIN	#first_last_stop_sequence flss
 	ON	
-			dvpd.trip_start_time =  flss.trip_start_time
+			dvpd.trip_id =  flss.trip_id
 		AND
 			dvpd.trip_schedule_relationship =  flss.trip_schedule_relationship
 		AND
@@ -654,6 +670,29 @@ BEGIN
 	FROM	#daily_vehicle_position_disaggregate
 	LEFT JOIN	#daily_vehicle_position_disaggregate a
 	ON	#daily_vehicle_position_disaggregate.record_id = (a.record_id - 1)
+	
+	UPDATE #daily_vehicle_position_disaggregate
+	SET vehicle_speed_flag = 1
+	FROM #daily_vehicle_position_disaggregate
+	LEFT JOIN config_route_description crd
+	ON #daily_vehicle_position_disaggregate.route_id = crd.route_id
+	WHERE	
+			CASE 
+				WHEN crd.route_desc in ('Community','Core') then @vehicle_speed_threshold_local
+				WHEN crd.route_desc in ('Commuter','Contracted') then @vehicle_speed_threshold_commuter
+				ELSE @vehicle_speed_threshold_local
+			END	< vehicle_mph
+		AND 
+			file_quality_flag <> 1
+		AND
+			location_missing_flag <> 1
+		AND
+			file_time_gap_flag <> 1
+		AND
+			vehicle_update_flag <> 1
+		AND
+			vehicle_movement_flag <> 1
+
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -687,7 +726,7 @@ BEGIN
 		,dvpd.trip_schedule_relationship
 		,dvpd.route_id
 		,dvpd.direction_id
-		,COUNT(DISTINCT trip_start_time)
+		,COUNT(DISTINCT trip_id)
 	FROM	#daily_vehicle_position_disaggregate dvpd
 	GROUP BY	
 		dvpd.service_date
@@ -717,7 +756,7 @@ BEGIN
 	SELECT
 		dvpd.service_date
 		,dvpd.vehicle_id	
-		,COUNT(DISTINCT trip_start_time)
+		,COUNT(DISTINCT trip_id)
 	FROM	#daily_vehicle_position_disaggregate dvpd
 	GROUP BY	
 		dvpd.service_date
@@ -743,7 +782,7 @@ BEGIN
 		,trip_id								VARCHAR(255)
 		,count_file_updates						INT
 		,count_updates_with_missing_location	INT
-		,percent_updates_with_missing_location	INT
+		,percent_updates_with_missing_location	FLOAT
 		,issue									VARCHAR(255)	DEFAULT 'NONE'
 		,details								VARCHAR(255)	DEFAULT 'n/a'
 	)
@@ -789,7 +828,7 @@ BEGIN
 		,dvpd.trip_id
 
 	UPDATE	#vehicle_location_missing_summary_trip
-	SET		percent_updates_with_missing_location = ((count_updates_with_missing_location * 1.0) / (count_file_updates * 1.0)) * 100
+	SET		percent_updates_with_missing_location = ((count_updates_with_missing_location * 1.0) / (count_file_updates * 1.0)) 
 
 	UPDATE	#vehicle_location_missing_summary_trip
 	SET		issue = 'MISSING LOCATION DATA'
@@ -801,7 +840,7 @@ BEGIN
 							,' of '
 							,CONVERT(VARCHAR(255), count_file_updates)
 							,' vehicle position files ('
-							,CONVERT(VARCHAR(255), percent_updates_with_missing_location)
+							,CONVERT(VARCHAR(255), ROUND(percent_updates_with_missing_location * 100.0,1))
 							,' percent) contained missing lat and long data')
 	WHERE	count_updates_with_missing_location > 0
 
@@ -813,12 +852,10 @@ BEGIN
 	CREATE TABLE #vehicle_location_missing_summary_route
 	(
 		service_date							DATE		
-		,trip_schedule_relationship				VARCHAR(255)
 		,route_id								VARCHAR(255)
-		,direction_id							INT	
 		,count_file_updates						INT
 		,count_updates_with_missing_location	INT
-		,percent_updates_with_missing_location	INT
+		,percent_updates_with_missing_location	FLOAT
 		,issue									VARCHAR(255)	DEFAULT 'NONE'
 		,details								VARCHAR(255)	DEFAULT 'n/a'
 	)
@@ -826,33 +863,25 @@ BEGIN
 	INSERT INTO #vehicle_location_missing_summary_route
 	(
 		service_date
-		,trip_schedule_relationship
 		,route_id
-		,direction_id
 		,count_file_updates
 		,count_updates_with_missing_location
 	)
 	SELECT
 		vlmt.service_date
-		,vlmt.trip_schedule_relationship
 		,vlmt.route_id
-		,vlmt.direction_id
 		,SUM(vlmt.count_file_updates)
 		,SUM(vlmt.count_updates_with_missing_location)
 	FROM	#vehicle_location_missing_summary_trip vlmt
 	GROUP BY	
 		vlmt.service_date
-		,vlmt.trip_schedule_relationship
 		,vlmt.route_id
-		,vlmt.direction_id
 	ORDER BY	
 		vlmt.service_date
-		,vlmt.trip_schedule_relationship
 		,vlmt.route_id
-		,vlmt.direction_id
 
 	UPDATE	#vehicle_location_missing_summary_route
-	SET		percent_updates_with_missing_location = ((count_updates_with_missing_location * 1.0) / (count_file_updates * 1.0)) * 100
+	SET		percent_updates_with_missing_location = ((count_updates_with_missing_location * 1.0) / (count_file_updates * 1.0))
 
 	UPDATE	#vehicle_location_missing_summary_route
 	SET		issue = 'MISSING LOCATION DATA'
@@ -864,470 +893,9 @@ BEGIN
 						,' of '
 						,CONVERT(VARCHAR(255), count_file_updates)
 						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_updates_with_missing_location)
+						,CONVERT(VARCHAR(255), ROUND(percent_updates_with_missing_location *100.0,2))
 						,' percent) contained missing lat and long data')
 	WHERE	count_updates_with_missing_location > 0
-
-	--Vehicle Summary	
-
-	IF OBJECT_ID('tempdb..#vehicle_location_missing_summary_vehicle') IS NOT NULL
-		DROP TABLE #vehicle_location_missing_summary_vehicle
-
-	CREATE TABLE #vehicle_location_missing_summary_vehicle
-	(
-		service_date							DATE		
-		,vehicle_id								VARCHAR(255)
-		,count_file_updates						INT
-		,count_updates_with_missing_location	INT
-		,percent_updates_with_missing_location	INT
-		,issue									VARCHAR(255)	DEFAULT 'NONE'
-		,details								VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_location_missing_summary_vehicle
-	(
-		service_date
-		,vehicle_id
-		,count_file_updates
-		,count_updates_with_missing_location
-	)
-	SELECT
-		vlmt.service_date
-		,vlmt.vehicle_id
-		,SUM(vlmt.count_file_updates)
-		,SUM(vlmt.count_updates_with_missing_location)
-	FROM	#vehicle_location_missing_summary_trip vlmt
-	GROUP BY	
-		vlmt.service_date
-		,vlmt.vehicle_id
-	ORDER BY	
-		vlmt.service_date
-		,vlmt.vehicle_id
-
-	UPDATE	#vehicle_location_missing_summary_vehicle
-	SET		percent_updates_with_missing_location = ((count_updates_with_missing_location * 1.0) / (count_file_updates * 1.0)) * 100
-
-	UPDATE	#vehicle_location_missing_summary_vehicle
-	SET		issue = 'MISSING LOCATION DATA'
-	WHERE	count_updates_with_missing_location > 0
-
-	UPDATE	#vehicle_location_missing_summary_vehicle
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_updates_with_missing_location)
-						,' of '
-						,CONVERT(VARCHAR(255), count_file_updates)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_updates_with_missing_location)
-						,' percent) contained missing lat and long data')
-	WHERE	count_updates_with_missing_location > 0
-	
------------------------------------------------------------------------------------------------------------------------------------------------------------------
-	
-	-- Create trip, route, and vehicle summaries for location_quality metric (i.e. vehicle lat/long is outside of service area)
-
-	--Trip Summary
-		
-	IF OBJECT_ID('tempdb..#vehicle_location_quality_summary_trip') IS NOT NULL
-		DROP TABLE #vehicle_location_quality_summary_trip
-
-	CREATE TABLE #vehicle_location_quality_summary_trip
-	(
-		service_date								DATE
-		,trip_schedule_relationship					VARCHAR(255)
-		,route_id									VARCHAR(255)
-		,direction_id								INT	
-		,trip_start_time							VARCHAR(8)
-		,vehicle_id									VARCHAR(255)
-		,trip_id									VARCHAR(255)
-		,count_file_updates							INT
-		,count_updates_with_poor_location_quality	INT
-		,percent_updates_with_poor_location_quality	INT
-		,issue										VARCHAR(255)	DEFAULT 'NONE'
-		,details									VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_location_quality_summary_trip
-	(
-		service_date
-		,trip_schedule_relationship
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id
-		,trip_id
-		,count_file_updates
-		,count_updates_with_poor_location_quality
-	)
-	SELECT
-		dvpd.service_date
-		,dvpd.trip_schedule_relationship
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id
-		,dvpd.trip_id
-		,COUNT(*)
-		,SUM(CONVERT(INT, dvpd.location_quality_flag))
-	FROM	#daily_vehicle_position_disaggregate dvpd
-	GROUP BY	
-		dvpd.service_date
-		,dvpd.trip_schedule_relationship
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id
-		,dvpd.trip_id
-	ORDER BY	
-		dvpd.service_date
-		,dvpd.trip_schedule_relationship
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id
-		,dvpd.trip_id
-
-	UPDATE	#vehicle_location_quality_summary_trip
-	SET		percent_updates_with_poor_location_quality = ((count_updates_with_poor_location_quality * 1.0) / (count_file_updates * 1.0)) * 100
-		
-	UPDATE	#vehicle_location_quality_summary_trip
-	SET		issue = 'POOR LOCATION QUALITY'
-	WHERE	count_updates_with_poor_location_quality > 0
-		
-	UPDATE	#vehicle_location_quality_summary_trip
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_updates_with_poor_location_quality)
-						,' of '
-						,CONVERT(VARCHAR(255), count_file_updates)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_updates_with_poor_location_quality)
-						,' percent) contained poor location quality')
-	WHERE	count_updates_with_poor_location_quality > 0
-
-	--Route Summary	
-
-	IF OBJECT_ID('tempdb..#vehicle_location_quality_summary_route') IS NOT NULL
-		DROP TABLE #vehicle_location_quality_summary_route
-
-	CREATE TABLE #vehicle_location_quality_summary_route
-	(
-		service_date								DATE
-		,trip_schedule_relationship					VARCHAR(255)
-		,route_id									VARCHAR(255)
-		,direction_id								INT	
-		,count_file_updates							INT
-		,count_updates_with_poor_location_quality	INT
-		,percent_updates_with_poor_location_quality	INT
-		,issue										VARCHAR(255)	DEFAULT 'NONE'
-		,details									VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_location_quality_summary_route
-	(
-		service_date
-		,trip_schedule_relationship
-		,route_id
-		,direction_id
-		,count_file_updates
-		,count_updates_with_poor_location_quality
-	)
-	SELECT
-		vlqt.service_date
-		,vlqt.trip_schedule_relationship
-		,vlqt.route_id
-		,vlqt.direction_id
-		,SUM(vlqt.count_file_updates)
-		,SUM(vlqt.count_updates_with_poor_location_quality)
-	FROM	#vehicle_location_quality_summary_trip vlqt
-	GROUP BY	
-		vlqt.service_date
-		,vlqt.trip_schedule_relationship
-		,vlqt.route_id
-		,vlqt.direction_id
-	ORDER BY	
-		vlqt.service_date
-		,vlqt.trip_schedule_relationship
-		,vlqt.route_id
-		,vlqt.direction_id
-
-	UPDATE	#vehicle_location_quality_summary_route
-	SET		percent_updates_with_poor_location_quality = ((count_updates_with_poor_location_quality * 1.0) / (count_file_updates * 1.0)) * 100
-		
-	UPDATE	#vehicle_location_quality_summary_route
-	SET		issue = 'POOR LOCATION QUALITY'
-	WHERE	count_updates_with_poor_location_quality > 0
-
-	UPDATE	#vehicle_location_quality_summary_route
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_updates_with_poor_location_quality)
-						,' of ', CONVERT(VARCHAR(255), count_file_updates)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_updates_with_poor_location_quality)
-						,' percent) contained poor location quality')
-	WHERE	count_updates_with_poor_location_quality > 0
-
-	--Vehicle Summary	
-
-	IF OBJECT_ID('tempdb..#vehicle_location_quality_summary_vehicle') IS NOT NULL
-		DROP TABLE #vehicle_location_quality_summary_vehicle
-
-	CREATE TABLE #vehicle_location_quality_summary_vehicle
-	(
-		service_date								DATE
-		,vehicle_id									VARCHAR(255)
-		,count_file_updates							INT
-		,count_updates_with_poor_location_quality	INT
-		,percent_updates_with_poor_location_quality	INT
-		,issue										VARCHAR(255)	DEFAULT 'NONE'
-		,details									VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_location_quality_summary_vehicle
-	(
-		service_date
-		,vehicle_id	
-		,count_file_updates
-		,count_updates_with_poor_location_quality
-	)
-	SELECT
-		vlqt.service_date
-		,vlqt.vehicle_id	
-		,SUM(vlqt.count_file_updates)
-		,SUM(vlqt.count_updates_with_poor_location_quality)
-	FROM	#vehicle_location_quality_summary_trip vlqt
-	GROUP BY	
-		vlqt.service_date
-		,vlqt.vehicle_id
-	ORDER BY	
-		vlqt.service_date
-		,vlqt.vehicle_id
-
-	UPDATE	#vehicle_location_quality_summary_vehicle
-	SET		percent_updates_with_poor_location_quality = ((count_updates_with_poor_location_quality * 1.0) / (count_file_updates * 1.0)) * 100
-		
-	UPDATE	#vehicle_location_quality_summary_vehicle
-	SET		issue = 'POOR LOCATION QUALITY'
-	WHERE	count_updates_with_poor_location_quality > 0
-
-	UPDATE	#vehicle_location_quality_summary_vehicle
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_updates_with_poor_location_quality)
-						,' of '
-						,CONVERT(VARCHAR(255), count_file_updates)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_updates_with_poor_location_quality)
-						,' percent) contained poor location quality')
-	WHERE	count_updates_with_poor_location_quality > 0
-
------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-	-- Create trip, route, and vehicle summaries for missing from file metric (i.e. vehicle disappeared from vehicle positions file)
-
-	--Trip Summary
-		
-	IF OBJECT_ID('tempdb..#vehicle_missing_from_file_summary_trip') IS NOT NULL
-		DROP TABLE #vehicle_missing_from_file_summary_trip
-
-	CREATE TABLE #vehicle_missing_from_file_summary_trip
-	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trip_start_time			VARCHAR(8)
-		,vehicle_id					VARCHAR(255)
-		,trip_id					VARCHAR(255)
-		,count_files_present		INT
-		,count_missing_files		INT
-		,count_total_files			INT
-		,percent_missing_files		INT
-		,issue						VARCHAR(255)	DEFAULT 'NONE'
-		,details					VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_missing_from_file_summary_trip
-	(
-		service_date
-		,trip_schedule_relationship
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id
-		,trip_id
-		,count_files_present
-		,count_missing_files
-	)
-
-	SELECT
-		dvpd.service_date
-		,dvpd.trip_schedule_relationship
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id
-		,dvpd.trip_id
-		,count(*)
-		,sum(dvpd.files_missing_since_previous_file_time)
-	FROM	#daily_vehicle_position_disaggregate dvpd
-	GROUP BY	
-		dvpd.service_date
-		,dvpd.trip_schedule_relationship
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id
-		,dvpd.trip_id
-	ORDER BY	
-		dvpd.service_date
-		,dvpd.trip_schedule_relationship
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id
-		,dvpd.trip_id
-
-	UPDATE	#vehicle_missing_from_file_summary_trip
-	SET		count_total_files = count_files_present + count_missing_files
-
-	UPDATE	#vehicle_missing_from_file_summary_trip
-	SET		percent_missing_files = ((count_missing_files * 1.0) / (count_total_files * 1.0)) * 100
-
-	UPDATE	#vehicle_missing_from_file_summary_trip
-	SET		issue = 'TRIP MISSING FROM VEHICLE POSITIONS FILE'
-	WHERE	count_missing_files > 0 
-
-	UPDATE	#vehicle_missing_from_file_summary_trip
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_missing_files)
-						,' of ', CONVERT(VARCHAR(255), count_total_files)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_missing_files)
-						,' percent) did not contain information for this trip')
-	WHERE	count_missing_files > 0 
-
-	--Route Summary	
-
-	IF OBJECT_ID('tempdb..#vehicle_missing_from_file_summary_route') IS NOT NULL
-		DROP TABLE #vehicle_missing_from_file_summary_route
-
-	CREATE TABLE #vehicle_missing_from_file_summary_route
-	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,count_files_present		INT
-		,count_missing_files		INT
-		,count_total_files			INT
-		,percent_missing_files		INT
-		,issue						VARCHAR(255)	DEFAULT 'NONE'
-		,details					VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_missing_from_file_summary_route
-	(
-		service_date
-		,trip_schedule_relationship
-		,route_id
-		,direction_id
-		,count_files_present
-		,count_missing_files
-	)
-
-	SELECT
-		vmft.service_date
-		,vmft.trip_schedule_relationship
-		,vmft.route_id
-		,vmft.direction_id
-		,sum(vmft.count_files_present)
-		,sum(vmft.count_missing_files)
-	FROM	#vehicle_missing_from_file_summary_trip vmft
-	GROUP BY	
-		vmft.service_date
-		,vmft.trip_schedule_relationship
-		,vmft.route_id
-		,vmft.direction_id
-	ORDER BY	
-		vmft.service_date
-		,vmft.trip_schedule_relationship
-		,vmft.route_id
-		,vmft.direction_id
-
-	UPDATE	#vehicle_missing_from_file_summary_route
-	SET		count_total_files = count_files_present + count_missing_files
-
-	UPDATE	#vehicle_missing_from_file_summary_route
-	SET		percent_missing_files = ((count_missing_files * 1.0) / (count_total_files * 1.0)) * 100
-
-	UPDATE	#vehicle_missing_from_file_summary_route
-	SET		issue = 'TRIP MISSING FROM VEHICLE POSITIONS FILE'
-	WHERE	count_missing_files > 0 
-
-	UPDATE	#vehicle_missing_from_file_summary_route
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_missing_files)
-						,' of ', CONVERT(VARCHAR(255), count_total_files)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_missing_files)
-						,' percent) did not contain information for this route')
-	WHERE	count_missing_files > 0 
-
-	--Vehicle Summary	
-	
-	IF OBJECT_ID('tempdb..#vehicle_missing_from_file_summary_vehicle') IS NOT NULL
-		DROP TABLE #vehicle_missing_from_file_summary_vehicle
-
-	CREATE TABLE #vehicle_missing_from_file_summary_vehicle
-	(
-		service_date			DATE
-		,vehicle_id				VARCHAR(255)
-		,count_files_present	INT
-		,count_missing_files	INT
-		,count_total_files		INT
-		,percent_missing_files	INT
-		,issue					VARCHAR(255)	DEFAULT 'NONE'
-		,details				VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_missing_from_file_summary_vehicle
-	(
-		service_date
-		,vehicle_id
-		,count_files_present
-		,count_missing_files
-	)
-
-	SELECT
-		vmft.service_date
-		,vmft.vehicle_id
-		,sum(vmft.count_files_present)
-		,sum(vmft.count_missing_files)
-	FROM	#vehicle_missing_from_file_summary_trip vmft
-	GROUP BY	
-		vmft.service_date
-		,vmft.vehicle_id
-	ORDER BY	
-		vmft.service_date
-		,vmft.vehicle_id
-
-	UPDATE	#vehicle_missing_from_file_summary_vehicle
-	SET		count_total_files = count_files_present + count_missing_files
-
-	UPDATE	#vehicle_missing_from_file_summary_vehicle
-	SET		percent_missing_files = ((count_missing_files * 1.0) / (count_total_files * 1.0)) * 100
-
-	UPDATE	#vehicle_missing_from_file_summary_vehicle
-	SET		issue = 'TRIP MISSING FROM VEHICLE POSITIONS FILE'
-	WHERE	count_missing_files > 0 
-
-	UPDATE	#vehicle_missing_from_file_summary_vehicle
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), count_missing_files)
-						,' of ', CONVERT(VARCHAR(255)
-						,count_total_files)
-						,' vehicle position files ('
-						,CONVERT(VARCHAR(255), percent_missing_files)
-						,' percent) did not contain information for this route')
-	WHERE	count_missing_files > 0 
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -1340,76 +908,22 @@ BEGIN
 
 	CREATE TABLE #file_time_gap_summary_trip
 	(
-		record_id					INT
-		,file_time					INT
-		,file_time_gap				INT
-		,service_date				DATE
+		service_date				DATE
 		,trip_schedule_relationship	VARCHAR(255)
 		,route_id					VARCHAR(255)
 		,direction_id				INT	
 		,trip_start_time			VARCHAR(8)
 		,vehicle_id					VARCHAR(255)
 		,trip_id					VARCHAR(255)
+		,count_file_updates			INT
+		,count_updates_with_file_time_gap	INT
+		,percent_updates_with_file_time_gap	FLOAT
 		,issue						VARCHAR(255)	DEFAULT 'NONE'
 		,details					VARCHAR(255)	DEFAULT 'n/a'
 	)
 
 	INSERT INTO #file_time_gap_summary_trip
 	(
-		record_id
-		,file_time
-		,file_time_gap
-		,service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id	
-		,trip_id		
-		,issue
-		,details
-	)
-
-	SELECT
-		dvpd.record_id
-		,dvpd.file_time
-		,dvpd.file_time_gap	
-		,dvpd.service_date
-		,dvpd.trip_schedule_relationship	
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id	
-		,dvpd.trip_id
-		,'TRIP MISSING FROM VEHICLE POSITIONS FILE FOR EXTENDED PERIOD' AS issue	
-		,CONCAT(
-			'Trip went missing from vehicle positions file for '
-			,CONVERT(VARCHAR(255), dvpd.file_time_gap)
-			,' seconds, starting at '
-			,CONVERT(VARCHAR(255), CONVERT(TIME(0), dbo.fnConvertEpochToDateTime(dvpd.file_time)))
-			,' in transit to stop sequence '
-			,CONVERT(VARCHAR(255), dvpd.stop_sequence + 1))
-	FROM	#daily_vehicle_position_disaggregate dvpd
-	WHERE	dvpd.file_time_gap_flag <> 0
-
-	--Route Summary	
-
-	IF OBJECT_ID('tempdb..#trips_with_file_time_gap') IS NOT NULL
-		DROP TABLE #trips_with_file_time_gap
-
-	CREATE TABLE #trips_with_file_time_gap
-	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trip_start_time			VARCHAR(8)
-		,vehicle_id					VARCHAR(255)
-		,trip_id					VARCHAR(255)
-	)
-
-	INSERT INTO #trips_with_file_time_gap
-	(
 		service_date
 		,trip_schedule_relationship	
 		,route_id
@@ -1417,726 +931,247 @@ BEGIN
 		,trip_start_time
 		,vehicle_id	
 		,trip_id
+		,count_file_updates
+		,count_updates_with_file_time_gap
 	)
 
-	SELECT DISTINCT
-		ftgt.service_date
-		,ftgt.trip_schedule_relationship	
-		,ftgt.route_id
-		,ftgt.direction_id
-		,ftgt.trip_start_time
-		,ftgt.vehicle_id	
-		,ftgt.trip_id
-	FROM	#file_time_gap_summary_trip ftgt
+	SELECT
+		dvpd.service_date
+		,dvpd.trip_schedule_relationship	
+		,dvpd.route_id
+		,dvpd.direction_id
+		,dvpd.trip_start_time
+		,dvpd.vehicle_id	
+		,dvpd.trip_id
+		,COUNT(*)
+		,SUM(CONVERT (INT, dvpd.file_time_gap_flag))
+	FROM	#daily_vehicle_position_disaggregate dvpd
+	GROUP BY	
+		dvpd.service_date
+		,dvpd.trip_schedule_relationship
+		,dvpd.route_id
+		,dvpd.direction_id
+		,dvpd.trip_start_time
+		,dvpd.vehicle_id
+		,dvpd.trip_id
+	ORDER BY	
+		dvpd.service_date
+		,dvpd.trip_schedule_relationship
+		,dvpd.route_id
+		,dvpd.direction_id
+		,dvpd.trip_start_time
+		,dvpd.vehicle_id
+		,dvpd.trip_id
+
+	UPDATE	#file_time_gap_summary_trip
+	SET		percent_updates_with_file_time_gap = ((count_updates_with_file_time_gap * 1.0) / (count_file_updates * 1.0)) 
+
+	UPDATE	#file_time_gap_summary_trip
+	SET		issue = 'TRIP MISSING FROM VEHICLE POSITIONS FILE FOR EXTENDED PERIOD'
+	WHERE	count_updates_with_file_time_gap > 0
+
+	UPDATE	#file_time_gap_summary_trip
+	SET		details = CONCAT(
+							CONVERT(VARCHAR(255), count_updates_with_file_time_gap)
+							,' of '
+							,CONVERT(VARCHAR(255), count_file_updates)
+							,' vehicle position files ('
+							,CONVERT(VARCHAR(255), ROUND(percent_updates_with_file_time_gap * 100.0,1))
+							,' percent) contained trip that went missing from vehicle positions file for extended period of time')
+	WHERE	count_updates_with_file_time_gap > 0
+
+	--Route Summary	
 
 	IF OBJECT_ID('tempdb..#file_time_gap_summary_route') IS NOT NULL
 		DROP TABLE #file_time_gap_summary_route
 
 	CREATE TABLE #file_time_gap_summary_route
 	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trips_with_file_time_gap	INT
-		,total_trips				INT
-		,percentage_of_trips		INT
-		,issue						VARCHAR(255)	DEFAULT 'NONE'
-		,details					VARCHAR(255)	DEFAULT 'n/a'
+		service_date						DATE
+		,route_id							VARCHAR(255)
+		,count_file_updates					INT
+		,count_updates_with_file_time_gap	INT
+		,percent_updates_with_file_time_gap	FLOAT
+		,issue								VARCHAR(255)	DEFAULT 'NONE'
+		,details							VARCHAR(255)	DEFAULT 'n/a'
 	)
 
 	INSERT INTO #file_time_gap_summary_route
 	(
 		service_date
-		,trip_schedule_relationship	
 		,route_id
-		,direction_id
-		,trips_with_file_time_gap
+		,count_file_updates
+		,count_updates_with_file_time_gap
 	)
 
 	SELECT
-		tfg.service_date
-		,tfg.trip_schedule_relationship	
-		,tfg.route_id
-		,tfg.direction_id
-		,count(*)
-	FROM	#trips_with_file_time_gap tfg
+		ftgt.service_date
+		,ftgt.route_id
+		,SUM(ftgt.count_file_updates)
+		,SUM(ftgt.count_updates_with_file_time_gap)
+	FROM	#file_time_gap_summary_trip ftgt
 	GROUP BY	
-		tfg.service_date
-		,tfg.trip_schedule_relationship
-		,tfg.route_id
-		,tfg.direction_id
+		ftgt.service_date
+		,ftgt.route_id
 
 	UPDATE	#file_time_gap_summary_route
-	SET		#file_time_gap_summary_route.total_trips = tbr.count_trips
-	FROM	#file_time_gap_summary_route ftgr
-	LEFT JOIN	#trips_by_route tbr
-	ON	
-			ftgr.service_date = tbr.service_date
-		AND
-			ftgr.trip_schedule_relationship = tbr.trip_schedule_relationship
-		AND
-			ftgr.route_id = tbr.route_id --AND
-			--ftgr.direction_id = tbr.direction_id
-
-	UPDATE	#file_time_gap_summary_route
-	SET		percentage_of_trips	= ((trips_with_file_time_gap * 1.0) / (total_trips * 1.0)) * 100
+	SET		percent_updates_with_file_time_gap	= ((count_updates_with_file_time_gap * 1.0) / (count_file_updates * 1.0)) 
 
 	UPDATE	#file_time_gap_summary_route
 	SET		issue = 'TRIP MISSING FROM VEHICLE POSITIONS FILE FOR EXTENDED PERIOD'
+	WHERE	count_updates_with_file_time_gap > 0
 
 	UPDATE	#file_time_gap_summary_route
 	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), trips_with_file_time_gap)
+						CONVERT(VARCHAR(255), count_updates_with_file_time_gap)
 						,' of '
-						,CONVERT(VARCHAR(255), total_trips)
-						,' trips ('
-						,CONVERT(VARCHAR(255), percentage_of_trips)
-						,' percent) went missing from the vehicle positions file for at least '
+						,CONVERT(VARCHAR(255), count_file_updates)
+						,' vehicle position file ('
+						,CONVERT(VARCHAR(255), ROUND(percent_updates_with_file_time_gap * 100.0, 2))
+						,' percent) containted trips that went missing for at least '
 						,CONVERT(VARCHAR(255), @file_time_gap_threshold)
 						,' seconds')
-
-	--Vehicle Summary	
-
-	IF OBJECT_ID('tempdb..#file_time_gap_summary_vehicle') IS NOT NULL
-		DROP TABLE #file_time_gap_summary_vehicle
-
-	CREATE TABLE #file_time_gap_summary_vehicle
-	(
-		service_date					DATE
-		,vehicle_id						VARCHAR(255)
-		,trips_with_file_time_gap		INT
-		,total_trips					INT
-		,percentage_of_trips			INT
-		,issue							VARCHAR(255)		DEFAULT 'NONE'
-		,details						VARCHAR(255)		DEFAULT 'n/a'
-	)
-
-	INSERT INTO #file_time_gap_summary_vehicle
-	(
-		service_date
-		,vehicle_id	
-		,trips_with_file_time_gap
-	)
-	SELECT
-		tfg.service_date
-		,tfg.vehicle_id	
-		,count(*)
-	FROM	#trips_with_file_time_gap tfg
-	GROUP BY	
-		tfg.service_date
-		,tfg.vehicle_id
-
-	UPDATE	#file_time_gap_summary_vehicle
-	SET		total_trips = tbv.count_trips
-	FROM	#file_time_gap_summary_vehicle ftgv
-	LEFT JOIN	#trips_by_vehicle tbv
-	ON	
-			ftgv.service_date = tbv.service_date
-		AND
-			ftgv.vehicle_id = tbv.vehicle_id 
-
-	UPDATE	#file_time_gap_summary_vehicle
-	SET		percentage_of_trips	= ((trips_with_file_time_gap * 1.0) / (total_trips * 1.0)) * 100
-
-	UPDATE	#file_time_gap_summary_vehicle
-	SET		issue = 'TRIP MISSING FROM VEHICLE POSITIONS FILE FOR EXTENDED PERIOD'
-
-	UPDATE	#file_time_gap_summary_vehicle
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), trips_with_file_time_gap)
-						,' of '
-						,CONVERT(VARCHAR(255), total_trips)
-						,' trips ('
-						,CONVERT(VARCHAR(255), percentage_of_trips)
-						,' percent) went missing from the vehicle positions file for at least '
-						,CONVERT(VARCHAR(255), @file_time_gap_threshold)
-						,' seconds')
+	WHERE	count_updates_with_file_time_gap > 0
 
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-	-- Create trip, route, and vehicle summaries for vehicle_update_gap metric (i.e. vehicle_timestamp did not update for an extended period of time)
-
-	--Trip Summary
-		
-	IF OBJECT_ID('tempdb..#vehicle_update_gap_summary_trip') IS NOT NULL
-		DROP TABLE #vehicle_update_gap_summary_trip
-
-	CREATE TABLE #vehicle_update_gap_summary_trip
-	(
-		record_id					INT
-		,file_time					INT
-		,file_time_gap				INT
-		,service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trip_start_time			VARCHAR(8)
-		,vehicle_id					VARCHAR(255)
-		,trip_id					VARCHAR(255)
-		,issue						VARCHAR(255)	DEFAULT 'NONE'
-		,details					VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_update_gap_summary_trip
-	(
-		record_id
-		,file_time
-		,file_time_gap
-		,service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id	
-		,trip_id		
-		,issue
-		,details
-	)
-	
-	SELECT
-		dvpd.record_id
-		,dvpd.file_time
-		,dvpd.file_time_gap	
-		,dvpd.service_date
-		,dvpd.trip_schedule_relationship	
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id	
-		,dvpd.trip_id
-		,'VEHICLE TIMESTAMP DID NOT UPDATE FOR EXTENDED PERIOD' AS issue	
-		,CONCAT(
-			'Vehicle timestamp did not update for '
-			,CONVERT(VARCHAR(255), dvpd.file_time_vehicle_timestamp_lag)
-			,' seconds, starting at '
-			,CONVERT(VARCHAR(255), CONVERT(TIME(0), dbo.fnConvertEpochToDateTime(dvpd.vehicle_timestamp)))
-			,' in transit to stop sequence '
-			,CONVERT(VARCHAR(255), dvpd.stop_sequence + 1))
-	FROM	#daily_vehicle_position_disaggregate dvpd
-	WHERE	
-			dvpd.vehicle_update_flag <> 0
-		AND
-			dvpd.vehicle_update_flag_lead <> 1 
-
-	--Route Summary	
-
-	IF OBJECT_ID('tempdb..#trips_with_vehicle_update_gap') IS NOT NULL
-		DROP TABLE #trips_with_vehicle_update_gap
-
-	CREATE TABLE #trips_with_vehicle_update_gap
-	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trip_start_time			VARCHAR(8)
-		,vehicle_id					VARCHAR(255)
-		,trip_id					VARCHAR(255)
-	)
-
-	INSERT INTO #trips_with_vehicle_update_gap
-	(
-		service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id	
-		,trip_id
-	)
-	
-	SELECT DISTINCT
-		vugt.service_date
-		,vugt.trip_schedule_relationship	
-		,vugt.route_id
-		,vugt.direction_id
-		,vugt.trip_start_time
-		,vugt.vehicle_id	
-		,vugt.trip_id
-	FROM	#vehicle_update_gap_summary_trip vugt
-
-
-	IF OBJECT_ID('tempdb..#vehicle_update_gap_summary_route') IS NOT NULL
-		DROP TABLE #vehicle_update_gap_summary_route
-
-	CREATE TABLE #vehicle_update_gap_summary_route
-	(
-		service_date					DATE
-		,trip_schedule_relationship		VARCHAR(255)
-		,route_id						VARCHAR(255)
-		,direction_id					INT	
-		,trips_with_vehicle_update_gap	INT
-		,total_trips					INT
-		,percentage_of_trips			INT
-		,issue							VARCHAR(255)	DEFAULT 'NONE'
-		,details						VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_update_gap_summary_route
-	(
-		service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trips_with_vehicle_update_gap
-	)
-	
-	SELECT
-		tvug.service_date
-		,tvug.trip_schedule_relationship	
-		,tvug.route_id
-		,tvug.direction_id
-		,count(*)
-	FROM	#trips_with_vehicle_update_gap tvug
-	GROUP BY	
-		tvug.service_date
-		,tvug.trip_schedule_relationship
-		,tvug.route_id
-		,tvug.direction_id
-
-	UPDATE	#vehicle_update_gap_summary_route
-	SET		total_trips = tbr.count_trips
-	FROM	#vehicle_update_gap_summary_route vugr
-	LEFT JOIN	#trips_by_route tbr
-	ON	
-			vugr.service_date = tbr.service_date 
-	AND
-			vugr.trip_schedule_relationship = tbr.trip_schedule_relationship
-	AND
-			vugr.route_id = tbr.route_id --AND
-		--vugr.direction_id = tbr.direction_id
-
-	UPDATE	#vehicle_update_gap_summary_route
-	SET		percentage_of_trips	= ((trips_with_vehicle_update_gap * 1.0) / (total_trips * 1.0)) * 100
-
-	UPDATE	#vehicle_update_gap_summary_route
-	SET		issue = 'VEHICLE TIMESTAMP DID NOT UPDATE FOR EXTENDED PERIOD'
-
-	UPDATE	#vehicle_update_gap_summary_route
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), trips_with_vehicle_update_gap	)
-						,' of ', CONVERT(VARCHAR(255), total_trips)
-						,' trips (', CONVERT(VARCHAR(255), percentage_of_trips)
-						,' percent) had a vehicle timestamp that did not update for at least '
-						,CONVERT(VARCHAR(255), @vehicle_gap_threshold)
-						,' seconds')
-
-	--Vehicle Summary	
-
-	IF OBJECT_ID('tempdb..#vehicle_update_gap_summary_vehicle') IS NOT NULL
-		DROP TABLE #vehicle_update_gap_summary_vehicle
-
-	CREATE TABLE #vehicle_update_gap_summary_vehicle
-	(
-		service_date					DATE
-		,vehicle_id						VARCHAR(255)
-		,trips_with_vehicle_update_gap	INT
-		,total_trips					INT
-		,percentage_of_trips			INT
-		,issue							VARCHAR(255)	DEFAULT 'NONE'
-		,details						VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_update_gap_summary_vehicle
-	(
-		service_date
-		,vehicle_id
-		,trips_with_vehicle_update_gap
-	)
-	SELECT
-		tvg.service_date
-		,tvg.vehicle_id
-		,count(*)
-	FROM	#trips_with_vehicle_update_gap tvg
-	GROUP BY	
-		tvg.service_date
-		,tvg.vehicle_id
-
-	UPDATE	#vehicle_update_gap_summary_vehicle
-	SET		total_trips = tbv.count_trips
-	FROM	#vehicle_update_gap_summary_vehicle vugv
-	LEFT JOIN #trips_by_vehicle tbv
-	ON	
-			vugv.service_date = tbv.service_date 
-		AND
-			vugv.vehicle_id = tbv.vehicle_id 
-
-	UPDATE	#vehicle_update_gap_summary_vehicle
-	SET		percentage_of_trips	= ((trips_with_vehicle_update_gap * 1.0) / (total_trips * 1.0)) * 100
-
-	UPDATE	#vehicle_update_gap_summary_vehicle
-	SET		issue = 'VEHICLE TIMESTAMP DID NOT UPDATE FOR EXTENDED PERIOD'
-
-	UPDATE	#vehicle_update_gap_summary_vehicle
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), trips_with_vehicle_update_gap	)
-						,' of '
-						,CONVERT(VARCHAR(255), total_trips)
-						,' trips ('
-						,CONVERT(VARCHAR(255), percentage_of_trips)
-						,' percent) had a vehicle timestamp that did not update for at least '
-						,CONVERT(VARCHAR(255), @vehicle_gap_threshold)
-						,' seconds')
-
------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-	-- Create trip, route, and vehicle summaries for vehicle_movement metric (i.e. vehicle_timestamp is updating but lat/long is stationary)
+	-- Create trip, route, and vehicle summaries for vehicle speed metric (i.e. speed reported above threshold)
 
 	--Trip Summary
 
-	IF OBJECT_ID('tempdb..#vehicle_movement_summary_trip') IS NOT NULL
-		DROP TABLE #vehicle_movement_summary_trip
+	IF OBJECT_ID('tempdb..#vehicle_speed_high_summary_trip') IS NOT NULL
+		DROP TABLE #vehicle_speed_high_summary_trip
 
-	CREATE TABLE #vehicle_movement_summary_trip
+	CREATE TABLE #vehicle_speed_high_summary_trip
 	(
-		record_id						INT
-		,file_time						INT
-		,file_time_gap					INT
-		,service_date					DATE
-		,trip_schedule_relationship		VARCHAR(255)
-		,route_id						VARCHAR(255)
-		,direction_id					INT	
-		,trip_start_time				VARCHAR(8)
-		,vehicle_id						VARCHAR(255)
-		,trip_id						VARCHAR(255)
-		,issue							VARCHAR(255)		DEFAULT 'NONE'
-		,details						VARCHAR(255)		DEFAULT 'n/a'
+		service_date							DATE		
+		,trip_schedule_relationship				VARCHAR(255)
+		,route_id								VARCHAR(255)
+		,direction_id							INT	
+		,trip_start_time						VARCHAR(8)	
+		,vehicle_id								VARCHAR(255)
+		,trip_id								VARCHAR(255)
+		,count_file_updates						INT
+		,count_updates_with_high_speed			INT
+		,percent_updates_with_high_speed		INT
+		,issue									VARCHAR(255)	DEFAULT 'NONE'
+		,details								VARCHAR(255)	DEFAULT 'n/a'
 	)
 
-	INSERT INTO #vehicle_movement_summary_trip
-	(
-		record_id
-		,file_time
-		,file_time_gap
-		,service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id	
-		,trip_id		
-		,issue
-		,details
-	)
-	
-	SELECT	
-		dvpd.record_id
-		,dvpd.file_time
-		,dvpd.file_time_gap	
-		,dvpd.service_date
-		,dvpd.trip_schedule_relationship	
-		,dvpd.route_id
-		,dvpd.direction_id
-		,dvpd.trip_start_time
-		,dvpd.vehicle_id	
-		,dvpd.trip_id
-		,'VEHICLE DID NOT REPORT A NEW POSITION FOR EXTENDED PERIOD' AS issue	
-		,CONCAT(
-			'Vehicle position did not update for '
-			,CONVERT(VARCHAR(255), dvpd.time_since_last_movement)
-			,' seconds, starting at '
-			,CONVERT(VARCHAR(255), CONVERT(TIME(0), dbo.fnConvertEpochToDateTime(dvpd.first_vehicle_timestamp_of_position)))
-			,' in transit to stop sequence '
-			,CONVERT(VARCHAR(255), dvpd.stop_sequence + 1) )
-	FROM	#daily_vehicle_position_disaggregate dvpd
-	WHERE	
-			dvpd.vehicle_movement_flag <> 0
-		AND
-			dvpd.vehicle_movement_flag_lead <> 1 
-
-	--Route Summary	
-			
-	IF OBJECT_ID('tempdb..#trips_with_vehicle_movement_freeze') IS NOT NULL
-		DROP TABLE #trips_with_vehicle_movement_freeze
-
-	CREATE TABLE #trips_with_vehicle_movement_freeze
-	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trip_start_time			VARCHAR(8)
-		,vehicle_id					VARCHAR(255)
-		,trip_id					VARCHAR(255)
-	)
-
-	INSERT INTO #trips_with_vehicle_movement_freeze
-	(
-		service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trip_start_time
-		,vehicle_id	
-		,trip_id
-	)
-	
-	SELECT DISTINCT
-		vmt.service_date
-		,vmt.trip_schedule_relationship	
-		,vmt.route_id
-		,vmt.direction_id
-		,vmt.trip_start_time
-		,vmt.vehicle_id	
-		,vmt.trip_id
-	FROM	#vehicle_movement_summary_trip vmt
-
-	IF OBJECT_ID('tempdb..#vehicle_movement_summary_route') IS NOT NULL
-		DROP TABLE #vehicle_movement_summary_route
-
-	CREATE TABLE #vehicle_movement_summary_route
-	(
-		service_date						DATE
-		,trip_schedule_relationship			VARCHAR(255)
-		,route_id							VARCHAR(255)
-		,direction_id						INT	
-		,trips_with_vehicle_movement_freeze	INT
-		,total_trips						INT
-		,percentage_of_trips				INT
-		,issue								VARCHAR(255)	DEFAULT 'NONE'
-		,details							VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_movement_summary_route
-	(
-		service_date
-		,trip_schedule_relationship	
-		,route_id
-		,direction_id
-		,trips_with_vehicle_movement_freeze
-	)
-	SELECT
-		tvm.service_date
-		,tvm.trip_schedule_relationship	
-		,tvm.route_id
-		,tvm.direction_id
-		,count(*)
-	FROM	#trips_with_vehicle_movement_freeze tvm
-	GROUP BY	
-		tvm.service_date
-		,tvm.trip_schedule_relationship
-		,tvm.route_id
-		,tvm.direction_id
-
-	UPDATE	#vehicle_movement_summary_route
-	SET		total_trips = tbr.count_trips
-	FROM	#vehicle_movement_summary_route vmr
-	LEFT JOIN	#trips_by_route tbr
-	ON	
-			vmr.service_date = tbr.service_date
-		AND
-			vmr.trip_schedule_relationship = tbr.trip_schedule_relationship
-		AND
-			vmr.route_id = tbr.route_id --AND
-		--vmr.direction_id = tbr.direction_id
-
-	UPDATE	#vehicle_movement_summary_route
-	SET		percentage_of_trips	= ((trips_with_vehicle_movement_freeze * 1.0) / (total_trips * 1.0)) * 100
-
-	UPDATE	#vehicle_movement_summary_route
-	SET		issue = 'VEHICLE DID NOT REPORT A NEW POSITION FOR EXTENDED PERIOD'
-
-	UPDATE	#vehicle_movement_summary_route
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), trips_with_vehicle_movement_freeze)
-						,' of '
-						,CONVERT(VARCHAR(255), total_trips)
-						,' trips ('
-						,CONVERT(VARCHAR(255), percentage_of_trips)
-						,' percent) did not have their position update for at least '
-						,CONVERT(VARCHAR(255), @vehicle_movement_threshold)
-						,' seconds')
-
-	--Vehicle Summary	
-		
-	IF OBJECT_ID('tempdb..#vehicle_movement_summary_vehicle') IS NOT NULL
-		DROP TABLE #vehicle_movement_summary_vehicle
-
-	CREATE TABLE #vehicle_movement_summary_vehicle
-	(
-		service_date						DATE
-		,vehicle_id							VARCHAR(255)
-		,trips_with_vehicle_movement_freeze	INT
-		,total_trips						INT
-		,percentage_of_trips				INT
-		,issue								VARCHAR(255)	DEFAULT 'NONE'
-		,details							VARCHAR(255)	DEFAULT 'n/a'
-	)
-
-	INSERT INTO #vehicle_movement_summary_vehicle
-	(
-		service_date
-		,vehicle_id	
-		,trips_with_vehicle_movement_freeze
-	)
-	
-	SELECT
-		tvm.service_date
-		,tvm.vehicle_id	
-		,count(*)
-	FROM	#trips_with_vehicle_movement_freeze tvm
-	GROUP BY	
-		tvm.service_date
-		,tvm.vehicle_id
-
-	UPDATE	#vehicle_movement_summary_vehicle
-	SET		total_trips = tbv.count_trips
-	FROM	#vehicle_movement_summary_vehicle vmv
-	LEFT JOIN	#trips_by_vehicle tbv
-	ON	
-			vmv.service_date = tbv.service_date 
-		AND
-			vmv.vehicle_id = tbv.vehicle_id 
-
-	UPDATE	#vehicle_movement_summary_vehicle
-	SET		percentage_of_trips	= ((trips_with_vehicle_movement_freeze * 1.0) / (total_trips * 1.0)) * 100
-
-	UPDATE	#vehicle_movement_summary_vehicle
-	SET		issue = 'VEHICLE DID NOT REPORT A NEW POSITION FOR EXTENDED PERIOD'
-
-	UPDATE	#vehicle_movement_summary_vehicle
-	SET		details = CONCAT(
-						CONVERT(VARCHAR(255), trips_with_vehicle_movement_freeze)
-						,' of '
-						,CONVERT(VARCHAR(255), total_trips)
-						,' trips (', CONVERT(VARCHAR(255), percentage_of_trips)
-						,' percent) did not have their position update for at least '
-						,CONVERT(VARCHAR(255), @vehicle_movement_threshold)
-						,' seconds')
-
------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-	--Write the following daily summaries to database:
-	--dbo.daily_vehicle_position_metrics_trip
-	--dbo.daily_vehicle_position_metrics_route
-	--dbo.daily_vehicle_position_metrics_vehicle
-
-	IF OBJECT_ID('dbo.daily_vehicle_position_metrics_trip') IS NOT NULL
-		DROP TABLE dbo.daily_vehicle_position_metrics_trip
-
-	CREATE TABLE dbo.daily_vehicle_position_metrics_trip
-	(
-		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
-		,trip_id					VARCHAR(255)
-		,route_id					VARCHAR(255)
-		,direction_id				INT	
-		,trip_start_time			VARCHAR(8)
-		,vehicle_id					VARCHAR(255)
-		,issue						VARCHAR(255)
-		,details					VARCHAR(255)
-	)
-
-	INSERT INTO dbo.daily_vehicle_position_metrics_trip
+	INSERT INTO #vehicle_speed_high_summary_trip
 	(
 		service_date
 		,trip_schedule_relationship
-		,trip_id
 		,route_id
 		,direction_id
 		,trip_start_time
 		,vehicle_id
-		,issue
-		,details
+		,trip_id
+		,count_file_updates
+		,count_updates_with_high_speed
 	)
-	
+
 	SELECT
-		t.service_date
-		,t.trip_schedule_relationship
-		,t.trip_id
-		,t.route_id
-		,t.direction_id
-		,t.trip_start_time
-		,t.vehicle_id
-		,t.issue
-		,t.details
-	FROM
-			(SELECT
-					vlmt.service_date
-					,vlmt.trip_schedule_relationship
-					,vlmt.trip_id
-					,vlmt.route_id
-					,vlmt.direction_id
-					,vlmt.trip_start_time
-					,vlmt.vehicle_id
-					,vlmt.issue
-					,vlmt.details
-			FROM	#vehicle_location_missing_summary_trip vlmt
-			WHERE	vlmt.count_updates_with_missing_location > 0		
-			
-			UNION 
-			
-			SELECT
-					vlqt.service_date
-					,vlqt.trip_schedule_relationship
-					,vlqt.trip_id
-					,vlqt.route_id
-					,vlqt.direction_id
-					,vlqt.trip_start_time
-					,vlqt.vehicle_id
-					,vlqt.issue
-					,vlqt.details
-			FROM	#vehicle_location_quality_summary_trip vlqt
-			WHERE	vlqt.count_updates_with_poor_location_quality > 0		
-			
-			UNION 
-			
-			SELECT
-					vmfft.service_date
-					,vmfft.trip_schedule_relationship
-					,vmfft.trip_id
-					,vmfft.route_id
-					,vmfft.direction_id
-					,vmfft.trip_start_time
-					,vmfft.vehicle_id
-					,vmfft.issue
-					,vmfft.details
-			FROM	#vehicle_missing_from_file_summary_trip vmfft
-			WHERE	vmfft.count_missing_files > 0						
-			
-			UNION 
-			
-			SELECT
-					ftgt.service_date
-					,ftgt.trip_schedule_relationship
-					,ftgt.trip_id
-					,ftgt.route_id
-					,ftgt.direction_id
-					,ftgt.trip_start_time
-					,ftgt.vehicle_id
-					,ftgt.issue
-					,ftgt.details
-			FROM	#file_time_gap_summary_trip	 ftgt				
-			
-			UNION 
-			
-			SELECT
-					vugt.service_date
-					,vugt.trip_schedule_relationship
-					,vugt.trip_id
-					,vugt.route_id
-					,vugt.direction_id
-					,vugt.trip_start_time
-					,vugt.vehicle_id
-					,vugt.issue
-					,vugt.details
-			FROM	#vehicle_update_gap_summary_trip vugt								
-			
-			UNION 
-			
-			SELECT
-					vmt.service_date
-					,vmt.trip_schedule_relationship
-					,vmt.trip_id
-					,vmt.route_id
-					,vmt.direction_id
-					,vmt.trip_start_time
-					,vmt.vehicle_id
-					,vmt.issue
-					,vmt.details
-			FROM	#vehicle_movement_summary_trip vmt
-			) t	
+		dvpd.service_date
+		,dvpd.trip_schedule_relationship
+		,dvpd.route_id
+		,dvpd.direction_id
+		,dvpd.trip_start_time
+		,dvpd.vehicle_id
+		,dvpd.trip_id
+		,COUNT(*)
+		,SUM(CONVERT(INT, dvpd.vehicle_speed_flag))
+	FROM	#daily_vehicle_position_disaggregate dvpd
+	GROUP BY	
+		dvpd.service_date
+		,dvpd.trip_schedule_relationship
+		,dvpd.route_id
+		,dvpd.direction_id
+		,dvpd.trip_start_time
+		,dvpd.vehicle_id
+		,dvpd.trip_id
+	ORDER BY	
+		dvpd.service_date
+		,dvpd.trip_schedule_relationship
+		,dvpd.route_id
+		,dvpd.direction_id
+		,dvpd.trip_start_time
+		,dvpd.vehicle_id
+		,dvpd.trip_id
+
+	UPDATE	#vehicle_speed_high_summary_trip
+	SET		percent_updates_with_high_speed = ((count_updates_with_high_speed * 1.0) / (count_file_updates * 1.0)) * 100
+
+	UPDATE	#vehicle_speed_high_summary_trip
+	SET		issue = 'SPEED TOO HIGH'
+	WHERE	count_updates_with_high_speed > 0
+
+	UPDATE	#vehicle_speed_high_summary_trip
+	SET		details = CONCAT(
+							CONVERT(VARCHAR(255), count_updates_with_high_speed)
+							,' of '
+							,CONVERT(VARCHAR(255), count_file_updates)
+							,' vehicle position files ('
+							,CONVERT(VARCHAR(255), percent_updates_with_high_speed)
+							,' percent) had high speeds reported')
+	WHERE	count_updates_with_high_speed > 0
+
+	--Route Summary	
+
+	IF OBJECT_ID('tempdb..#vehicle_speed_high_summary_route') IS NOT NULL
+		DROP TABLE #vehicle_speed_high_summary_route
+
+	CREATE TABLE #vehicle_speed_high_summary_route
+	(
+		service_date							DATE		
+		,route_id								VARCHAR(255)
+		,count_file_updates						INT
+		,count_updates_with_high_speed			INT
+		,percent_updates_with_high_speed		FLOAT
+		,issue									VARCHAR(255)	DEFAULT 'NONE'
+		,details								VARCHAR(255)	DEFAULT 'n/a'
+	)
+
+	INSERT INTO #vehicle_speed_high_summary_route
+	(
+		service_date
+		,route_id
+		,count_file_updates
+		,count_updates_with_high_speed
+	)
+	SELECT
+		vlmt.service_date
+		,vlmt.route_id
+		,SUM(vlmt.count_file_updates)
+		,SUM(vlmt.count_updates_with_high_speed)
+	FROM	#vehicle_speed_high_summary_trip vlmt
+	GROUP BY	
+		vlmt.service_date
+		,vlmt.route_id
+	ORDER BY	
+		vlmt.service_date
+		,vlmt.route_id
+
+	UPDATE	#vehicle_speed_high_summary_route
+	SET		percent_updates_with_high_speed = ((count_updates_with_high_speed * 1.0) / (count_file_updates * 1.0)) 
+
+	UPDATE	#vehicle_speed_high_summary_route
+	SET		issue = 'SPEED TOO HIGH'
+	WHERE	count_updates_with_high_speed > 0
+
+	UPDATE	#vehicle_speed_high_summary_route
+	SET		details = CONCAT(
+						CONVERT(VARCHAR(255), count_updates_with_high_speed)
+						,' of '
+						,CONVERT(VARCHAR(255), count_file_updates)
+						,' vehicle position files ('
+						,CONVERT(VARCHAR(255), ROUND(percent_updates_with_high_speed * 100.0, 2))
+						,' percent) had high speeds reported')
+	WHERE	count_updates_with_high_speed > 0
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+	--Write the following daily summaries to database:
+	--dbo.daily_vehicle_position_metrics_route
 		
 	IF OBJECT_ID('dbo.daily_vehicle_position_metrics_route') IS NOT NULL
 		DROP TABLE dbo.daily_vehicle_position_metrics_route
@@ -2144,9 +1179,10 @@ BEGIN
 	CREATE TABLE dbo.daily_vehicle_position_metrics_route
 	(
 		service_date				DATE
-		,trip_schedule_relationship	VARCHAR(255)
 		,route_id					VARCHAR(255)
-		,direction_id				INT	
+		,numerator					INT
+		,denominator				INT
+		,metric_result				FLOAT
 		,issue						VARCHAR(255)
 		,details					VARCHAR(255)
 	)
@@ -2154,25 +1190,28 @@ BEGIN
 	INSERT INTO dbo.daily_vehicle_position_metrics_route
 	(	
 		service_date
-		,trip_schedule_relationship
 		,route_id
-		,direction_id
+		,numerator
+		,denominator
+		,metric_result
 		,issue
 		,details
 	)
 	SELECT
 		r.service_date
-		,r.trip_schedule_relationship
 		,r.route_id
-		,r.direction_id
+		,r.numerator
+		,r.denominator
+		,r.metric_result
 		,r.issue
 		,r.details
 	FROM
 			(SELECT
 					vlmr.service_date
-					,vlmr.trip_schedule_relationship
 					,vlmr.route_id
-					,vlmr.direction_id
+					,vlmr.count_updates_with_missing_location as numerator
+					,vlmr.count_file_updates as denominator
+					,vlmr.percent_updates_with_missing_location as metric_result
 					,vlmr.issue
 					,vlmr.details
 			FROM	#vehicle_location_missing_summary_route vlmr
@@ -2181,140 +1220,30 @@ BEGIN
 			UNION 
 			
 			SELECT
-					vlqr.service_date
-					,vlqr.trip_schedule_relationship
-					,vlqr.route_id
-					,vlqr.direction_id
-					,vlqr.issue
-					,vlqr.details
-			FROM	#vehicle_location_quality_summary_route vlqr
-			WHERE	vlqr.count_updates_with_poor_location_quality > 0		
-			
-			UNION 
-			
-			SELECT
-					vmffr.service_date
-					,vmffr.trip_schedule_relationship
-					,vmffr.route_id
-					,vmffr.direction_id
-					,vmffr.issue
-					,vmffr.details
-			FROM	#vehicle_missing_from_file_summary_route vmffr
-			WHERE	vmffr.count_missing_files > 0			
-			
-			UNION 
-			
-			SELECT
 					ftgr.service_date
-					,ftgr.trip_schedule_relationship
 					,ftgr.route_id
-					,ftgr.direction_id
+					,ftgr.count_updates_with_file_time_gap as numerator
+					,ftgr.count_file_updates as denominator
+					,ftgr.percent_updates_with_file_time_gap as metric_result
 					,ftgr.issue
 					,ftgr.details
 			FROM	#file_time_gap_summary_route ftgr
-			
+			WHERE	ftgr.count_updates_with_file_time_gap > 0
+
 			UNION 
-			
+
 			SELECT
-					vugr.service_date
-					,vugr.trip_schedule_relationship
-					,vugr.route_id
-					,vugr.direction_id
-					,vugr.issue
-					,vugr.details
-			FROM	#vehicle_update_gap_summary_route vugr
-			
-			UNION 
-			
-			SELECT
-					vmr.service_date
-					,vmr.trip_schedule_relationship
-					,vmr.route_id
-					,vmr.direction_id
-					,vmr.issue
-					,vmr.details
-			FROM	#vehicle_movement_summary_route vmr
+					vsr.service_date
+					,vsr.route_id
+					,vsr.count_updates_with_high_speed as numerator
+					,vsr.count_file_updates as denominator
+					,vsr.percent_updates_with_high_speed as metric_result
+					,vsr.issue
+					,vsr.details
+			FROM	#vehicle_speed_high_summary_route vsr
+			WHERE	vsr.count_updates_with_high_speed > 0
+
 			) r
-	
-	
-	IF OBJECT_ID('dbo.daily_vehicle_position_metrics_vehicle') IS NOT NULL
-		DROP TABLE dbo.daily_vehicle_position_metrics_vehicle
-
-
-	CREATE TABLE dbo.daily_vehicle_position_metrics_vehicle
-	(
-		service_date				DATE
-		,vehicle_id					VARCHAR(255)
-		,issue						VARCHAR(255)
-		,details					VARCHAR(255)
-	)
-
-	INSERT INTO dbo.daily_vehicle_position_metrics_vehicle
-	(
-		service_date
-		,v.vehicle_id	
-		,issue
-		,details
-	)
-	SELECT
-		v.service_date
-		,v.vehicle_id	
-		,v.issue
-		,v.details
-	FROM
-			(SELECT
-					vlmv.service_date
-					,vlmv.vehicle_id	
-					,vlmv.issue
-					,vlmv.details
-			FROM	#vehicle_location_missing_summary_vehicle vlmv
-			WHERE	vlmv.count_updates_with_missing_location > 0		
-			
-			UNION 
-			
-			SELECT
-					vlqv.service_date
-					,vlqv.vehicle_id	
-					,vlqv.issue
-					,vlqv.details
-			FROM	#vehicle_location_quality_summary_vehicle vlqv
-			WHERE	vlqv.count_updates_with_poor_location_quality > 0		
-			UNION 
-			SELECT
-					vmffv.service_date
-					,vmffv.vehicle_id	
-					,vmffv.issue
-					,vmffv.details
-			FROM	#vehicle_missing_from_file_summary_vehicle vmffv
-			WHERE	vmffv.count_missing_files > 0			
-			
-			UNION 
-			
-			SELECT
-					ftgv.service_date
-					,ftgv.vehicle_id	
-					,ftgv.issue
-					,ftgv.details
-			FROM	#file_time_gap_summary_vehicle ftgv
-			
-			UNION 
-			
-			SELECT
-					vugv.service_date
-					,vugv.vehicle_id	
-					,vugv.issue
-					,vugv.details
-			FROM	#vehicle_update_gap_summary_vehicle vugv
-			
-			UNION 
-			
-			SELECT
-					vmv.service_date
-					,vmv.vehicle_id	
-					,vmv.issue
-					,vmv.details
-			FROM	#vehicle_movement_summary_vehicle vmv
-			) v
 			
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -2342,6 +1271,10 @@ BEGIN
 		,vehicle_timestamp			INT
 		,latitude					FLOAT
 		,longitude					FLOAT
+		,previous_latitude			FLOAT 
+		,previous_longitude			FLOAT 
+		,previous_vehicle_timestamp	INT 
+		,vehicle_mph				FLOAT
 		,file_quality_flag			BIT
 		,location_missing_flag		BIT
 		,location_quality_flag		BIT
@@ -2349,6 +1282,7 @@ BEGIN
 		,file_time_gap_flag			BIT
 		,vehicle_update_flag		BIT						
 		,vehicle_movement_flag		BIT
+		,vehicle_speed_flag			BIT				
 	)
 
 	INSERT INTO dbo.daily_vehicle_position_disaggregate
@@ -2369,6 +1303,10 @@ BEGIN
 		,vehicle_timestamp
 		,latitude
 		,longitude
+		,previous_latitude
+		,previous_longitude
+		,previous_vehicle_timestamp
+		,vehicle_mph
 		,file_quality_flag
 		,location_missing_flag
 		,location_quality_flag
@@ -2376,6 +1314,7 @@ BEGIN
 		,file_time_gap_flag
 		,vehicle_update_flag					
 		,vehicle_movement_flag
+		,vehicle_speed_flag
 	)
 	
 	SELECT
@@ -2395,6 +1334,10 @@ BEGIN
 		,vehicle_timestamp
 		,latitude
 		,longitude
+		,previous_latitude
+		,previous_longitude
+		,previous_vehicle_timestamp
+		,vehicle_mph
 		,file_quality_flag
 		,location_missing_flag
 		,location_quality_flag
@@ -2402,7 +1345,45 @@ BEGIN
 		,file_time_gap_flag
 		,vehicle_update_flag					
 		,vehicle_movement_flag
+		,vehicle_speed_flag
 		FROM	#daily_vehicle_position_disaggregate
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+	--Write to historical tables
+
+	IF 
+	(
+		SELECT
+			COUNT(*)
+		FROM dbo.historical_vehicle_position_metrics_route
+		WHERE
+			service_date = @service_date_process 
+	) > 0
+
+	DELETE FROM dbo.historical_vehicle_position_metrics_route
+	WHERE
+		service_date = @service_date_process
+
+	INSERT INTO historical_vehicle_position_metrics_route
+	(
+		service_date				
+		,route_id					
+		,numerator					
+		,denominator				
+		,metric_result				
+		,issue						
+		,details					
+	)
+	SELECT
+		service_date				
+		,route_id					
+		,numerator					
+		,denominator				
+		,metric_result				
+		,issue						
+		,details
+	FROM daily_vehicle_position_metrics_route
 
 	IF OBJECT_ID('tempdb..#daily_vehicle_position_file_disaggregate', 'U') IS NOT NULL 
 		DROP TABLE #daily_vehicle_position_file_disaggregate
@@ -2488,5 +1469,18 @@ BEGIN
 	IF OBJECT_ID('tempdb..#vehicle_movement_summary_vehicle') IS NOT NULL
 		DROP TABLE #vehicle_movement_summary_vehicle
 
+	IF OBJECT_ID('tempdb..#vehicle_speed_high_summary_trip') IS NOT NULL
+		DROP TABLE #vehicle_speed_high_summary_trip
+
+	IF OBJECT_ID('tempdb..#vehicle_speed_high_summary_route') IS NOT NULL
+		DROP TABLE #vehicle_speed_high_summary_route
+
+	IF OBJECT_ID('tempdb..#vehicle_speed_high_summary_vehicle') IS NOT NULL
+		DROP TABLE #vehicle_speed_high_summary_vehicle
+
+
 
 END
+
+
+
