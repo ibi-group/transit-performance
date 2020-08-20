@@ -1,4 +1,4 @@
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --Only run this at the very start of setting up the system 
 
@@ -238,6 +238,12 @@ CREATE TABLE dbo.gtfsrt_tripupdate_denormalized(
 
 CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_start_date ON gtfsrt_tripupdate_denormalized(trip_start_date);
 
+CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_1 ON dbo.gtfsrt_tripupdate_denormalized (direction_id)
+INCLUDE (trip_id,trip_start_date);
+
+CREATE NONCLUSTERED INDEX IX_gtfsrt_tripupdate_denormalized_2 ON dbo.gtfsrt_tripupdate_denormalized (trip_id,direction_id)
+INCLUDE (trip_start_date);
+
 -- create gtfsrt_vehicleposition_denormalized to store all vehicle position data
 IF OBJECT_ID('dbo.gtfsrt_vehicleposition_denormalized', 'U') IS NOT NULL
   DROP TABLE dbo.gtfsrt_vehicleposition_denormalized
@@ -245,30 +251,32 @@ IF OBJECT_ID('dbo.gtfsrt_vehicleposition_denormalized', 'U') IS NOT NULL
 
 CREATE TABLE dbo.gtfsrt_vehicleposition_denormalized(
 	gtfs_realtime_version 				VARCHAR(255) NOT NULL
-	,incrementality 					VARCHAR(255) 
+	,incrementality 					VARCHAR(255) NULL
 	,header_timestamp 					INT NOT NULL
-	,feed_entity_id 					VARCHAR(255) 
-	,trip_id 							VARCHAR(255) 
-	,route_id 							VARCHAR(255) 
-	,direction_id 						INT 
-	,trip_start_date 					CHAR(8) 
-	,trip_start_time 					VARCHAR(8) 
-	,trip_schedule_relationship 		VARCHAR(255) 
-	,vehicle_id 						VARCHAR(255) 
-	,vehicle_label 						VARCHAR(255) 
-	,vehicle_license_plate 				VARCHAR(255) 
-	,vehicle_timestamp 					INT 
-	,current_stop_sequence		 		INT 
-	,current_status 					VARCHAR(255) 
-	,stop_id 							VARCHAR(255) 
-	,congestion_level 					VARCHAR(255) 
-	,occupancy_status 					VARCHAR(255) 
-	,latitude 							FLOAT 
-	,longitude 							FLOAT 
-	,bearing 							FLOAT 
-	,odometer 							FLOAT 
-	,speed 								FLOAT 
+	,feed_entity_id 					VARCHAR(255) NULL
+	,trip_id 							VARCHAR(255) NULL
+	,route_id 							VARCHAR(255) NULL
+	,direction_id 						INT NULL
+	,trip_start_date 					CHAR(8) NULL
+	,trip_start_time 					VARCHAR(8) NULL
+	,trip_schedule_relationship 		VARCHAR(255) NULL
+	,vehicle_id 						VARCHAR(255) NULL
+	,vehicle_label 						VARCHAR(255) NULL
+	,vehicle_license_plate 				VARCHAR(255) NULL
+	,vehicle_timestamp 					INT NULL
+	,current_stop_sequence		 		INT NULL
+	,current_status 					VARCHAR(255) NULL
+	,stop_id 							VARCHAR(255) NULL
+	,congestion_level 					VARCHAR(255) NULL
+	,occupancy_status 					VARCHAR(255) NULL
+	,latitude 							FLOAT NULL
+	,longitude 							FLOAT NULL
+	,bearing 							FLOAT NULL
+	,odometer 							FLOAT NULL
+	,speed 								FLOAT NULL
 	)
+
+CREATE NONCLUSTERED INDEX IX_gtfsrt_vehicleposition_denormalized_start_date ON gtfsrt_vehicleposition_denormalized(trip_start_date);	
 
 -- Create all historical tables 
 IF OBJECT_ID('dbo.historical_event','U') IS NOT NULL
@@ -482,6 +490,8 @@ CREATE TABLE dbo.historical_travel_time_threshold_pax
 	,denominator_trip								FLOAT			NULL
 	,historical_threshold_numerator_trip			FLOAT			NULL
 	,scheduled_threshold_numerator_trip				FLOAT			NULL
+	,time_period_id									VARCHAR(255)	NOT NULL
+	,time_period_type								VARCHAR(255)	NOT NULL										  
 )
 
 CREATE NONCLUSTERED INDEX IX_historical_travel_time_threshold_pax_from_stop_id
@@ -534,6 +544,8 @@ CREATE TABLE dbo.historical_wait_time_od_threshold_pax
 	,denominator_trip							FLOAT			NULL
 	,historical_threshold_numerator_trip		FLOAT			NULL
 	,scheduled_threshold_numerator_trip			FLOAT			NULL
+	,time_period_id									VARCHAR(255)	NOT NULL
+	,time_period_type								VARCHAR(255)	NOT NULL											  
 )
 
 CREATE NONCLUSTERED INDEX IX_historical_wait_time_od_threshold_pax_from_stop_id
@@ -579,10 +591,45 @@ CREATE TABLE dbo.historical_metrics
 CREATE NONCLUSTERED INDEX IX_historical_metrics_service_date
 ON dbo.historical_metrics (service_date);
 
-IF OBJECT_ID('dbo.historical_prediction_metrics','U') IS NOT NULL
-	DROP TABLE dbo.historical_prediction_metrics
+IF OBJECT_ID('dbo.historical_prediction_metrics_system','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_system
 
-CREATE TABLE dbo.historical_prediction_metrics
+CREATE TABLE dbo.historical_prediction_metrics_system
+(
+	service_date 						DATE NOT NULL,
+	threshold_id 						VARCHAR(255) NOT NULL,
+	threshold_name 						VARCHAR(255) NOT NULL,
+	threshold_type 						VARCHAR(255) NOT NULL,
+	total_predictions_within_threshold 	INT NULL,
+	total_predictions_in_bin 			INT NULL,
+	metric_result 						FLOAT NULL
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_system_service_date
+ON dbo.historical_prediction_metrics_system (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics_route_type','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_route_type
+
+CREATE TABLE dbo.historical_prediction_metrics_route_type
+(
+	service_date 						DATE NOT NULL,
+	route_desc 							VARCHAR(255) NOT NULL,
+	threshold_id 						VARCHAR(255) NOT NULL,
+	threshold_name 						VARCHAR(255) NOT NULL,
+	threshold_type 						VARCHAR(255) NOT NULL,
+	total_predictions_within_threshold 	INT NULL,
+	total_predictions_in_bin 			INT NULL,
+	metric_result 						FLOAT NULL
+) 
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_route_type_service_date
+ON dbo.historical_prediction_metrics_route_type (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics_route','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_route
+
+CREATE TABLE dbo.historical_prediction_metrics_route
 (
 		service_date							VARCHAR(255) NOT NULL
 		,route_id								VARCHAR(255) NOT NULL
@@ -594,8 +641,47 @@ CREATE TABLE dbo.historical_prediction_metrics
 		,metric_result							FLOAT
 )
 
-CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_service_date
-ON dbo.historical_prediction_metrics (service_date);
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_route_service_date
+ON dbo.historical_prediction_metrics_route (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics_trip','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_trip
+
+CREATE TABLE dbo.historical_prediction_metrics_trip
+(
+	service_date 						DATE NOT NULL,
+	route_id 							VARCHAR(255) NOT NULL,
+	direction_id 						INT NOT NULL,
+	trip_id 							VARCHAR(255) NOT NULL,
+	threshold_id 						VARCHAR(255) NOT NULL,
+	threshold_name 						VARCHAR(255) NOT NULL,
+	threshold_type 						VARCHAR(255) NOT NULL,
+	total_predictions_within_threshold 	INT NULL,
+	total_predictions_in_bin 			INT NULL,
+	metric_result 						FLOAT NULL
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_trip_service_date
+ON dbo.historical_prediction_metrics_trip (service_date);
+
+IF OBJECT_ID('dbo.historical_prediction_metrics_stop','U') IS NOT NULL
+	DROP TABLE dbo.historical_prediction_metrics_stop
+
+CREATE TABLE dbo.historical_prediction_metrics_stop
+(
+	service_date 						DATE NOT NULL,
+	route_id 							VARCHAR(255) NOT NULL,
+	stop_id 							VARCHAR(255) NOT NULL,
+	threshold_id 						VARCHAR(255) NOT NULL,
+	threshold_name 						VARCHAR(255) NOT NULL,
+	threshold_type 						VARCHAR(255) NOT NULL,
+	total_predictions_within_threshold 	INT NULL,
+	total_predictions_in_bin 			INT NULL,
+	metric_result 						FLOAT NULL
+)
+
+CREATE NONCLUSTERED INDEX IX_historical_prediction_metrics_stop_service_date
+ON dbo.historical_prediction_metrics_stop (service_date);
 
 IF OBJECT_ID('dbo.historical_prediction_metrics_disaggregate','U') IS NOT NULL
 	DROP TABLE dbo.historical_prediction_metrics_disaggregate
@@ -890,7 +976,7 @@ CREATE TABLE dbo.historical_vehicle_position_metrics_route
 	,issue 		VARCHAR(255) NULL
 	,details 	VARCHAR(255) NULL
 ) 
-
+																			 
 --Create tables for configuration files 
 -- Create Day Type Table 
 IF OBJECT_ID('dbo.config_day_type','U') IS NOT NULL
@@ -1057,4 +1143,14 @@ CREATE TABLE dbo.config_dashboard_threshold
 	dashboard_id	VARCHAR(255) PRIMARY KEY
 	,dashboard_name	VARCHAR(255)
 	,threshold_id	VARCHAR(255)
+)
+
+--Create Route Description Table
+IF OBJECT_ID('dbo.config_route_description','U') IS NOT NULL
+	DROP TABLE dbo.config_route_description
+
+CREATE TABLE dbo.config_route_description
+(
+	route_id		VARCHAR(255) PRIMARY KEY
+	,route_desc		VARCHAR(255)
 )
