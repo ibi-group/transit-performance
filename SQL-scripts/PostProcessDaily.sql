@@ -2481,6 +2481,223 @@ BEGIN
 		AND a.stop_sequence = b.max_stop_sequence
 
 
+	--Fix overlaps at boundary locations
+	DELETE FROM dbo.daily_event
+	FROM
+		dbo.daily_event de
+		,(
+			SELECT 
+				de.trip_id
+				,de.route_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+				,de.event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id				
+			WHERE
+				de.event_type = 'EXA'
+		) a
+		,(
+			SELECT 
+				de.trip_id
+				,de.route_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+				,MIN(de.event_time_sec) as min_event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id				
+			WHERE
+				de.event_type = 'EXA'
+				AND de.suspect_record = 0
+			GROUP BY
+				de.trip_id
+				,de.route_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+		) b		
+	WHERE
+		de.event_type = 'EXA'
+		AND	de.trip_id = a.trip_id
+		AND de.route_id = a.route_id
+		AND de.direction_id = a.direction_id
+		AND de.stop_id = a.stop_id
+		AND	a.trip_id = b.trip_id
+		AND a.route_id = b.route_id
+		AND a.direction_id = b.direction_id
+		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
+		AND a.event_time_sec > b.min_event_time_sec
+
+	--Continue fixing overlaps at boundary locations		
+	DELETE FROM dbo.daily_event
+	FROM
+		dbo.daily_event de
+		,(
+			SELECT 
+				de.trip_id
+				,de.route_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+				,de.event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id				
+			WHERE
+				de.event_type = 'EXD'
+		) a
+		,(
+			SELECT 
+				de.trip_id
+				,de.route_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+				,MIN(de.event_time_sec) as min_event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id
+			WHERE
+				de.event_type = 'EXD'
+				AND de.suspect_record = 0
+			GROUP BY
+				de.trip_id
+				,de.route_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+		) b		
+	WHERE
+		de.event_type = 'EXD'
+		AND	de.trip_id = a.trip_id
+		AND de.route_id = a.route_id
+		AND de.direction_id = a.direction_id
+		AND de.stop_id = a.stop_id
+		AND	a.trip_id = b.trip_id
+		AND a.route_id = b.route_id
+		AND a.direction_id = b.direction_id
+		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
+		AND a.event_time_sec > b.min_event_time_sec
+
+
+	--Continue fixing overlaps at boundary locations
+	UPDATE dbo.daily_event
+		SET 
+			event_time_sec =  b.event_time_sec
+		FROM 
+			dbo.daily_event de
+		,(
+			SELECT 
+				de.trip_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+				,de.event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id				
+			WHERE
+				de.event_type = 'EXA'
+		) a
+		,(
+			SELECT 
+				de.trip_id
+				,de.direction_id
+				,de.stop_id
+				,s.stop_name
+				,event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id
+			WHERE
+				de.event_type = 'EXD'
+				AND de.suspect_record = 0
+		) b		
+	WHERE
+		de.event_type = 'EXA'
+		AND	de.trip_id = a.trip_id
+		AND de.direction_id = a.direction_id
+		AND de.stop_id = a.stop_id
+		AND	a.trip_id = b.trip_id
+		AND a.direction_id = b.direction_id
+		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
+
+		
+	--Continue fixing overlaps at boundary locations
+	UPDATE dbo.daily_event
+		SET 
+			event_time_sec =  b.event_time_sec
+		FROM 
+			dbo.daily_event de
+		,(
+			SELECT 
+				de.route_id
+				,de.direction_id
+				,de.vehicle_id
+				,de.stop_id
+				,s.stop_name
+				,de.event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id				
+			WHERE
+				de.event_type = 'EXA'
+		) a
+		,(
+			SELECT 
+				de.route_id
+				,de.direction_id
+				,de.vehicle_id
+				,de.stop_id
+				,s.stop_name
+				,event_time_sec
+			FROM
+				dbo.daily_event de
+			JOIN 
+				gtfs.stops s
+				ON
+					de.stop_id = s.stop_id
+			WHERE
+				de.event_type = 'EXD'
+				AND de.suspect_record = 0
+		) b		
+	WHERE
+		de.event_type = 'EXA'
+		AND	de.route_id = a.route_id
+		AND de.direction_id = a.direction_id
+		AND de.vehicle_id = a.vehicle_id
+		AND de.stop_id = a.stop_id
+		AND	a.route_id = b.route_id
+		AND a.direction_id = b.direction_id
+		AND a.vehicle_id = b.vehicle_id
+		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
+		AND ABS(a.event_time_sec - b.event_time_sec) <= 15*60
+
 	-----------------------------processing starts-------------------------------------------------------------------------------------------------
 
 
