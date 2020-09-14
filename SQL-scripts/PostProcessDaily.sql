@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PostProcessDaily 
 
---Script Version: Master - 1.1.2.0 - extrapolated-events-and-ejt - 1
+--Script Version: Master - 1.1.2.0 - extrapolated-events-and-ejt - 2
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
