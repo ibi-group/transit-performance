@@ -557,7 +557,7 @@ LEFT JOIN
 		AND ts.time_slice_id = ivt.time_slice_id		
 WHERE
 	abcde.service_date = @service_date_process
-	AND r.route_id IN ('Orange', 'Red', 'Green-B', 'Green-C', 'Green-D', 'Green-E')
+	AND r.route_id IN ('Blue', 'Orange', 'Red', 'Green-B', 'Green-C', 'Green-D', 'Green-E')
 
 
 IF
