@@ -20,7 +20,7 @@ CREATE PROCEDURE dbo.ExcessJourneyTimeUsingAB
 	@service_date_process DATE
 
 --Script Version: Master - 1.0.0.0	
-	
+
 AS
 
 BEGIN
@@ -290,7 +290,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (1*60) 
 					) 
 					- 
 					(
@@ -314,7 +314,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (2*60) 
 					) 
 					- 
 					(
@@ -338,7 +338,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (3*60) 
 					) 
 					- 
 					(
@@ -362,7 +362,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (4*60)
 					) 
 					- 
 					(
@@ -386,7 +386,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (5*60)
 					) 
 					- 
 					(
@@ -410,7 +410,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (6*60)
 					) 
 					- 
 					(
@@ -434,7 +434,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (7*60) 
 					) 
 					- 
 					(
@@ -458,7 +458,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (8*60)
 					) 
 					- 
 					(
@@ -482,7 +482,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (9*60)
 					) 
 					- 
 					(
@@ -506,7 +506,7 @@ SELECT DISTINCT
 				(
 					(
 						(e_time_sec - a_time_sec) 
-						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)
+						- (wt.expected_wait_time_sec + ivt.expected_in_vehicle_time_sec)  - (10*60) 
 					) 
 					- 
 					(

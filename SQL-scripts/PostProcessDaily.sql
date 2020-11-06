@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.PostProcessDaily 
 
---Script Version: Master - 1.1.2.0 - extrapolated-events-and-ejt - 2
+--Script Version: Master - 1.1.2.0 - extrapolated-events-and-ejt - 3
 
 --This procedure processes all of the events for the service_date being processed. It runs after the PreProcessDaily.
 
@@ -1271,6 +1271,7 @@ BEGIN
 				FROM dbo.daily_event
 				WHERE
 					suspect_record = 0
+					AND route_type = 0
 				GROUP BY
 					service_date
 					,trip_id
@@ -1292,6 +1293,64 @@ BEGIN
 						ed.event_type = t.event_type
 					)
 
+	--Records where there are events at the same stop under the same trip_id but multiple route_ids (Green Line)
+	UPDATE dbo.daily_event
+		SET suspect_record = 1
+		FROM dbo.daily_event de
+			JOIN	
+			(				
+				SELECT
+					de.service_date
+					,de.trip_id
+					,de.stop_id
+					,s.stop_name
+				FROM 
+					dbo.daily_event de
+				LEFT JOIN
+					gtfs.stops s
+					ON
+						de.stop_id = s.stop_id
+				WHERE
+					de.route_type = 0
+			) a
+			ON
+				de.service_date = a.service_date
+				AND de.trip_id = a.trip_id
+				AND de.stop_id = a.stop_id				
+			JOIN
+			(				
+				SELECT
+					service_date
+					,trip_id
+					,stop_name
+					,COUNT(*) AS route_id_count
+				FROM 
+					(
+						SELECT DISTINCT	
+							de.service_date
+							,de.route_id
+							,de.trip_id
+							,s.stop_name --stop_name bc of multiple stop_ids for some stops
+						FROM	
+							dbo.daily_event de
+						LEFT JOIN	
+							gtfs.stops s
+							ON	
+								de.stop_id = s.stop_id
+						WHERE
+							suspect_record = 0
+					) a
+				GROUP BY
+					service_date
+					,trip_id
+					,stop_name
+				HAVING COUNT(*) > 1
+			) t
+				ON
+					a.service_date = t.service_date
+					AND a.trip_id = t.trip_id
+					AND a.stop_name = t.stop_name
+
 
 	-- Begin extrapolation of missed stop times
 		
@@ -1312,11 +1371,13 @@ BEGIN
 		,max_before_stop_sequence				INT
 		,max_before_stop_id						VARCHAR(255)
 		,max_before_file_time					INT
+		,max_before_vehicle_label				VARCHAR(255)
 		,max_before_event_time_arrival_sec		FLOAT
 		,max_before_event_time_departure_sec	FLOAT		
 		,min_after_stop_sequence				INT
 		,min_after_stop_id						VARCHAR(255)
-		,min_after_file_time					INT		
+		,min_after_file_time					INT
+		,min_after_vehicle_label				VARCHAR(255)		
 		,min_after_event_time_arrival_sec		FLOAT
 		,min_after_event_time_departure_sec		FLOAT		
 		,config_arrival_time_sec				INT
@@ -1539,7 +1600,7 @@ BEGIN
 		,('Blue', 0, 70)	--Blue Line Westbound: Do not interpolate before Maverick if no valid events were recorded before it			
 		,('Blue', 1, 50)	--Blue Line Eastbound: Do not interpolate before Airport if no valid events were recorded before it
 		,('Green-B', 1,	550)--B Branch Eastbound: Do not interpolate before Kenmore if no valid events were recorded before it
-		,('Green-B', 0,	130)--B Branch Westbound: Do not interpolate before Kenmore if no valid events were recorded before it
+		--,('Green-B', 0,	130)--B Branch Westbound: Do not interpolate before Kenmore if no valid events were recorded before it
 		,('Green-B', 1,	600)--B Branch Eastbound: Do not interpolate before Park St if no valid events were recorded before it
 		,('Green-B', 0,	50)	--B Branch Westbound: Do not interpolate before Park St if no valid events were recorded before it			
 		,('Green-B', 1,	610)--B Branch Eastbound: Do not interpolate before Government Center if no valid events were recorded before it
@@ -1552,7 +1613,7 @@ BEGIN
 		,('Green-B', 0,	300)--B Branch Westbound: Do not interpolate before South St if no valid events were recorded before it
 		,('Green-B', 1,	570)--B Branch Eastbound: Do not interpolate before Copley if no valid events were recorded before it	
 		,('Green-C', 1,	550)--C Branch Eastbound: Do not interpolate before Kenmore if no valid events were recorded before it
-		,('Green-C', 0,	130)--C Branch Westbound: Do not interpolate before Kenmore if no valid events were recorded before it
+		--,('Green-C', 0,	130)--C Branch Westbound: Do not interpolate before Kenmore if no valid events were recorded before it
 		,('Green-C', 1,	600)--C Branch Eastbound: Do not interpolate before Park St if no valid events were recorded before it
 		,('Green-C', 0, 60)	--C Branch Westbound: Do not interpolate before Park St if no valid events were recorded before it			
 		,('Green-C', 1,	610)--C Branch Eastbound: Do not interpolate before Government Center if no valid events were recorded before it
@@ -1563,7 +1624,7 @@ BEGIN
 		,('Green-C', 0,	320)--C Branch Westbound: Do not interpolate before St Marys if no valid events were recorded before it	
 		,('Green-C', 1,	570)--C Branch Eastbound: Do not interpolate before Copley if no valid events were recorded before it		
 		,('Green-D', 1,	550)--D Branch Eastbound: Do not interpolate before Kenmore if no valid events were recorded before it
-		,('Green-D', 0,	130)--D Branch Westbound: Do not interpolate before Kenmore if no valid events were recorded before it
+		--,('Green-D', 0,	130)--D Branch Westbound: Do not interpolate before Kenmore if no valid events were recorded before it
 		,('Green-D', 1,	600)--D Branch Eastbound: Do not interpolate before Park St if no valid events were recorded before it
 		,('Green-D', 0,	70)	--D Branch Westbound: Do not interpolate before Park St if no valid events were recorded before it			
 		,('Green-D', 1,	610)--D Branch Eastbound: Do not interpolate before Government Center if no valid events were recorded before it
@@ -1941,7 +2002,17 @@ BEGIN
 			mst.route_id = rds.route_id
 			AND	mst.direction_id = rds.direction_id
 			AND	mst.min_after_stop_sequence = rds.stop_order
-				
+
+	UPDATE dbo.daily_missed_stop_times
+		SET	
+			min_after_vehicle_label = de.vehicle_label
+		FROM
+			dbo.daily_missed_stop_times mst
+			,dbo.daily_event de
+		WHERE
+			mst.vehicle_id = de.vehicle_id
+			AND	mst.min_after_file_time = de.file_time
+						
 	UPDATE dbo.daily_missed_stop_times
 		SET	
 			max_before_stop_sequence = m.max_before_stop_sequence	
@@ -2003,6 +2074,16 @@ BEGIN
 			AND	mst.max_before_stop_sequence = rds.stop_order				
 
 	UPDATE dbo.daily_missed_stop_times
+		SET	
+			max_before_vehicle_label = de.vehicle_label
+		FROM
+			dbo.daily_missed_stop_times mst
+			,dbo.daily_event de
+		WHERE
+			mst.vehicle_id = de.vehicle_id
+			AND	mst.max_before_file_time = de.file_time
+
+	UPDATE dbo.daily_missed_stop_times
 		SET 
 			config_arrival_time_sec =  max_before_event_time_arrival_sec + ivt.scheduled_in_vehicle_time_sec
 		FROM 
@@ -2021,6 +2102,7 @@ BEGIN
 			dbo.daily_scheduled_in_vehicle_time ivt
 			ON
 				tp.time_period_id = ivt.time_period_id
+				AND mst.route_id = ivt.route_id
 				AND mst.stop_id = ivt.to_stop_id
 				AND	mst.max_before_stop_id = ivt.from_stop_id			
 				
@@ -2043,6 +2125,7 @@ BEGIN
 			dbo.daily_scheduled_in_vehicle_time ivt
 			ON
 				tp.time_period_id = ivt.time_period_id
+				AND mst.route_id = ivt.route_id
 				AND mst.stop_id = ivt.to_stop_id
 				AND	mst.max_before_stop_id = ivt.from_stop_id						
 				
@@ -2060,6 +2143,7 @@ BEGIN
 			AND	mst.service_date = sd.service_date
 			AND	sd.day_type_id = tp.day_type_id
 			AND	tp.time_period_id = ivt.time_period_id
+			AND mst.route_id = ivt.route_id
 			AND mst.min_after_stop_id = ivt.to_stop_id
 			AND	mst.max_before_stop_id = ivt.from_stop_id
 				
@@ -2077,6 +2161,7 @@ BEGIN
 			AND	mst.service_date = sd.service_date
 			AND	sd.day_type_id = tp.day_type_id
 			AND	tp.time_period_id = ivt.time_period_id
+			AND mst.route_id = ivt.route_id
 			AND mst.min_after_stop_id = ivt.to_stop_id
 			AND	mst.max_before_stop_id = ivt.from_stop_id				
 								
@@ -2307,7 +2392,10 @@ BEGIN
 		,mst.stop_id
 		,mst.stop_sequence
 		,mst.vehicle_id
-		,''
+		,CASE
+			WHEN max_before_vehicle_label IS NULL THEN min_after_vehicle_label
+			ELSE max_before_vehicle_label
+			END
 		,'EXA'
 		,dbo.fnConvertDateTimeToEpoch(service_date) + mst.expected_arrival_time_sec
 		,mst.expected_arrival_time_sec
@@ -2334,7 +2422,10 @@ BEGIN
 		,mst.stop_id
 		,mst.stop_sequence
 		,mst.vehicle_id
-		,''
+		,CASE
+			WHEN max_before_vehicle_label IS NULL THEN min_after_vehicle_label
+			ELSE max_before_vehicle_label
+			END
 		,'EXD'
 		,dbo.fnConvertDateTimeToEpoch(service_date) + mst.expected_departure_time_sec
 		,mst.expected_departure_time_sec
@@ -2353,8 +2444,6 @@ BEGIN
 		,(
 			SELECT 
 				de.trip_id
-				,de.route_id
-				,de.direction_id
 				,de.stop_id
 				,s.stop_name
 			FROM
@@ -2369,8 +2458,6 @@ BEGIN
 		,(
 			SELECT 
 				de.trip_id
-				,de.route_id
-				,de.direction_id
 				,de.stop_id
 				,s.stop_name
 			FROM
@@ -2386,12 +2473,8 @@ BEGIN
 	WHERE
 		de.event_type = 'EXA'
 		AND de.trip_id = a.trip_id
-		AND de.route_id = a.route_id
-		AND de.direction_id = a.direction_id
 		AND de.stop_id = a.stop_id
 		AND	a.trip_id = b.trip_id
-		AND a.route_id = b.route_id
-		AND a.direction_id = b.direction_id
 		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
 
 	DELETE FROM dbo.daily_event
@@ -2400,8 +2483,6 @@ BEGIN
 		,(
 			SELECT 
 				de.trip_id
-				,de.route_id
-				,de.direction_id
 				,de.stop_id
 				,s.stop_name
 			FROM
@@ -2416,8 +2497,6 @@ BEGIN
 		,(
 			SELECT 
 				de.trip_id
-				,de.route_id
-				,de.direction_id
 				,de.stop_id
 				,s.stop_name
 			FROM
@@ -2433,12 +2512,8 @@ BEGIN
 	WHERE
 		de.event_type = 'EXD'
 		AND	de.trip_id = a.trip_id
-		AND de.route_id = a.route_id
-		AND de.direction_id = a.direction_id
 		AND de.stop_id = a.stop_id
 		AND	a.trip_id = b.trip_id
-		AND a.route_id = b.route_id
-		AND a.direction_id = b.direction_id
 		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
 
 	--Delete any extrapolated departures for the last stop of each trip
@@ -2448,8 +2523,6 @@ BEGIN
 		,(
 			SELECT 
 				de.trip_id
-				,de.route_id
-				,de.direction_id
 				,de.stop_sequence
 			FROM
 				dbo.daily_event de			
@@ -2459,25 +2532,17 @@ BEGIN
 		,(
 			SELECT 
 				de.trip_id
-				,de.route_id
-				,de.direction_id
 				,MAX(de.stop_sequence) AS max_stop_sequence
 			FROM
 				dbo.daily_event de
 			GROUP BY
-				de.trip_id
-				,de.route_id
-				,de.direction_id					
+				de.trip_id					
 		) b		
 	WHERE
 		de.event_type = 'EXD'
 		AND	de.trip_id = a.trip_id
-		AND de.route_id = a.route_id
-		AND de.direction_id = a.direction_id
 		AND de.stop_sequence = a.stop_sequence
 		AND	a.trip_id = b.trip_id
-		AND a.route_id = b.route_id
-		AND a.direction_id = b.direction_id
 		AND a.stop_sequence = b.max_stop_sequence
 
 
@@ -2696,7 +2761,8 @@ BEGIN
 		AND a.direction_id = b.direction_id
 		AND a.vehicle_id = b.vehicle_id
 		AND a.stop_name = b.stop_name --not stop_id bc there are multiple stop_ids for some stops
-		AND ABS(a.event_time_sec - b.event_time_sec) <= 15*60
+		AND ABS(de.event_time_sec - b.event_time_sec) <= 15*60
+
 
 	-----------------------------processing starts-------------------------------------------------------------------------------------------------
 
@@ -5014,8 +5080,10 @@ BEGIN
 
 	EXEC ExcessJourneyTimeUsingCD   
 			@service_date_process			
-		
-		
+	
+	EXEC ExcessJourneyTime
+			@service_date_process		
+
 	--save daily metrics for each route	
 	IF OBJECT_ID('dbo.daily_metrics','U') IS NOT NULL
 		DROP TABLE dbo.daily_metrics
@@ -5280,6 +5348,60 @@ BEGIN
 		,ct.threshold_name
 		,ct.threshold_type
 		,dtt.time_period_type
+
+	UNION
+
+	SELECT
+		route_id
+		,ct.threshold_id
+		,ct.threshold_name
+		,ct.threshold_type
+		,djt.time_period_type					
+		,SUM(numerator_pax) / SUM(denominator_pax) AS metric_result
+		,NULL
+		,SUM(numerator_pax) AS numerator_pax
+		,SUM(denominator_pax) AS denominator_pax
+		,NULL
+		,NULL
+	FROM
+		dbo.daily_journey_time_disaggregate_threshold_pax djt
+		,dbo.config_threshold ct
+	WHERE
+			ct.threshold_id = djt.threshold_id
+		AND	
+			ct.parent_child = 0
+		AND 
+			(
+					(SELECT COUNT(stop_id) FROM @from_stop_ids) = 0
+				OR 
+					from_stop_id IN (SELECT stop_id FROM @from_stop_ids)
+			)
+		AND 
+			(
+					(SELECT COUNT(stop_id) FROM @to_stop_ids) = 0
+				OR 
+					to_stop_id IN (SELECT stop_id FROM @to_stop_ids)
+			)
+		AND 
+			(
+					(SELECT COUNT(direction_id) FROM @direction_ids) = 0
+				OR 
+					direction_id IN (SELECT direction_id FROM @direction_ids)
+			)
+		AND 
+			(
+					(SELECT COUNT(route_id) FROM @route_ids) = 0
+				OR 
+					route_id IN (SELECT route_id FROM @route_ids)
+			)
+
+	GROUP BY
+		route_id
+		,ct.threshold_id
+		,ct.threshold_name
+		,ct.threshold_type
+		,djt.time_period_type
+
 
 	UNION
 	
@@ -6465,5 +6587,4 @@ BEGIN
 		DROP TABLE #daily_departure_time_sec
 
 END
-
 GO

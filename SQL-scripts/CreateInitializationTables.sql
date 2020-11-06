@@ -1147,4 +1147,40 @@ CREATE TABLE dbo.historical_journey_time_using_cd_time
 		,passengers_with_ejt_greater_than_ten_min		FLOAT
 	)
 
-
+--Create historical disaggregate journey time table 
+IF OBJECT_ID('dbo.historical_journey_time_disaggregate_threshold_pax','U') IS NOT NULL
+	DROP TABLE dbo.historical_journey_time_disaggregate_threshold_pax
+	
+CREATE TABLE dbo.historical_journey_time_disaggregate_threshold_pax
+	(
+		service_date									VARCHAR(255)
+		,from_stop_id									VARCHAR(255)
+		,to_stop_id										VARCHAR(255)
+		,route_type										INT
+		,route_id										VARCHAR(255)
+		,direction_id									INT
+		,trip_id										VARCHAR(255)
+		,expected_wait_time_sec							FLOAT
+		,expected_in_vehicle_time_sec					FLOAT
+		,expected_journey_time_sec						FLOAT
+		,total_excess_wait_time_sec						FLOAT
+		,total_excess_in_vehicle_time_sec				FLOAT
+		,total_excess_journey_time_sec					FLOAT
+		,total_expected_journey_time_sec				FLOAT
+		,excess_journey_time_per_passenger_sec			FLOAT
+		,maximum_wait_time_sec							INT
+		,maximum_in_vehicle_time_sec					INT
+		,maximum_journey_time_sec						INT
+		,time_period_id									VARCHAR(255)
+		,time_period_type								VARCHAR(255)
+		,threshold_id									VARCHAR(255)
+		,threshold_id_lower								VARCHAR(255)
+		,threshold_id_upper								VARCHAR(255)
+		,threshold_lower_sec							INT
+		,threshold_upper_sec							INT
+		,denominator_pax								FLOAT
+		,numerator_pax									FLOAT
+	)
+	
+	
+	
