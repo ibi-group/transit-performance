@@ -2545,6 +2545,100 @@ BEGIN
 		AND	a.trip_id = b.trip_id
 		AND a.stop_sequence = b.max_stop_sequence
 
+	--Set extrapolated times equal to actual times at locations where a single ARR or DEP was recorded 
+	UPDATE dbo.daily_event
+		SET 
+			event_time_sec =  de2.event_time_sec
+		FROM 
+			dbo.daily_event de									
+		JOIN 
+			(
+				SELECT
+					de.route_id
+					,de.trip_id
+					,de.stop_id
+					,de.event_type
+					,de.event_time_sec
+				FROM
+					dbo.daily_event de
+				JOIN
+					(
+						SELECT
+							de.trip_id
+							,de.route_id
+							,de.stop_id
+							,COUNT(*) AS count_events
+						FROM 
+							dbo.daily_event de
+						WHERE
+							de.event_type IN ('ARR', 'DEP')
+							AND de.suspect_record = 0
+						GROUP BY 
+							de.trip_id
+							,de.route_id
+							,de.stop_id				
+						HAVING
+							COUNT(*) = 1
+					) a
+					ON
+						de.route_id = a.route_id
+						AND de.trip_id = a.trip_id
+						AND de.stop_id = a.stop_id
+			) de2
+			ON
+				de.route_id = de2.route_id
+				AND de.trip_id = de2.trip_id
+				AND de.stop_id = de2.stop_id
+		WHERE
+			de.event_type = 'EXD'
+			AND de2.event_type = 'ARR'
+
+	UPDATE dbo.daily_event
+		SET 
+			event_time_sec =  de2.event_time_sec
+		FROM 
+			dbo.daily_event de									
+		JOIN 
+			(
+				SELECT
+					de.route_id
+					,de.trip_id
+					,de.stop_id
+					,de.event_type
+					,de.event_time_sec
+				FROM
+					dbo.daily_event de
+				JOIN
+					(
+						SELECT
+							de.trip_id
+							,de.route_id
+							,de.stop_id
+							,COUNT(*) AS count_events
+						FROM 
+							dbo.daily_event de
+						WHERE
+							de.event_type IN ('ARR', 'DEP')
+							AND de.suspect_record = 0
+						GROUP BY 
+							de.trip_id
+							,de.route_id
+							,de.stop_id				
+						HAVING
+							COUNT(*) = 1
+					) a
+					ON
+						de.route_id = a.route_id
+						AND de.trip_id = a.trip_id
+						AND de.stop_id = a.stop_id
+			) de2
+			ON
+				de.route_id = de2.route_id
+				AND de.trip_id = de2.trip_id
+				AND de.stop_id = de2.stop_id
+		WHERE
+			de.event_type = 'EXA'
+			AND de2.event_type = 'DEP'
 
 	--Fix overlaps at boundary locations
 	DELETE FROM dbo.daily_event
