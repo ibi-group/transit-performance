@@ -26,8 +26,45 @@ AS
 
 
 BEGIN
-	SET NOCOUNT ON;
-	
+
+/*******************************************GET RID OF THIS service_date */
+
+
+DECLARE @service_date DATE 
+SET @service_date = GETDATE()-1
+
+SET NOCOUNT ON;
+
+IF 
+(
+		@service_date IN (select service_date from dbo.daily_processing) 
+		AND 
+		'PreProcessDaily' IN (select process from dbo.daily_processing where service_date = @service_date)
+		--AND 
+		--0 IN (select completed from dbo.daily_processing where service_date = @service_date and process = 'PreProcessDaily')
+)
+BEGIN 
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date
+	and 
+	process = 'PreProcessDaily' 
+END 
+
+
+--ELSE 
+--(
+--		@service_date NOT IN (select service_date from dbo.daily_processing) 
+--		AND 
+--		'PreProcessDaily' NOT IN (select process from dbo.daily_processing where service_date = @service_date)
+
+--) 
+
+--BEGIN 
+		
+	INSERT INTO  dbo.daily_processing (service_date,process,completed, started_timestamp)  
+	VALUES (@service_date,'PreProcessDaily', 0, SYSDATETIME())	
 	--create a table to store route types that will be processed
 	DECLARE @route_types AS TABLE
 	(
@@ -1922,6 +1959,13 @@ BEGIN
 
 	IF OBJECT_ID('tempdb..#webs_trip_order','u') IS NOT NULL
 		DROP TABLE #webs_trip_order
+
+	UPDATE dbo.daily_processing
+	SET completed = 1, completed_timestamp = SYSDATETIME()
+	WHERE 
+		service_date = @service_date
+		and 
+		process ='PreProcessDaily'
 
 END;
 

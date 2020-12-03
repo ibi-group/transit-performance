@@ -34,6 +34,22 @@ BEGIN
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date 
 
+	--updates process_status table to notify that the process began
+	IF 
+		@service_date_process IN (select service_date from dbo.daily_processing) 
+		AND 
+		'ProcessPredictionAccuracyDaily' IN (select process from dbo.daily_processing where service_date = @service_date_process)
+	BEGIN 
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date_process
+	and 
+	process = 'ProcessPredictionAccuracyDaily' 
+	END
+	
+	INSERT INTO  dbo.daily_processing (service_date,process,completed, started_timestamp)
+	VALUES (@service_date_process,'ProcessPredictionAccuracyDaily', 0, SYSDATETIME())																
 	--store daily predictions from the trip_update_denormalized table
 	IF OBJECT_ID('dbo.daily_prediction', 'U') IS NOT NULL
 	  DROP TABLE dbo.daily_prediction
@@ -634,6 +650,13 @@ BEGIN
 	FROM daily_prediction_metrics_disaggregate
 
 
+--updates process_status table to notify that the process has successfully ended		
+	UPDATE dbo.daily_processing
+	SET completed = 1, completed_timestamp = SYSDATETIME()
+	WHERE 
+		service_date = @service_date_process
+		and 
+		process ='ProcessPredictionAccuracyDaily'																				  
 END
 
 GO

@@ -27,6 +27,29 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
+
+	Declare @service_date DATE
+	SET @service_date = GETDATE()
+	
+	
+	
+	--updates process_status table to notify that the process began
+	IF 
+		@service_date IN (select service_date from dbo.daily_processing) 
+		AND 
+		'CreateTodayRTProcess' IN (select process from dbo.daily_processing where service_date = @service_date)
+	BEGIN 
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date
+	and 
+	process = 'CreateTodayRTProcess' 
+	END
+	
+	
+	INSERT INTO  dbo.daily_processing (service_date,process,completed, started_timestamp)
+	VALUES (@service_date,'CreateTodayRTProcess', 0, SYSDATETIME())								   
 	--Create today_rt_event table. This table stores today's events in real-time
 	IF OBJECT_ID('dbo.today_rt_event','U') IS NOT NULL
 		DROP TABLE dbo.today_rt_event
@@ -528,6 +551,14 @@ BEGIN
 		,metric_result_trip_last_hour	FLOAT			NULL 
 		,metric_result_trip_current_day	FLOAT			NULL 
 	)
+
+ 	--updates process_status table to notify that the process has successfully ended		
+	UPDATE dbo.daily_processing
+	SET completed = 1, completed_timestamp = SYSDATETIME()
+	WHERE 
+		service_date = @service_date
+		and 
+		process ='CreateTodayRTProcess'
 
 
 END

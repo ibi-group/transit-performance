@@ -34,6 +34,24 @@ BEGIN
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
 
+		--updates process_status table to notify that the process began
+	IF 
+		@service_date_process IN (select service_date from dbo.daily_processing) 
+		AND 
+		'PreProcessToday' IN (select process from dbo.daily_processing where service_date = @service_date_process)
+	BEGIN 
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date_process
+	and 
+	process = 'PreProcessToday' 
+	END
+	
+		
+	
+	INSERT INTO  dbo.daily_processing (service_date,process,completed, started_timestamp)   
+	VALUES (@service_date_process,'PreProcessToday', 0, SYSDATETIME())																
 	--Create a table to determine valid service_ids for day being processed restricting to light rail and subway only
 
 	DECLARE @day_of_the_week VARCHAR(255);
@@ -1658,6 +1676,14 @@ BEGIN
 	IF OBJECT_ID('tempdb..#today_stop_times_travel_time_sec','U') IS NOT NULL
 		DROP TABLE #today_stop_times_travel_time_sec
 
+
+--updates process_status table to notify that the process has successfully ended		
+	UPDATE dbo.daily_processing
+	SET completed = 1, completed_timestamp = SYSDATETIME()
+	WHERE 
+		service_date = @service_date_process
+		and 
+		process ='PreProcessToday'																				  
 
 
 

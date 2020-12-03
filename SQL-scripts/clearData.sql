@@ -35,6 +35,39 @@ BEGIN
 
 	DECLARE @service_date_epoch INT = (SELECT dbo.fnConvertDateTimeToEpoch(@service_date))
 
+ 	--updates process_status table to notify that the process began
+
+
+IF 
+(
+		@service_date IN (select service_date from dbo.daily_processing) 
+		AND 
+		'clearData' IN (select process from dbo.daily_processing where service_date = @service_date)
+		--AND 
+		--0 IN (select completed from dbo.daily_processing where service_date = @service_date and process = 'PreProcessDaily')
+)
+BEGIN 
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date
+	and 
+	process = 'clearData' 
+END 
+
+
+
+BEGIN
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date
+	and 
+	process = 'clearData' 
+
+	
+	INSERT INTO  dbo.daily_processing (service_date,process,completed, started_timestamp)  
+	VALUES (@service_date,'clearData', 0, SYSDATETIME())	
 	IF OBJECT_ID ('dbo.gtfsrt_tripupdate_denormalized','U') IS NOT NULL
 
 		DELETE FROM dbo.gtfsrt_tripupdate_denormalized
@@ -45,6 +78,13 @@ BEGIN
 		DELETE FROM dbo.gtfsrt_vehicleposition_denormalized
 		WHERE header_timestamp < (@service_date_epoch - @number_of_days_process*86400)
 
+	--updates process_status table to notify that the process has successfully ended		
+	UPDATE dbo.daily_processing
+	SET completed = 1, completed_timestamp = SYSDATETIME()
+	WHERE 
+		service_date = @service_date
+		and 
+		process ='clearData'																				   
 END
 
 GO

@@ -29,8 +29,44 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
+/*******************************************GET RID OF THIS service_date */
+
+
+DECLARE @service_date DATE 
+SET @service_date = GETDATE()
+
+SET NOCOUNT ON;
+
+IF 
+(
+		@service_date IN (select service_date from dbo.daily_processing) 
+		AND 
+		'PostProcessDaily' IN (select process from dbo.daily_processing where service_date = @service_date)
+		--AND 
+		--0 IN (select completed from dbo.daily_processing where service_date = @service_date and process = 'PreProcessDaily')
+)
+BEGIN 
+	DELETE FROM 
+	dbo.daily_processing
+	WHERE 
+	service_date = @service_date
+	and 
+	process = 'PostProcessDaily' 
+END 
+
+
+
+BEGIN 
+		
+	INSERT INTO  dbo.daily_processing (service_date,process,completed, started_timestamp)   
+	VALUES (@service_date,'PostProcessDaily', 0, SYSDATETIME())	
+	
+
+	
 	DECLARE @service_date_process DATE
 	SET @service_date_process = @service_date
+	
+--updates process_status table to notify that the process began
 
 	--variable for using checkpoints only in bus metrics TRUE = 1, FALSE = 0
 	DECLARE @use_checkpoints_only BIT
@@ -6078,6 +6114,13 @@ BEGIN
 	IF OBJECT_ID('tempdb..#daily_departure_time_sec','U') IS NOT NULL
 		DROP TABLE #daily_departure_time_sec
 
+--updates process_status table to notify that the process has successfully ended		
+	UPDATE dbo.daily_processing
+	SET completed = 1, completed_timestamp = SYSDATETIME()
+	WHERE 
+		service_date = @service_date
+		and 
+		process ='PostProcessDaily'																				  
 END
 
 GO
