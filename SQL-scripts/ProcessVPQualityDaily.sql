@@ -18,7 +18,7 @@ GO
 
 CREATE PROCEDURE dbo.ProcessVPQualityDaily
 
---Script Version: Master - 1.1.0.0
+--Script Version: Master - 1.1.0.0 - generic-all-agencies - 1
 
 --This procedure calculates daily location quality metrics.
 
