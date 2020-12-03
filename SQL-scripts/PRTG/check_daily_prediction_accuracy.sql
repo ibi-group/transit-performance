@@ -1,14 +1,16 @@
---Script Version: Master - 1.0.0.0
+--Script Version: Master - 1.1.0.0
 
 --Check daily prediction quality for previous service date
---Returns number of routes that are below prediction quality threshold
+--Returns number and list of routes that are below prediction quality threshold
 --Includes a parameter for the prediction quality threshold, and only returns an error if route prediction quality is below [a configurable] percentage
 
 DECLARE @prediction_quality_threshold FLOAT
 SET @prediction_quality_threshold = CONVERT(FLOAT, @prtg)
 
-SELECT 
-	count(*)
+SELECT
+	COUNT(*) as count_routes
+	,STRING_AGG(route_id, ', ') as list_routes
+	,'0' as number
 FROM 
 	(
 		SELECT 
